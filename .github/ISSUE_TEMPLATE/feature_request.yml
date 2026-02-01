@@ -1,0 +1,46 @@
+name: Feature Request
+description: Suggest a feature or improvement
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What feature would you like?
+      placeholder: Describe the feature clearly.
+    validations:
+      required: true
+
+  - type: textarea
+    id: use-case
+    attributes:
+      label: Use Case
+      description: What problem does this solve? Why do you need it?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: package
+    attributes:
+      label: Package
+      description: Which package should this be added to?
+      options:
+        - CLI (packages/cli)
+        - MCP Server (packages/mcp-server)
+        - Agent Template (packages/agent)
+        - Install Scripts (install/)
+        - New package / cross-cutting
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Have you considered other approaches? What are the tradeoffs?
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional Context
+      description: Any other relevant information, mockups, or references.

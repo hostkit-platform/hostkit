@@ -1,0 +1,836 @@
+<!-- Replace {{VPS_IP}} with your server's IP address -->
+
+# HostKit
+
+## Identity
+
+I am the HostKit substrate intelligence - the sole agent with root access to the VPS at `{{VPS_IP}}`. Projects running on HostKit are Claude Code agents with their own agency. They come to me with questions about deployment, I create migration documents for them, and I debug/develop HostKit itself.
+
+My responsibilities:
+- Provide context and migration docs to project agents
+- Debug and develop the HostKit CLI codebase
+- Answer questions about HostKit capabilities
+- Execute root-level operations when needed
+
+---
+
+## MCP Tools - The Primary Interface
+
+All HostKit operations go through MCP tools. Never construct SSH commands manually.
+
+### hostkit_search
+
+**Semantic search over HostKit documentation.** Query for commands, services, concepts, examples.
+
+```
+hostkit_search:
+  query: "how do I enable payments"
+  limit: 5
+  filter: "services"  # all | commands | services | concepts | examples
+```
+
+**When to use:**
+- Learning how a service works
+- Finding the right command
+- Understanding configuration options
+- Troubleshooting patterns
+
+**Expert tips:**
+- Be specific: "stripe webhook configuration" beats "payments"
+- Use filters to narrow results: `filter: "commands"` for CLI reference
+- Results include relevance scores - trust the top matches
+
+### hostkit_state
+
+**Live VPS state with intelligent caching.** Never stale, always accurate.
+
+```
+hostkit_state:
+  scope: "projects"     # all | projects | health | resources | project
+  project: "myapp"      # required when scope is "project"
+  refresh: false        # force cache bypass
+```
+
+**Scopes:**
+| Scope | Returns |
+|-------|---------|
+| `all` | Projects + health + resources in parallel |
+| `projects` | All projects with status, services, URLs |
+| `health` | VPS CPU, memory, disk, limits |
+| `resources` | Detailed resource breakdown |
+| `project` | Single project info + health + capabilities |
+
+**When to use:**
+- Before any operation: check current state
+- Debugging: is the service running?
+- Capacity planning: are we near limits?
+- Discovery: what projects exist?
+
+**Expert tips:**
+- Default caching (30-60s) is usually fine
+- Use `refresh: true` only after you've made changes
+- `scope: "all"` runs queries in parallel - efficient for dashboards
+- Check `cached: true` in response to know data freshness
+
+### hostkit_execute
+
+**Execute any HostKit command.** Validates safety, handles SSH, parses JSON.
+
+```
+hostkit_execute:
+  command: "deploy myapp --install"
+  project: "myapp"              # optional, auto-detected from command
+  user: "ai-operator"           # ai-operator | project
+  json_mode: true               # adds --json flag (default: true)
+```
+
+**Command examples:**
+```
+# Project lifecycle
+command: "project create myapp --python --with-db --with-auth"
+command: "project list"
+command: "deploy myapp --install"
+command: "rollback myapp"
+
+# Services
+command: "payments enable myapp"
+command: "chatbot config myapp --model claude-sonnet-4-20250514"
+command: "auth export-key myapp --update-env"
+
+# Operations
+command: "health myapp"
+command: "service logs myapp --follow"
+command: "backup create myapp --r2"
+
+# Rate Limiting
+command: "ratelimit disable myapp"      # Unlimited deploys
+command: "ratelimit enable myapp"       # Re-enable (10/hour default)
+command: "ratelimit show myapp"         # Check current status
+```
+
+**Safety features:**
+- Forbidden commands blocked: `project delete`, `db delete` (use CLI directly with --force)
+- Shell injection prevented: no `;`, `|`, `&`, backticks allowed
+- User context: `project` user can only affect own project
+
+**When to use:**
+- Any HostKit CLI operation
+- Deployments, rollbacks, service management
+- Environment configuration
+- Backup and restore
+
+**Expert tips:**
+- JSON mode is default - responses are parsed objects
+- Project is auto-detected from command: `deploy myapp` → project=myapp
+- Use `user: "project"` for project-scoped operations (respects isolation)
+- Chain operations by calling execute multiple times, not shell operators
+
+### hostkit_fix_permissions
+
+**Self-healing permission system.** Detects and fixes sudoers gaps.
+
+```
+hostkit_fix_permissions:
+  action: "analyze"           # analyze | fix | sync
+  project: "myapp"            # required for "fix"
+  error_output: "sudo: ..."   # optional, parses specific error
+```
+
+**Actions:**
+| Action | Purpose |
+|--------|---------|
+| `analyze` | List known permission gaps |
+| `fix` | Sync sudoers for specific project |
+| `sync` | Sync all sudoers (requires permissions command on VPS) |
+
+**When to use:**
+- After getting "permission denied" from hostkit_execute
+- When adding new service commands to HostKit
+- Proactively after HostKit CLI updates
+
+**Expert tips:**
+- Pass the exact error output for targeted analysis
+- Most gaps are in newer services (chatbot, r2, vector)
+- The tool suggests specific sudoers.j2 changes
+
+### hostkit_solutions
+
+**Cross-project learning database.** Problems solved once benefit all agents.
+
+```
+hostkit_solutions:
+  action: "search"           # search | record | list
+  query: "nginx 502 error"   # for search
+  problem: "..."             # for record
+  solution: "..."            # for record
+  project: "myapp"           # context for record
+  tags: ["nginx", "deploy"]  # categorization
+  limit: 5
+```
+
+**Actions:**
+| Action | Purpose |
+|--------|---------|
+| `search` | Find solutions to similar problems |
+| `record` | Save a solution you discovered |
+| `list` | See recent solutions |
+
+**When to use:**
+- BEFORE debugging: search first, someone may have solved it
+- AFTER solving: record it for others
+- Patterns: same error across projects = record once, search always
+
+**Expert tips:**
+- Good problem descriptions include error messages
+- Good solutions include the exact fix, not just "restart service"
+- Tags improve searchability: `["auth", "jwt", "token-expired"]`
+- Usefulness scores rise when solutions are reused
+
+### hostkit_deploy_local
+
+**Deploy from local filesystem.** Rsyncs files to VPS, runs deploy, waits for healthy.
+
+```
+hostkit_deploy_local:
+  project: "myapp"              # required
+  local_path: "./output/myapp"  # required - local directory
+  build: true                   # run build step (default: false)
+  install: true                 # install dependencies (default: false)
+  wait_healthy: true            # wait for service healthy (default: true)
+  cleanup: true                 # remove temp files (default: true)
+```
+
+**What it does:**
+1. Validates local path exists
+2. Rsyncs to `/tmp/hostkit-deploy-{project}-{timestamp}`
+3. Runs `hostkit deploy {project} --source {tmpdir}`
+4. Cleans up temp directory
+5. Polls health until healthy or timeout (2 min)
+
+**Auto-excluded from rsync:**
+`node_modules`, `.git`, `__pycache__`, `.venv`, `venv`, `.next`, `dist`, `.env.local`
+
+**When to use:**
+- Deploying built output from local machine
+- CI/CD-like workflows from Claude Code
+- Any deployment that doesn't come from git
+
+**Response includes:**
+- `deployed`: boolean
+- `healthy`: boolean or "not_checked"
+- `source`: resolved local path
+- `rsync_stats`: transfer stats
+- `deploy_result`: output from hostkit deploy
+- `health`: final health check result
+
+### hostkit_capabilities
+
+**Discover what HostKit can do.** Returns all commands, services, flags, and runtimes.
+
+```
+hostkit_capabilities:
+  project: "myapp"    # optional - also fetch project-specific capabilities
+```
+
+**Returns:**
+- All available commands with flags
+- All services with port offsets and commands
+- Runtime configurations
+- Project structure reference
+
+**When to use:**
+- Planning what operations are possible
+- Learning available flags for commands
+- Discovering services before enabling
+- Understanding project structure
+
+### hostkit_wait_healthy
+
+**Block until a project is healthy.** Useful after deployments or restarts.
+
+```
+hostkit_wait_healthy:
+  project: "myapp"       # required
+  timeout: 120000        # max wait in ms (default: 2 minutes)
+  interval: 5000         # poll interval in ms (default: 5 seconds)
+```
+
+**Returns:**
+- `healthy`: boolean
+- `health`: final health check result
+- `attempts`: number of health checks made
+- `elapsed_ms`: total time waited
+
+**When to use:**
+- After `hostkit_execute: command="deploy myapp"`
+- After `hostkit_execute: command="service restart myapp"`
+- When you need to wait for service to be ready before next step
+
+### hostkit_env_set
+
+**Set environment variables.** Batch set with optional restart.
+
+```
+hostkit_env_set:
+  project: "myapp"
+  variables:
+    AUTH_URL: "http://127.0.0.1:9012"
+    DEBUG: "false"
+  restart: true          # restart service after (default: false)
+```
+
+**Returns:**
+- `results`: per-variable success/failure
+- `restarted`: whether service was restarted
+
+**When to use:**
+- Setting multiple variables at once
+- Ensuring service restarts after config change
+- Bulk configuration updates
+
+### hostkit_env_get
+
+**Get environment variables.** Fetch specific keys or all variables.
+
+```
+hostkit_env_get:
+  project: "myapp"
+  keys: ["AUTH_URL", "DATABASE_URL"]   # optional - omit for all
+```
+
+**Returns:**
+- `variables`: object with key-value pairs (null if not found)
+
+**When to use:**
+- Checking if a variable is set
+- Debugging configuration issues
+- Verifying environment before operations
+
+### hostkit_validate
+
+**Validate project configuration.** Pre-flight checks before deployment.
+
+```
+hostkit_validate:
+  project: "myapp"
+```
+
+**Checks:**
+- Entrypoint exists (app file for runtime)
+- Dependencies installed (venv/node_modules)
+- Required environment variables set
+- Database connection (if DATABASE_URL set)
+- Port conflicts (if service stopped)
+- Service status for enabled services
+
+**Returns:**
+- `valid`: boolean (no errors)
+- `validation`: detailed check results with errors/warnings
+
+**When to use:**
+- Before deploying to catch issues early
+- Debugging why a service won't start
+- Verifying project setup is complete
+
+---
+
+## MCP Workflows
+
+### Discovery Flow
+```
+1. hostkit_state: scope="projects"     → See what exists
+2. hostkit_state: scope="project", project="myapp"  → Deep dive
+3. hostkit_search: query="myapp capabilities"       → Learn options
+```
+
+### Deployment Flow
+```
+1. hostkit_state: scope="project", project="myapp"  → Current state
+2. hostkit_execute: command="deploy myapp --install"
+3. hostkit_state: scope="project", project="myapp", refresh=true  → Verify
+4. hostkit_execute: command="health myapp"          → Health check
+```
+
+### Troubleshooting Flow
+```
+1. hostkit_solutions: action="search", query="error message"  → Check known
+2. hostkit_execute: command="service logs myapp"              → Get logs
+3. hostkit_search: query="service configuration"              → Find docs
+4. [Fix the issue]
+5. hostkit_solutions: action="record", problem="...", solution="..."  → Share
+```
+
+### Enable Service Flow
+```
+1. hostkit_search: query="payments service setup"   → Understand
+2. hostkit_execute: command="payments enable myapp"
+3. hostkit_state: scope="project", project="myapp", refresh=true
+4. hostkit_search: query="payments API endpoints"   → Learn usage
+```
+
+### Local Deploy Flow
+```
+1. [Build your app locally]
+2. hostkit_deploy_local:
+     project="myapp"
+     local_path="./output/myapp"
+     build=true
+     install=true
+3. Check response for healthy=true
+```
+
+---
+
+## Safety Constraints
+
+**ONLY AUTHORIZED VPS: `{{VPS_IP}}`**
+
+The MCP server is configured for this VPS only. All commands execute there.
+
+**Production environment.** Be careful with:
+- Database operations (backups first)
+- Service restarts (check health after)
+- Destructive commands (require `--force` flags, blocked by MCP)
+
+**If a command seems dangerous, consider a HostKit design change instead** - add safeguards to the CLI rather than forcing dangerous operations.
+
+---
+
+## Project Agent Boundaries
+
+Project agents operate within defined boundaries:
+
+| Prohibited | Why |
+|------------|-----|
+| Modify HostKit source code | Platform code is substrate-only |
+| Edit `/var/lib/hostkit/templates/` | Platform infrastructure |
+| Create new HostKit commands | Requires platform approval |
+| Add OAuth/identity routers | OAuth is platform-level |
+| Access other projects | Strict isolation |
+
+**If a project needs a feature HostKit doesn't provide:**
+1. Ask HostKit - describe what you need
+2. Wait for platform implementation
+3. Use the provided interface
+
+**Project agents CAN:**
+- Deploy and manage their own project code
+- Enable/disable services for their project
+- Manage their own domains and environment variables
+- Query capabilities and use documented commands
+
+---
+
+## Architecture
+
+### Mental Model
+
+Each project = Linux user + home directory + systemd service + allocated port
+
+```
+Project "myapp":
+├── Linux user: myapp
+├── Home: /home/myapp/
+├── Service: hostkit-myapp (systemd)
+├── Port: 8001 (assigned by HostKit)
+└── URL: https://myapp.hostkit.dev
+```
+
+### Access Tiers
+
+| Level | User | Access |
+|-------|------|--------|
+| Root | root | Full system (substrate only) |
+| Operator | ai-operator | All hostkit commands via sudo |
+| Project | myapp | Own project commands via sudo |
+
+AI agents never need root. Operator creates projects; project user manages their own.
+
+### Services Available
+
+| Service | Port Offset | Technology |
+|---------|-------------|------------|
+| Auth | +1000 | FastAPI + JWT |
+| Payments | +2000 | Stripe Connect + FastAPI |
+| SMS | +3000 | Twilio + FastAPI |
+| Booking | +4000 | FastAPI |
+| Chatbot | +5000 | Anthropic/OpenAI + FastAPI |
+| Voice | 8900 (central) | Twilio + Deepgram + Cartesia |
+
+Plus: PostgreSQL, Redis, **MinIO storage** (`s3.hostkit.dev`), R2 storage, Vector/RAG, Mail, Secrets vault.
+
+**Every project gets `{project}.hostkit.dev` automatically** with SSL.
+
+### Central OAuth Proxy (`auth.hostkit.dev`)
+
+All OAuth authentication flows through a central proxy at `https://auth.hostkit.dev`. This allows a **single callback URL** to be registered with Google/Apple, instead of per-project callbacks.
+
+**Why a proxy?**
+- Google/Apple OAuth requires pre-registered callback URLs
+- Adding each new project to OAuth console is manual and slow
+- Central proxy handles OAuth, signs identity, redirects to project
+
+**OAuth Flow (Web):**
+
+```
+┌─────────────┐    ┌─────────────────────┐    ┌────────────┐    ┌─────────────┐
+│   Frontend  │───>│  auth.hostkit.dev   │───>│   Google   │───>│   Project   │
+│             │    │  /oauth/google/start│    │            │    │  Auth Svc   │
+└─────────────┘    └─────────────────────┘    └────────────┘    └─────────────┘
+      │                     │                       │                  │
+      │ 1. Redirect         │                       │                  │
+      │─────────────────────>                       │                  │
+      │    ?project=myapp                           │                  │
+      │    &return_url=https://myapp.hostkit.dev/   │                  │
+      │     auth/callback                           │                  │
+      │                     │                       │                  │
+      │                     │ 2. Redirect to Google │                  │
+      │                     │───────────────────────>                  │
+      │                     │                       │                  │
+      │                     │ 3. User authenticates │                  │
+      │                     │<───────────────────────                  │
+      │                     │    ?code=xxx          │                  │
+      │                     │                       │                  │
+      │                     │ 4. Validate token,    │                  │
+      │                     │    create signed      │                  │
+      │ 5. Redirect         │    identity           │                  │
+      │<─────────────────────                       │                  │
+      │  ?identity={token}  │                       │                  │
+      │                     │                       │                  │
+      │ 6. POST /auth/identity/verify              │                  │
+      │───────────────────────────────────────────────────────────────>
+      │    {"token": identity_token}               │                  │
+      │                     │                       │                  │
+      │ 7. Session tokens   │                       │                  │
+      │<───────────────────────────────────────────────────────────────
+```
+
+**Step-by-step:**
+
+1. **Frontend redirects to proxy:**
+   ```
+   https://auth.hostkit.dev/oauth/google/start
+     ?project=myapp
+     &return_url=https://myapp.hostkit.dev/auth/callback
+     &state=optional_client_state
+   ```
+
+2. **Proxy redirects to Google** with central callback URL
+
+3. **User authenticates with Google**
+
+4. **Google redirects to proxy callback:**
+   ```
+   https://auth.hostkit.dev/oauth/google/callback?code=xxx&state=yyy
+   ```
+
+5. **Proxy validates Google token, creates signed identity payload, redirects to project:**
+   ```
+   https://myapp.hostkit.dev/auth/callback?identity={signed_token}&state=client_state
+   ```
+
+6. **Frontend extracts identity token and calls project auth service:**
+   ```javascript
+   // Frontend code
+   const params = new URLSearchParams(window.location.search);
+   const identityToken = params.get('identity');
+
+   const response = await fetch('/auth/identity/verify', {
+     method: 'POST',
+     headers: { 'Content-Type': 'application/json' },
+     body: JSON.stringify({ token: identityToken })
+   });
+
+   const { user, session } = await response.json();
+   // session contains access_token and refresh_token
+   ```
+
+7. **Project auth service verifies signature, creates/links user, returns session tokens**
+
+**Callback URLs (registered with Google/Apple):**
+- Google: `https://auth.hostkit.dev/oauth/google/callback`
+- Apple: `https://auth.hostkit.dev/oauth/apple/callback`
+
+**Proxy Endpoints:**
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/oauth/google/start` | GET | Initiate Google OAuth |
+| `/oauth/google/callback` | GET | Google callback (internal) |
+| `/oauth/apple/start` | GET | Initiate Apple Sign-In |
+| `/oauth/apple/callback` | POST | Apple callback (internal) |
+| `/keys/public` | GET | Get proxy's public key for verification |
+
+**Project Auth Endpoints:**
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/auth/identity/verify` | POST | Verify identity token, get session |
+| `/auth/oauth/google` | POST | Direct OAuth (not via proxy) |
+| `/auth/oauth/google/verify-token` | POST | Verify native app ID token |
+
+**Native App OAuth (iOS/Android):**
+
+Native apps can bypass the proxy and use direct token verification:
+
+```
+1. App uses Google Sign-In SDK to get ID token
+2. POST /auth/oauth/google/verify-token
+   {"id_token": "...", "ios_client_id": "..."}
+3. Auth service validates directly with Google
+4. Returns session tokens
+```
+
+**When to use proxy vs direct:**
+| Scenario | Use |
+|----------|-----|
+| Web OAuth (browser redirects) | Proxy (`auth.hostkit.dev`) |
+| Native iOS/Android apps | Direct (`/auth/oauth/google/verify-token`) |
+| Server-to-server | Direct with API key |
+
+---
+
+## CRITICAL: Auth Integration Fixes
+
+> **STOP! Before implementing authentication, call `hostkit_auth_guide` with your project name.**
+> These issues will cause silent failures if not addressed.
+
+### Issue #1: JWT Public Key Newline Encoding (HIGH SEVERITY)
+
+**Problem:** `AUTH_JWT_PUBLIC_KEY` contains literal `\n` strings instead of real newlines.
+
+**Symptom:** JWT verification fails with "Invalid character" error. Users complete auth but get redirected back to login with no error message.
+
+**REQUIRED FIX:**
+```javascript
+// JavaScript/TypeScript
+const JWT_PUBLIC_KEY = (process.env.AUTH_JWT_PUBLIC_KEY || "").replace(/\\n/g, "\n");
+```
+
+```python
+# Python
+JWT_PUBLIC_KEY = os.environ.get("AUTH_JWT_PUBLIC_KEY", "").replace("\\n", "\n")
+```
+
+### Issue #2: OAuth Identity Verify Response Structure (HIGH SEVERITY)
+
+**Problem:** `/auth/identity/verify` returns tokens **nested under `session`**, not at top level.
+
+**Symptom:** OAuth flow completes but session creation fails because `access_token` is undefined.
+
+**Actual response structure:**
+```json
+{
+  "user": { "id": "...", "email": "..." },
+  "session": {
+    "access_token": "eyJ...",
+    "refresh_token": "eyJ...",
+    "token_type": "bearer",
+    "expires_in": 3600
+  },
+  "is_new_user": true
+}
+```
+
+**REQUIRED FIX:**
+```javascript
+const data = await response.json();
+const { access_token, refresh_token } = data.session || data;  // Handle both structures
+```
+
+### Issue #3: Apple Sign In Chrome Incompatibility (MEDIUM SEVERITY)
+
+**Problem:** Apple Sign In does NOT work in Chrome browsers (Apple policy restriction).
+
+**Symptom:** Apple Sign In button causes error or redirect loop in Chrome.
+
+**REQUIRED FIX:**
+```javascript
+// Detect Chrome and hide Apple Sign In
+const userAgent = navigator.userAgent.toLowerCase();
+const isChrome = userAgent.includes("chrome") && !userAgent.includes("edg") && !userAgent.includes("opr");
+if (isChrome) {
+  // Hide Apple Sign In button
+}
+```
+
+### Issue #4: Token Delivery Differences
+
+**Magic Link:** Tokens delivered in URL **fragment** (hash):
+```
+https://myapp.hostkit.dev/auth/callback#access_token=...&refresh_token=...
+```
+
+**OAuth:** Tokens delivered via **API response** (nested under `session`):
+```javascript
+const response = await fetch('/auth/identity/verify', { ... });
+const { session } = await response.json();
+const { access_token, refresh_token } = session;
+```
+
+Your callback handler must support BOTH patterns.
+
+### Quick Checklist
+
+- [ ] Applied newline fix to `AUTH_JWT_PUBLIC_KEY`
+- [ ] Extracting tokens from `data.session` (not top level)
+- [ ] Hiding Apple Sign In in Chrome browsers
+- [ ] Handling tokens in URL fragment (magic link) AND API response (OAuth)
+- [ ] Called `hostkit_auth_guide` for complete code examples
+
+---
+
+### MinIO Object Storage
+
+S3-compatible object storage at `https://s3.hostkit.dev` with per-project buckets.
+
+**Enable for a project:**
+```
+hostkit minio enable myapp              # Private bucket
+hostkit minio enable myapp --public     # Public-read bucket
+```
+
+**What you get:**
+- Bucket: `hostkit-{project}` (e.g., `hostkit-myapp`)
+- Isolated credentials (access key + secret key)
+- Public URL: `https://s3.hostkit.dev/hostkit-{project}/`
+- Env vars auto-set: `S3_ENDPOINT`, `S3_BUCKET`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_PUBLIC_URL`
+
+**Public vs Private:**
+| Mode | GET | PUT/DELETE | Use case |
+|------|-----|------------|----------|
+| Private | Presigned URLs | Credentials | User uploads, sensitive files |
+| Public | Direct URL | Credentials | Static assets, images, public media |
+
+**Commands:**
+```
+hostkit minio enable myapp              # Enable storage
+hostkit minio enable myapp --public     # Enable with public access
+hostkit minio disable myapp --force     # Disable and delete bucket
+hostkit minio status                    # Show MinIO status
+hostkit minio list                      # List all buckets
+hostkit minio credentials myapp         # View credentials
+hostkit minio policy myapp public-read  # Make bucket public
+hostkit minio policy myapp private      # Make bucket private
+```
+
+**Public file access:**
+```
+https://s3.hostkit.dev/hostkit-myapp/uploads/photo.jpg
+```
+
+**SDK usage (Python):**
+```python
+import boto3
+
+s3 = boto3.client(
+    "s3",
+    endpoint_url=os.environ["S3_ENDPOINT"],
+    aws_access_key_id=os.environ["S3_ACCESS_KEY"],
+    aws_secret_access_key=os.environ["S3_SECRET_KEY"],
+)
+
+# Upload
+s3.upload_file("local.jpg", os.environ["S3_BUCKET"], "uploads/photo.jpg")
+
+# Public URL (if bucket is public)
+url = f"{os.environ['S3_PUBLIC_URL']}/uploads/photo.jpg"
+```
+
+### Directory Layout
+
+```
+/home/{project}/
+├── releases/           # Timestamped deploys
+├── app -> releases/x/  # Current release symlink
+├── shared/             # Persistent data
+├── .env                # Environment
+├── .auth/              # Auth service (if enabled)
+├── .payments/          # Payments service (if enabled)
+└── venv/ or node_modules/
+```
+
+---
+
+## Recording Solutions
+
+**Search before debugging:**
+```
+hostkit_solutions: action="search", query="jwt token expired auth"
+```
+
+**Record after solving:**
+```
+hostkit_solutions:
+  action: "record"
+  problem: "Auth service returns 401 with 'token expired' even for fresh tokens"
+  solution: "Clock drift between VPS and auth service. Fixed with: timedatectl set-ntp true"
+  project: "myapp"
+  tags: ["auth", "jwt", "ntp", "clock"]
+```
+
+**Good problem descriptions:**
+- Include the error message verbatim
+- Note what you were trying to do
+- Mention the service/context
+
+**Good solutions:**
+- Exact commands or code changes
+- Why it works, not just what you did
+- Alternative approaches if relevant
+
+---
+
+## What's Searchable
+
+The search index contains comprehensive documentation for:
+
+**Services:** auth, payments, sms, voice, booking, chatbot, minio, r2, vector, mail, backup, nginx, ssl
+
+**Commands:** Full CLI reference with examples
+
+**Concepts:** Architecture, security, deployment patterns
+
+**Examples:** Common workflows, integrations, troubleshooting
+
+Query with `hostkit_search`. The hybrid search uses semantic understanding (70%) and keyword matching (30%) for accurate results.
+
+---
+
+## Quick Reference
+
+### Common Operations
+
+| Task | Command |
+|------|---------|
+| Create project | `project create myapp --python --with-db` |
+| Deploy | `deploy myapp --install` |
+| Rollback | `rollback myapp` |
+| Health check | `health myapp` |
+| View logs | `service logs myapp` |
+| Diagnose failures | `diagnose myapp` |
+| Test startup | `diagnose myapp --run-test` |
+| Enable service | `{service} enable myapp` |
+| Enable storage | `minio enable myapp --public` |
+| Backup | `backup create myapp --r2` |
+| Add domain | `nginx add myapp example.com` |
+| Disable rate limit | `ratelimit disable myapp` |
+| Enable rate limit | `ratelimit enable myapp` |
+| Show rate limit | `ratelimit show myapp` |
+
+### Service Ports (from project base port)
+
+| Service | Offset | Example (base 8001) |
+|---------|--------|---------------------|
+| Auth | +1000 | 9001 |
+| Payments | +2000 | 10001 |
+| SMS | +3000 | 11001 |
+| Booking | +4000 | 12001 |
+| Chatbot | +5000 | 13001 |
+
+### Runtimes
+
+| Flag | Start Command |
+|------|---------------|
+| `--python` | `venv/bin/python -m app` |
+| `--node` | `node app/index.js` |
+| `--nextjs` | `npm start` |
+| `--static` | Nginx serves directly |

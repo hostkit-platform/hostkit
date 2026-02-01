@@ -1,0 +1,25 @@
+[Unit]
+Description=HostKit Booking Service - {{ project_name }}
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+User={{ project_name }}
+Group={{ project_name }}
+WorkingDirectory=/home/{{ project_name }}/.booking
+
+Environment="PORT={{ booking_port }}"
+Environment="DATABASE_URL={{ database_url }}"
+Environment="PROJECT_NAME={{ project_name }}"
+Environment="LOG_LEVEL=INFO"
+
+ExecStart=/home/{{ project_name }}/.booking/venv/bin/uvicorn main:app --host 0.0.0.0 --port {{ booking_port }} --log-level info
+
+StandardOutput=append:/var/log/projects/{{ project_name }}/booking.log
+StandardError=append:/var/log/projects/{{ project_name }}/booking-error.log
+
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

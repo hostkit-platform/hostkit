@@ -1,0 +1,30 @@
+[Unit]
+Description=HostKit Payment Service - {{ project_name }}
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+User={{ project_name }}
+Group={{ project_name }}
+WorkingDirectory=/home/{{ project_name }}/.payment
+Environment="PAYMENT_DB_URL={{ payment_db_url }}"
+Environment="STRIPE_SECRET_KEY={{ stripe_secret_key }}"
+Environment="STRIPE_ACCOUNT_ID={{ stripe_account_id }}"
+Environment="LOG_LEVEL=INFO"
+ExecStart=/home/{{ project_name }}/.payment/venv/bin/uvicorn main:app --host 127.0.0.1 --port {{ payment_port }}
+Restart=always
+RestartSec=10
+
+# Logging
+StandardOutput=append:/var/log/projects/{{ project_name }}/payment.log
+StandardError=append:/var/log/projects/{{ project_name }}/payment-error.log
+
+# Security
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/{{ project_name }}/.payment
+
+[Install]
+WantedBy=multi-user.target

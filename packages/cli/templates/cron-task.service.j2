@@ -1,0 +1,20 @@
+# WorkingDirectory is /home/{{ project_name }} so Python module imports work correctly
+[Unit]
+Description=HostKit Cron: {{ task_name }} for {{ project_name }}
+After=network.target
+
+[Service]
+Type=oneshot
+User={{ project_name }}
+Group={{ project_name }}
+WorkingDirectory=/home/{{ project_name }}
+EnvironmentFile=-/home/{{ project_name }}/.env
+ExecStart=/bin/bash -c '{{ command }}'
+StandardOutput=append:/var/log/projects/{{ project_name }}/cron-{{ task_name }}.log
+StandardError=append:/var/log/projects/{{ project_name }}/cron-{{ task_name }}.log
+TimeoutStartSec=3600
+LogsDirectory=
+LogsDirectoryMode=0755
+
+[Install]
+WantedBy=multi-user.target

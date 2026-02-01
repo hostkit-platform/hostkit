@@ -1,0 +1,11 @@
+[Unit]
+Description=HostKit Metrics Collection Timer
+After=network.target
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=60s
+AccuracySec=5s
+
+[Install]
+WantedBy=timers.target

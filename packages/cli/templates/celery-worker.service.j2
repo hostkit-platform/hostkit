@@ -1,0 +1,28 @@
+# WorkingDirectory is /home/{{ project_name }} so celery -A app can find the app/ module
+[Unit]
+Description=Celery Worker ({{ worker_name }}) for {{ project_name }}
+After=network.target redis.service
+
+[Service]
+Type=forking
+User={{ project_name }}
+Group={{ project_name }}
+WorkingDirectory=/home/{{ project_name }}
+EnvironmentFile=-/home/{{ project_name }}/.env
+ExecStart=/home/{{ project_name }}/venv/bin/celery -A {{ app_module }} worker \
+    --loglevel={{ loglevel }} \
+    --pidfile=/home/{{ project_name }}/celery-{{ worker_name }}.pid \
+    --hostname={{ worker_name }}@%%h \
+    --concurrency={{ concurrency }}{% if queues %} \
+    --queues={{ queues }}{% endif %} \
+    --detach
+ExecStop=/bin/kill -TERM $MAINPID
+ExecReload=/bin/kill -HUP $MAINPID
+PIDFile=/home/{{ project_name }}/celery-{{ worker_name }}.pid
+Restart=always
+RestartSec=10
+StandardOutput=append:/var/log/projects/{{ project_name }}/celery-{{ worker_name }}.log
+StandardError=append:/var/log/projects/{{ project_name }}/celery-{{ worker_name }}.log
+
+[Install]
+WantedBy=multi-user.target

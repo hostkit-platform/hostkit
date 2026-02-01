@@ -1,0 +1,31 @@
+[Unit]
+Description=HostKit Vector Service Worker
+After=network.target redis.service postgresql.service
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/var/lib/hostkit/vector
+Environment=PYTHONPATH=/var/lib/hostkit/vector
+
+ExecStart=/var/lib/hostkit/vector/venv/bin/celery \
+    -A worker.celery_app \
+    worker \
+    --loglevel=info \
+    --concurrency=2 \
+    -Q vector_ingestion
+
+Restart=always
+RestartSec=10
+
+# Logging
+StandardOutput=append:/var/log/hostkit/vector-worker/worker.log
+StandardError=append:/var/log/hostkit/vector-worker/worker.log
+
+# Security
+NoNewPrivileges=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target

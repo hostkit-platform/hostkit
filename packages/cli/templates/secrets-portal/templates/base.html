@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Secrets Portal{% endblock %} - HostKit</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    {% block head %}{% endblock %}
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <div class="logo">
+                <span class="logo-icon">&#128274;</span>
+                <span class="logo-text">HostKit Secrets</span>
+            </div>
+        </header>
+
+        <main class="main">
+            {% block content %}{% endblock %}
+        </main>
+
+        <footer class="footer">
+            <div class="footer-security">
+                <span class="lock-icon">&#128274;</span>
+                Secrets are encrypted with AES-256 and stored securely.
+            </div>
+            {% if expires_at %}
+            <div class="footer-expiry" id="expiry-countdown" data-expires="{{ expires_at }}">
+                This link expires in <span class="countdown-time">--</span>.
+            </div>
+            {% endif %}
+        </footer>
+    </div>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>

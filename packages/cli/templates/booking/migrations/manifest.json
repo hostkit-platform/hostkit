@@ -1,0 +1,10 @@
+{
+  "current_version": 2,
+  "migrations": [
+    {
+      "version": 2,
+      "file": "002_add_schema_version.sql",
+      "description": "Add schema version tracking to booking_configs"
+    }
+  ]
+}

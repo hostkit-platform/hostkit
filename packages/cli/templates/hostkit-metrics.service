@@ -1,0 +1,8 @@
+[Unit]
+Description=HostKit Metrics Collection
+After=network.target postgresql.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/hostkit metrics collect --all
+User=root

@@ -1,0 +1,23 @@
+[Unit]
+Description=HostKit Chatbot Service for {{ project_name }}
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User={{ project_name }}
+Group={{ project_name }}
+WorkingDirectory=/home/{{ project_name }}/.chatbot
+EnvironmentFile=/home/{{ project_name }}/.env
+Environment="CHATBOT_DB_URL={{ chatbot_db_url }}"
+Environment="ANTHROPIC_API_KEY={{ anthropic_api_key }}"
+Environment="OPENAI_API_KEY={{ openai_api_key }}"
+Environment="CHATBOT_API_KEY={{ api_key }}"
+ExecStart=/home/{{ project_name }}/.chatbot/venv/bin/uvicorn main:app --host 127.0.0.1 --port {{ chatbot_port }} --no-access-log
+Restart=always
+RestartSec=5
+StandardOutput=append:/var/log/projects/{{ project_name }}/chatbot.log
+StandardError=append:/var/log/projects/{{ project_name }}/chatbot-error.log
+
+[Install]
+WantedBy=multi-user.target

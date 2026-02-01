@@ -1,0 +1,15 @@
+[Unit]
+Description=Timer for {{ task_name }} ({{ project_name }})
+{% if description %}
+Documentation={{ description }}
+{% endif %}
+
+[Timer]
+OnCalendar={{ schedule }}
+Persistent=true
+{% if randomized_delay %}
+RandomizedDelaySec={{ randomized_delay }}
+{% endif %}
+
+[Install]
+WantedBy=timers.target

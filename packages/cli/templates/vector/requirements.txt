@@ -1,0 +1,35 @@
+# Core
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+pydantic>=2.5.0
+pydantic-settings>=2.1.0
+
+# Database
+asyncpg>=0.29.0
+psycopg2-binary>=2.9.0
+sqlalchemy[asyncio]>=2.0.25
+pgvector>=0.2.4
+alembic>=1.13.0
+
+# Redis/Celery (for Phase 3)
+celery>=5.3.0
+redis>=5.0.0
+
+# OpenAI (for Phase 2)
+openai>=1.10.0
+tiktoken>=0.5.0
+
+# Document parsing (for Phase 4)
+pypdf>=3.17.0
+beautifulsoup4>=4.12.0
+markdown>=3.5.0
+pyyaml>=6.0.0
+httpx>=0.26.0
+
+# Utilities
+python-multipart>=0.0.6
+ulid-py>=1.1.0
+
+# Testing
+pytest>=7.4.0
+pytest-asyncio>=0.21.0

@@ -1,0 +1,36 @@
+{
+  "_comment": "Copy this to .claude/settings.local.json in your project root. Replace YOUR_VPS_IP with your server's IP address.",
+  "permissions": {
+    "allow": [
+      "Bash(ssh:*)",
+      "Bash(./scripts/deploy.sh:*)",
+      "Bash(rsync:*)",
+      "Bash(find:*)",
+      "Bash(cat:*)",
+      "Bash(python3:*)",
+      "Bash(scp:*)",
+      "Bash(ls:*)",
+      "Bash(grep:*)",
+      "Bash(dig:*)",
+      "Bash(curl:*)",
+      "Bash(echo:*)",
+      "Bash(npm run build:*)",
+      "WebSearch",
+      "mcp__hostkit-context__hostkit_search",
+      "mcp__hostkit-context__hostkit_state",
+      "mcp__hostkit-context__hostkit_solutions",
+      "mcp__hostkit-context__hostkit_execute",
+      "mcp__hostkit-context__hostkit_fix_permissions",
+      "mcp__hostkit-context__hostkit_wait_healthy",
+      "mcp__hostkit-context__hostkit_deploy_local",
+      "mcp__hostkit-context__hostkit_capabilities",
+      "mcp__hostkit-context__hostkit_env_set",
+      "mcp__hostkit-context__hostkit_env_get",
+      "mcp__hostkit-context__hostkit_validate",
+      "mcp__hostkit-context__hostkit_auth_guide",
+      "mcp__hostkit-context__hostkit_db_schema",
+      "mcp__hostkit-context__hostkit_db_query",
+      "mcp__hostkit-context__hostkit_db_verify"
+    ]
+  }
+}

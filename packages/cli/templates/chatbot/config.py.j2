@@ -1,0 +1,47 @@
+"""Configuration for HostKit Chatbot Service."""
+
+import os
+from functools import lru_cache
+from typing import Optional
+
+
+class Settings:
+    """Chatbot service settings."""
+
+    # Project identification
+    project_name: str = "{{ project }}"
+
+    # Network settings
+    chatbot_port: int = {{ chatbot_port }}
+    base_url: str = "{{ base_url }}"
+    domain: str = "{{ domain }}"
+
+    # Database
+    chatbot_db_url: str = os.environ.get("CHATBOT_DB_URL", "")
+
+    # API key for external access (widget, API calls)
+    api_key: str = os.environ.get("CHATBOT_API_KEY", "")
+
+    # LLM Configuration
+    llm_provider: str = os.environ.get("LLM_PROVIDER", "{{ default_provider }}")
+    llm_model: str = os.environ.get("LLM_MODEL", "{{ default_model }}")
+    anthropic_api_key: str = os.environ.get("ANTHROPIC_API_KEY", "")
+    openai_api_key: str = os.environ.get("OPENAI_API_KEY", "")
+
+    # Chatbot behavior
+    max_tokens: int = int(os.environ.get("CHATBOT_MAX_TOKENS", "1024"))
+    temperature: float = float(os.environ.get("CHATBOT_TEMPERATURE", "0.7"))
+    max_conversation_messages: int = int(os.environ.get("CHATBOT_MAX_HISTORY", "50"))
+
+    # Rate limiting
+    rate_limit_messages: int = int(os.environ.get("CHATBOT_RATE_LIMIT", "60"))
+    rate_limit_window: int = int(os.environ.get("CHATBOT_RATE_WINDOW", "60"))
+
+    # CORS origins
+    chatbot_cors_origins: Optional[str] = os.environ.get("CHATBOT_CORS_ORIGINS")
+
+
+@lru_cache()
+def get_settings() -> Settings:
+    """Get cached settings instance."""
+    return Settings()

@@ -1,0 +1,21 @@
+[Unit]
+Description=HostKit Auth Service - {{ project_name }}
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+User={{ project_name }}
+Group={{ project_name }}
+WorkingDirectory=/home/{{ project_name }}/.auth
+EnvironmentFile=/home/{{ project_name }}/.auth/.env
+
+ExecStart=/home/{{ project_name }}/.auth/venv/bin/uvicorn main:app --host 127.0.0.1 --port {{ auth_port }} --log-level info
+
+StandardOutput=append:/var/log/projects/{{ project_name }}/auth.log
+StandardError=append:/var/log/projects/{{ project_name }}/auth-error.log
+
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

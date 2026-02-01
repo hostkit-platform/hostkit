@@ -1,0 +1,8 @@
+# Secrets Portal Dependencies
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+pyjwt>=2.8.0
+python-multipart>=0.0.6
+jinja2>=3.1.0
+pydantic>=2.5.0
+slowapi>=0.1.9

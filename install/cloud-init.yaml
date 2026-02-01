@@ -1,0 +1,220 @@
+#cloud-config
+# HostKit Cloud-Init Configuration
+#
+# Paste this into the "user data" field when creating a VPS on:
+#   - Hetzner Cloud
+#   - DigitalOcean (Droplets)
+#   - Vultr
+#   - Linode (Akamai)
+#
+# Before using, replace the placeholders below:
+#   1. YOUR_SSH_PUBLIC_KEY — your Ed25519 public key (from ~/.ssh/id_ed25519.pub)
+#
+# After the VPS boots, run setup-local.sh on your local machine to finish configuration.
+
+# ─── SSH Keys ───────────────────────────────────────────────────────────────
+
+ssh_authorized_keys:
+  - YOUR_SSH_PUBLIC_KEY
+
+# ─── System Packages ───────────────────────────────────────────────────────
+
+package_update: true
+package_upgrade: true
+
+packages:
+  - python3
+  - python3-pip
+  - python3-venv
+  - postgresql
+  - postgresql-contrib
+  - redis-server
+  - nginx
+  - certbot
+  - python3-certbot-nginx
+  - fail2ban
+  - ufw
+  - git
+  - curl
+  - wget
+  - jq
+  - htop
+  - unzip
+  - rsync
+  - acl
+  - logrotate
+  - openssl
+
+# ─── Users ──────────────────────────────────────────────────────────────────
+
+users:
+  - default
+  - name: ai-operator
+    shell: /bin/bash
+    ssh_authorized_keys:
+      - YOUR_SSH_PUBLIC_KEY
+  - name: hostkit
+    system: true
+    shell: /usr/sbin/nologin
+    home: /var/lib/hostkit
+
+# ─── Filesystem ─────────────────────────────────────────────────────────────
+
+runcmd:
+  # ── Directories ──
+  - mkdir -p /var/lib/hostkit/{templates,db,docs}
+  - mkdir -p /var/log/hostkit
+  - mkdir -p /backups
+  - mkdir -p /etc/hostkit
+  - mkdir -p /etc/nginx/hostkit
+  - chown -R hostkit:hostkit /var/lib/hostkit
+  - chown -R hostkit:hostkit /var/log/hostkit
+  - chmod 755 /backups
+
+  # ── Sudoers for ai-operator ──
+  - |
+    SUDOERS_TMP=$(mktemp)
+    cat > "$SUDOERS_TMP" << 'SUDOERS'
+    ai-operator ALL=(root) NOPASSWD: /usr/local/bin/hostkit *
+    ai-operator ALL=(root) NOPASSWD: /usr/bin/hostkit *
+    ai-operator ALL=(root) NOPASSWD: /usr/bin/systemctl status hostkit-*
+    ai-operator ALL=(root) NOPASSWD: /usr/bin/systemctl start hostkit-*
+    ai-operator ALL=(root) NOPASSWD: /usr/bin/systemctl stop hostkit-*
+    ai-operator ALL=(root) NOPASSWD: /usr/bin/systemctl restart hostkit-*
+    ai-operator ALL=(root) NOPASSWD: /usr/bin/systemctl reload hostkit-*
+    ai-operator ALL=(root) NOPASSWD: /usr/bin/systemctl enable hostkit-*
+    ai-operator ALL=(root) NOPASSWD: /usr/bin/systemctl disable hostkit-*
+    ai-operator ALL=(root) NOPASSWD: /usr/bin/journalctl -u hostkit-*
+    ai-operator ALL=(root) NOPASSWD: /usr/bin/journalctl -u hostkit-* -n *
+    ai-operator ALL=(root) NOPASSWD: /usr/bin/journalctl -u hostkit-* --no-pager
+    ai-operator ALL=(root) NOPASSWD: /usr/bin/journalctl -u hostkit-* -n * --no-pager
+    ai-operator ALL=(root) NOPASSWD: /usr/bin/ls /home/*/app
+    ai-operator ALL=(root) NOPASSWD: /usr/bin/ls /home/*/app/*
+    ai-operator ALL=(root) NOPASSWD: /usr/bin/cat /home/*/.env
+    ai-operator ALL=(root) NOPASSWD: /usr/bin/cat /home/*/.hostkit-*
+    SUDOERS
+    chmod 0440 "$SUDOERS_TMP"
+    if visudo -cf "$SUDOERS_TMP"; then
+      mv "$SUDOERS_TMP" /etc/sudoers.d/ai-operator
+    else
+      rm -f "$SUDOERS_TMP"
+      echo "ERROR: Sudoers validation failed" >&2
+    fi
+
+  # ── PostgreSQL ──
+  - systemctl enable --now postgresql
+  - sudo -u postgres createuser --superuser hostkit || true
+  - |
+    PG_PASSWORD=$(openssl rand -base64 24)
+    echo "$PG_PASSWORD" > /etc/hostkit/.pg_password
+    chmod 600 /etc/hostkit/.pg_password
+    chown root:root /etc/hostkit/.pg_password
+    sudo -u postgres psql -c "ALTER USER hostkit WITH PASSWORD '$PG_PASSWORD';"
+  - sudo -u postgres createdb --owner=hostkit hostkit || true
+  - |
+    PG_VERSION=$(pg_lsclusters -h | awk '{print $1}' | head -1)
+    PG_HBA="/etc/postgresql/$PG_VERSION/main/pg_hba.conf"
+    if [ -f "$PG_HBA" ]; then
+      if ! grep -q "^local.*all.*hostkit.*md5" "$PG_HBA"; then
+        sed -i '/^local\s/i local   all             hostkit                                 md5' "$PG_HBA"
+        systemctl reload postgresql
+      fi
+    fi
+
+  # ── Redis ──
+  - sed -i 's/^bind .*/bind 127.0.0.1 ::1/' /etc/redis/redis.conf
+  - sed -i 's/^appendonly .*/appendonly yes/' /etc/redis/redis.conf
+  - grep -q '^maxmemory ' /etc/redis/redis.conf || echo -e 'maxmemory 512mb\nmaxmemory-policy allkeys-lru' >> /etc/redis/redis.conf
+  - systemctl enable --now redis-server
+  - systemctl restart redis-server
+
+  # ── UFW Firewall ──
+  - ufw default deny incoming
+  - ufw default allow outgoing
+  - ufw allow 22/tcp
+  - ufw allow 80/tcp
+  - ufw allow 443/tcp
+  - ufw --force enable
+
+  # ── SSH Hardening ──
+  - |
+    SSHD_CONFIG="/etc/ssh/sshd_config"
+    if grep -q "^PasswordAuthentication yes" "$SSHD_CONFIG" 2>/dev/null; then
+      sed -i 's/^PasswordAuthentication yes/PasswordAuthentication no/' "$SSHD_CONFIG"
+    elif ! grep -q "^PasswordAuthentication" "$SSHD_CONFIG"; then
+      echo "PasswordAuthentication no" >> "$SSHD_CONFIG"
+    fi
+    if grep -q "^PermitRootLogin yes" "$SSHD_CONFIG" 2>/dev/null; then
+      sed -i 's/^PermitRootLogin yes/PermitRootLogin prohibit-password/' "$SSHD_CONFIG"
+    fi
+    sshd -t && systemctl reload sshd || true
+
+  # ── NTP Time Sync ──
+  - timedatectl set-ntp true || true
+
+  # ── Fail2ban ──
+  - |
+    cat > /etc/fail2ban/jail.local << 'F2B'
+    [DEFAULT]
+    bantime  = 3600
+    findtime = 600
+    maxretry = 5
+    [sshd]
+    enabled = true
+    port    = ssh
+    logpath = %(sshd_log)s
+    backend = %(sshd_backend)s
+    F2B
+  - systemctl enable --now fail2ban
+  - systemctl restart fail2ban
+
+  # ── Nginx ──
+  - rm -f /etc/nginx/sites-enabled/default
+  - grep -q 'include /etc/nginx/hostkit/' /etc/nginx/nginx.conf || sed -i '/http {/a \    include /etc/nginx/hostkit/*.conf;' /etc/nginx/nginx.conf
+  - nginx -t && systemctl enable --now nginx && systemctl reload nginx
+
+  # ── Install HostKit CLI ──
+  - pip3 install --break-system-packages hostkit || pip3 install hostkit || echo "HostKit not on PyPI yet — install manually"
+
+  # ── HostKit Config ──
+  - |
+    VPS_IP=$(ip -4 route get 1.1.1.1 | awk '{print $7; exit}')
+    cat > /etc/hostkit/config.yaml << YAML
+    data_dir: /var/lib/hostkit
+    log_dir: /var/log/hostkit
+    backup_dir: /backups
+    db_path: /var/lib/hostkit/hostkit.db
+    vps_ip: ${VPS_IP}
+    postgres_host: localhost
+    postgres_port: 5432
+    postgres_password_file: /etc/hostkit/.pg_password
+    redis_host: localhost
+    redis_port: 6379
+    default_runtime: python
+    base_port: 8000
+    max_projects: 50
+    YAML
+
+  # ── Logrotate ──
+  - |
+    cat > /etc/logrotate.d/hostkit << 'LR'
+    /var/log/hostkit/*.log {
+        daily
+        missingok
+        rotate 14
+        compress
+        delaycompress
+        notifempty
+        create 0640 hostkit hostkit
+        sharedscripts
+    }
+    LR
+
+  # ── Done ──
+  - echo "HostKit bootstrap complete" > /var/lib/hostkit/.bootstrap-done
+
+# ─── Final Message ──────────────────────────────────────────────────────────
+
+final_message: |
+  HostKit VPS bootstrap complete.
+  Run setup-local.sh on your local machine to connect.

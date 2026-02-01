@@ -1,0 +1,83 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  cli:
+    name: CLI (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    if: >
+      github.event_name == 'push' ||
+      contains(github.event.pull_request.labels.*.name, 'ci:all') ||
+      !contains(join(github.event.pull_request.changed_files.*, ','), 'packages/mcp-server')
+    defaults:
+      run:
+        working-directory: packages/cli
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Lint with ruff
+        run: ruff check src/
+
+      - name: Type check with mypy
+        run: mypy src/hostkit/
+        continue-on-error: true  # strict mypy on a large codebase — allow failures initially
+
+      - name: Run tests
+        run: pytest tests/ -v
+
+  mcp-server:
+    name: MCP Server (Node ${{ matrix.node-version }})
+    runs-on: ubuntu-latest
+    if: >
+      github.event_name == 'push' ||
+      contains(github.event.pull_request.labels.*.name, 'ci:all') ||
+      !contains(join(github.event.pull_request.changed_files.*, ','), 'packages/cli')
+    defaults:
+      run:
+        working-directory: packages/mcp-server
+    strategy:
+      matrix:
+        node-version: ["20"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Type check
+        run: pnpm typecheck
+
+      - name: Build
+        run: pnpm build
+
+      - name: Run tests
+        run: pnpm test
+        continue-on-error: true  # tests may need VPS connectivity — allow failures initially

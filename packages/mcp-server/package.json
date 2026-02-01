@@ -1,0 +1,46 @@
+{
+  "name": "hostkit-context",
+  "version": "1.0.0",
+  "description": "MCP server for HostKit documentation, state, and cross-project learning",
+  "type": "module",
+  "main": "dist/index.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hostkit-platform/hostkit.git",
+    "directory": "packages/mcp-server"
+  },
+  "keywords": [
+    "mcp",
+    "hostkit",
+    "vps",
+    "claude-code",
+    "ai-agent"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc && node dist/index.js",
+    "start": "node dist/index.js",
+    "test": "vitest",
+    "typecheck": "tsc --noEmit",
+    "build-embeddings": "python3 embeddings/generator.py",
+    "sync": "node dist/sync.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "ssh2": "^1.15.0",
+    "better-sqlite3": "^11.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/ssh2": "^1.15.0",
+    "@types/better-sqlite3": "^7.6.0",
+    "typescript": "^5.3.0",
+    "vitest": "^1.0.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["better-sqlite3", "cpu-features", "esbuild", "ssh2"]
+  }
+}

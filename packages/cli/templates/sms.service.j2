@@ -1,0 +1,31 @@
+[Unit]
+Description=HostKit SMS Service - {{ project_name }}
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+User={{ project_name }}
+Group={{ project_name }}
+WorkingDirectory=/home/{{ project_name }}/.sms
+Environment="SMS_DB_URL={{ sms_db_url }}"
+Environment="TWILIO_ACCOUNT_SID={{ twilio_account_sid }}"
+Environment="TWILIO_AUTH_TOKEN={{ twilio_auth_token }}"
+Environment="SMS_WEBHOOK_SECRET={{ webhook_secret }}"
+Environment="LOG_LEVEL=INFO"
+ExecStart=/home/{{ project_name }}/.sms/venv/bin/uvicorn main:app --host 127.0.0.1 --port {{ sms_port }}
+Restart=always
+RestartSec=10
+
+# Logging
+StandardOutput=append:/var/log/projects/{{ project_name }}/sms.log
+StandardError=append:/var/log/projects/{{ project_name }}/sms-error.log
+
+# Security
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/{{ project_name }}/.sms
+
+[Install]
+WantedBy=multi-user.target
