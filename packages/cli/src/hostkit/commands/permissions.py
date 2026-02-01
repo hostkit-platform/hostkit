@@ -4,14 +4,13 @@ Provides tools for managing and fixing sudoers permissions,
 detecting permission gaps, and syncing permissions from templates.
 """
 
-import os
 import subprocess
 from pathlib import Path
 from typing import Any
 
 import click
 
-from hostkit.access import root_only, COMMAND_SCOPES, CommandScope
+from hostkit.access import COMMAND_SCOPES, CommandScope, root_only
 from hostkit.database import get_db
 from hostkit.output import OutputFormatter
 
@@ -62,24 +61,28 @@ def gaps(ctx: click.Context) -> None:
         sudoers_file = Path(f"/etc/sudoers.d/hostkit-{project_name}")
 
         if not sudoers_file.exists():
-            all_gaps.append({
-                "project": project_name,
-                "type": "missing_file",
-                "message": f"Sudoers file not found: {sudoers_file}",
-                "suggestion": f"hostkit permissions sync {project_name}",
-            })
+            all_gaps.append(
+                {
+                    "project": project_name,
+                    "type": "missing_file",
+                    "message": f"Sudoers file not found: {sudoers_file}",
+                    "suggestion": f"hostkit permissions sync {project_name}",
+                }
+            )
             continue
 
         # Read current sudoers content
         try:
             content = sudoers_file.read_text()
         except PermissionError:
-            all_gaps.append({
-                "project": project_name,
-                "type": "permission_error",
-                "message": f"Cannot read sudoers file: {sudoers_file}",
-                "suggestion": "Run as root",
-            })
+            all_gaps.append(
+                {
+                    "project": project_name,
+                    "type": "permission_error",
+                    "message": f"Cannot read sudoers file: {sudoers_file}",
+                    "suggestion": "Run as root",
+                }
+            )
             continue
 
         # Check for expected commands based on COMMAND_SCOPES
@@ -87,17 +90,23 @@ def gaps(ctx: click.Context) -> None:
         all_gaps.extend(project_gaps)
 
     if all_gaps:
-        formatter.success({
-            "gaps": all_gaps,
-            "projects_checked": len(projects),
-            "total_gaps": len(all_gaps),
-        }, f"Found {len(all_gaps)} permission gap(s)")
+        formatter.success(
+            {
+                "gaps": all_gaps,
+                "projects_checked": len(projects),
+                "total_gaps": len(all_gaps),
+            },
+            f"Found {len(all_gaps)} permission gap(s)",
+        )
     else:
-        formatter.success({
-            "gaps": [],
-            "projects_checked": len(projects),
-            "total_gaps": 0,
-        }, "No permission gaps detected")
+        formatter.success(
+            {
+                "gaps": [],
+                "projects_checked": len(projects),
+                "total_gaps": 0,
+            },
+            "No permission gaps detected",
+        )
 
 
 def _check_project_permissions(project_name: str, sudoers_content: str) -> list[dict[str, Any]]:
@@ -119,13 +128,17 @@ def _check_project_permissions(project_name: str, sudoers_content: str) -> list[
         # Check if pattern exists in sudoers (with project name substituted)
         check_pattern = pattern.replace("{project}", project_name)
         if check_pattern not in sudoers_content and f"hostkit {cmd}" not in sudoers_content:
-            gaps.append({
-                "project": project_name,
-                "type": "missing_command",
-                "command": cmd,
-                "message": f"Command '{cmd}' not found in sudoers",
-                "suggestion": f"Add to sudoers.j2 or run: hostkit permissions sync {project_name}",
-            })
+            gaps.append(
+                {
+                    "project": project_name,
+                    "type": "missing_command",
+                    "command": cmd,
+                    "message": f"Command '{cmd}' not found in sudoers",
+                    "suggestion": (
+                        f"Add to sudoers.j2 or run: hostkit permissions sync {project_name}"
+                    ),
+                }
+            )
 
     return gaps
 
@@ -175,12 +188,15 @@ def show(ctx: click.Context, project: str) -> None:
     # Parse sudoers content into categories
     permissions_data = _parse_sudoers(content, project)
 
-    formatter.success({
-        "project": project,
-        "sudoers_file": str(sudoers_file),
-        "permissions": permissions_data,
-        "total_rules": sum(len(rules) for rules in permissions_data.values()),
-    }, f"Permissions for project '{project}'")
+    formatter.success(
+        {
+            "project": project,
+            "sudoers_file": str(sudoers_file),
+            "permissions": permissions_data,
+            "total_rules": sum(len(rules) for rules in permissions_data.values()),
+        },
+        f"Permissions for project '{project}'",
+    )
 
 
 def _parse_sudoers(content: str, project: str) -> dict[str, list[str]]:
@@ -286,7 +302,9 @@ def sync(ctx: click.Context, project: str | None, sync_all: bool, dry_run: bool)
         formatter.error(
             code="CONFLICTING_OPTIONS",
             message="Cannot specify both PROJECT and --all",
-            suggestion="Use either: hostkit permissions sync myapp  OR  hostkit permissions sync --all",
+            suggestion=(
+                "Use either: hostkit permissions sync myapp  OR  hostkit permissions sync --all"
+            ),
         )
         return
 
@@ -315,17 +333,23 @@ def sync(ctx: click.Context, project: str | None, sync_all: bool, dry_run: bool)
     failed_count = len(results) - success_count
 
     if dry_run:
-        formatter.success({
-            "dry_run": True,
-            "projects": results,
-            "would_sync": len(project_names),
-        }, f"Dry run: would sync {len(project_names)} project(s)")
+        formatter.success(
+            {
+                "dry_run": True,
+                "projects": results,
+                "would_sync": len(project_names),
+            },
+            f"Dry run: would sync {len(project_names)} project(s)",
+        )
     else:
-        formatter.success({
-            "projects": results,
-            "synced": success_count,
-            "failed": failed_count,
-        }, f"Synced {success_count} of {len(project_names)} project(s)")
+        formatter.success(
+            {
+                "projects": results,
+                "synced": success_count,
+                "failed": failed_count,
+            },
+            f"Synced {success_count} of {len(project_names)} project(s)",
+        )
 
 
 def _sync_project_permissions(project_name: str, dry_run: bool) -> dict[str, Any]:
@@ -421,7 +445,9 @@ def verify(ctx: click.Context, project: str, command: str) -> None:
         full_cmd = f"/usr/local/bin/hostkit {command}"
 
         # Check if command appears in allowed list
-        is_allowed = full_cmd in allowed_commands or f"hostkit {command.split()[0]}" in allowed_commands
+        is_allowed = (
+            full_cmd in allowed_commands or f"hostkit {command.split()[0]}" in allowed_commands
+        )
 
         # Also check for wildcard patterns
         parts = command.split()
@@ -430,13 +456,18 @@ def verify(ctx: click.Context, project: str, command: str) -> None:
             if f"{base_pattern} *" in allowed_commands:
                 is_allowed = True
 
-        formatter.success({
-            "project": project,
-            "command": command,
-            "full_command": full_cmd,
-            "allowed": is_allowed,
-            "suggestion": None if is_allowed else f"Add to sudoers or run: hostkit permissions sync {project}",
-        }, f"Command {'allowed' if is_allowed else 'NOT allowed'} for {project}")
+        formatter.success(
+            {
+                "project": project,
+                "command": command,
+                "full_command": full_cmd,
+                "allowed": is_allowed,
+                "suggestion": None
+                if is_allowed
+                else f"Add to sudoers or run: hostkit permissions sync {project}",
+            },
+            f"Command {'allowed' if is_allowed else 'NOT allowed'} for {project}",
+        )
 
     except subprocess.TimeoutExpired:
         formatter.error(

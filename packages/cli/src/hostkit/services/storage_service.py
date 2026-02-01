@@ -12,16 +12,29 @@ from hostkit.config import get_config
 from hostkit.database import get_db
 from hostkit.registry import CapabilitiesRegistry, ServiceMeta
 
-
 # Register storage service with capabilities registry
-CapabilitiesRegistry.register_service(ServiceMeta(
-    name="minio",
-    description="S3-compatible object storage (MinIO) - https://s3.hostkit.dev",
-    provision_flag="--with-minio",
-    enable_command="hostkit minio enable {project}",
-    env_vars_provided=["S3_ENDPOINT", "S3_BUCKET", "S3_ACCESS_KEY", "S3_SECRET_KEY", "S3_PUBLIC_URL"],
-    related_commands=["minio enable", "minio disable", "minio status", "minio policy", "storage list"],
-))
+CapabilitiesRegistry.register_service(
+    ServiceMeta(
+        name="minio",
+        description="S3-compatible object storage (MinIO) - https://s3.hostkit.dev",
+        provision_flag="--with-minio",
+        enable_command="hostkit minio enable {project}",
+        env_vars_provided=[
+            "S3_ENDPOINT",
+            "S3_BUCKET",
+            "S3_ACCESS_KEY",
+            "S3_SECRET_KEY",
+            "S3_PUBLIC_URL",
+        ],
+        related_commands=[
+            "minio enable",
+            "minio disable",
+            "minio status",
+            "minio policy",
+            "storage list",
+        ],
+    )
+)
 
 
 # MinIO configuration paths
@@ -192,9 +205,16 @@ class StorageService:
         endpoint = self._get_minio_endpoint()
 
         # Set up alias (overwrites if exists)
-        self._mc_command([
-            "alias", "set", MC_ALIAS, endpoint, access_key, secret_key,
-        ])
+        self._mc_command(
+            [
+                "alias",
+                "set",
+                MC_ALIAS,
+                endpoint,
+                access_key,
+                secret_key,
+            ]
+        )
 
     def is_minio_installed(self) -> bool:
         """Check if MinIO server is installed."""
@@ -254,7 +274,8 @@ class StorageService:
                         "wget",
                         "-q",
                         "https://dl.min.io/server/minio/release/linux-amd64/minio",
-                        "-O", MINIO_BINARY,
+                        "-O",
+                        MINIO_BINARY,
                     ],
                     check=True,
                     capture_output=True,
@@ -276,7 +297,8 @@ class StorageService:
                         "wget",
                         "-q",
                         "https://dl.min.io/client/mc/release/linux-amd64/mc",
-                        "-O", MC_BINARY,
+                        "-O",
+                        MC_BINARY,
                     ],
                     check=True,
                     capture_output=True,
@@ -304,7 +326,8 @@ class StorageService:
                     "useradd",
                     "--system",
                     "--no-create-home",
-                    "--shell", "/bin/false",
+                    "--shell",
+                    "/bin/false",
                     "minio",
                 ],
                 check=True,
@@ -363,6 +386,7 @@ WantedBy=multi-user.target
 
         # Wait a moment for service to start
         import time
+
         time.sleep(2)
 
         # 8. Configure mc alias
@@ -393,7 +417,9 @@ WantedBy=multi-user.target
             raise StorageServiceError(
                 code="MINIO_NOT_RUNNING",
                 message="MinIO service is not running",
-                suggestion="Start MinIO with 'systemctl start minio' or run 'hostkit storage setup'",
+                suggestion=(
+                    "Start MinIO with 'systemctl start minio' or run 'hostkit storage setup'"
+                ),
             )
 
         self._ensure_mc_alias()
@@ -437,10 +463,16 @@ WantedBy=multi-user.target
                 size = parts[0]
 
         # Get object count
-        result = self._mc_command(["find", f"{MC_ALIAS}/{bucket_name}", "--maxdepth", "0"], check=False)
+        result = self._mc_command(
+            ["find", f"{MC_ALIAS}/{bucket_name}", "--maxdepth", "0"], check=False
+        )
         if result.returncode == 0:
             # Count lines (each line is an object)
-            lines = [l for l in result.stdout.strip().splitlines() if l and not l.endswith("/")]
+            lines = [
+                line
+                for line in result.stdout.strip().splitlines()
+                if line and not line.endswith("/")
+            ]
             objects = len(lines)
 
         return BucketInfo(
@@ -468,7 +500,9 @@ WantedBy=multi-user.target
             raise StorageServiceError(
                 code="MINIO_NOT_RUNNING",
                 message="MinIO service is not running",
-                suggestion="Start MinIO with 'systemctl start minio' or run 'hostkit storage setup'",
+                suggestion=(
+                    "Start MinIO with 'systemctl start minio' or run 'hostkit storage setup'"
+                ),
             )
 
         # Validate bucket name
@@ -476,7 +510,9 @@ WantedBy=multi-user.target
             raise StorageServiceError(
                 code="INVALID_BUCKET_NAME",
                 message=f"Invalid bucket name: {bucket_name}",
-                suggestion="Bucket names can only contain letters, numbers, hyphens and underscores",
+                suggestion=(
+                    "Bucket names can only contain letters, numbers, hyphens and underscores"
+                ),
             )
 
         self._ensure_mc_alias()
@@ -656,7 +692,9 @@ WantedBy=multi-user.target
             raise StorageServiceError(
                 code="NO_BUCKET_FOR_PROJECT",
                 message=f"No storage bucket found for project '{project}'",
-                suggestion=f"Create one with 'hostkit storage create-bucket {project}-storage {project}'",
+                suggestion=(
+                    f"Create one with 'hostkit storage create-bucket {project}-storage {project}'"
+                ),
             )
 
         cred_info = config.get("credentials", {}).get(bucket_name, {})
@@ -676,9 +714,16 @@ WantedBy=multi-user.target
 
             # Update user password (secret key)
             # mc admin user password sets a new secret key
-            self._mc_command([
-                "admin", "user", "add", MC_ALIAS, access_key, secret_key,
-            ])
+            self._mc_command(
+                [
+                    "admin",
+                    "user",
+                    "add",
+                    MC_ALIAS,
+                    access_key,
+                    secret_key,
+                ]
+            )
         else:
             # Can't retrieve existing secret key, so read from project .env
             env_path = Path(f"/home/{project}/.env")
@@ -729,13 +774,13 @@ WantedBy=multi-user.target
             multipliers = {
                 "B": 1,
                 "KIB": 1024,
-                "MIB": 1024 ** 2,
-                "GIB": 1024 ** 3,
-                "TIB": 1024 ** 4,
+                "MIB": 1024**2,
+                "GIB": 1024**3,
+                "TIB": 1024**4,
                 "KB": 1000,
-                "MB": 1000 ** 2,
-                "GB": 1000 ** 3,
-                "TB": 1000 ** 4,
+                "MB": 1000**2,
+                "GB": 1000**3,
+                "TB": 1000**4,
             }
             for suffix, mult in multipliers.items():
                 if size_str.endswith(suffix):
@@ -903,7 +948,13 @@ WantedBy=multi-user.target
                 public_url = f"{public_endpoint}/{bucket_name}"
             else:
                 # Fall back to internal URL with note
-                public_url = f"{self._get_minio_endpoint()}/{bucket_name} (internal only - run 'hostkit storage proxy <domain>' to expose externally)"
+                internal_url = self._get_minio_endpoint()
+                public_url = (
+                    f"{internal_url}/{bucket_name}"
+                    " (internal only - run"
+                    " 'hostkit storage proxy <domain>'"
+                    " to expose externally)"
+                )
 
         return {
             "bucket": bucket_name,
@@ -986,7 +1037,11 @@ WantedBy=multi-user.target
                     public_url = f"{public_endpoint}/{bucket_name}"
             else:
                 # No proxy configured
-                proxy_note = "No external proxy configured. Run 'hostkit storage proxy <domain>' to expose MinIO externally."
+                proxy_note = (
+                    "No external proxy configured."
+                    " Run 'hostkit storage proxy <domain>'"
+                    " to expose MinIO externally."
+                )
                 if prefix:
                     public_url = f"http://localhost:9000/{bucket_name}/{prefix}"
                 else:
@@ -1156,8 +1211,16 @@ WantedBy=multi-user.target
         # Remove S3-related lines
         lines = []
         skip_s3_block = False
-        s3_vars = {"S3_ENDPOINT", "S3_BUCKET", "S3_ACCESS_KEY", "S3_SECRET_KEY",
-                   "S3_REGION", "S3_PUBLIC_URL", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY"}
+        s3_vars = {
+            "S3_ENDPOINT",
+            "S3_BUCKET",
+            "S3_ACCESS_KEY",
+            "S3_SECRET_KEY",
+            "S3_REGION",
+            "S3_PUBLIC_URL",
+            "AWS_ACCESS_KEY_ID",
+            "AWS_SECRET_ACCESS_KEY",
+        }
 
         for line in content.splitlines():
             stripped = line.strip()

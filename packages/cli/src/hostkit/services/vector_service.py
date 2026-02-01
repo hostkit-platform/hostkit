@@ -12,10 +12,9 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any
-from urllib.parse import urljoin
 
-import requests
 import psycopg2
+import requests
 from psycopg2 import sql
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 
@@ -23,16 +22,17 @@ from hostkit.config import get_config
 from hostkit.database import get_db
 from hostkit.registry import CapabilitiesRegistry, ServiceMeta
 
-
 # Register vector service with capabilities registry
-CapabilitiesRegistry.register_service(ServiceMeta(
-    name="vector",
-    description="Vector embeddings and RAG with pgvector",
-    provision_flag=None,
-    enable_command="hostkit vector enable {project}",
-    env_vars_provided=["VECTOR_API_KEY", "VECTOR_URL"],
-    related_commands=["vector enable", "vector create-collection", "vector search"],
-))
+CapabilitiesRegistry.register_service(
+    ServiceMeta(
+        name="vector",
+        description="Vector embeddings and RAG with pgvector",
+        provision_flag=None,
+        enable_command="hostkit vector enable {project}",
+        env_vars_provided=["VECTOR_API_KEY", "VECTOR_URL"],
+        related_commands=["vector enable", "vector create-collection", "vector search"],
+    )
+)
 
 
 def _get_pg_connection(database: str = "postgres") -> psycopg2.extensions.connection:
@@ -214,11 +214,7 @@ class VectorService:
                 (self.VECTOR_DB,),
             )
             if not cursor.fetchone():
-                cursor.execute(
-                    sql.SQL("CREATE DATABASE {}").format(
-                        sql.Identifier(self.VECTOR_DB)
-                    )
-                )
+                cursor.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(self.VECTOR_DB)))
 
             cursor.close()
             conn.close()
@@ -319,9 +315,7 @@ class VectorService:
         # Verify project exists
         db = get_db()
         with db.connection() as conn:
-            proj = conn.execute(
-                "SELECT name FROM projects WHERE name = ?", (project,)
-            ).fetchone()
+            proj = conn.execute("SELECT name FROM projects WHERE name = ?", (project,)).fetchone()
             if not proj:
                 raise VectorServiceError(
                     code="PROJECT_NOT_FOUND",
@@ -359,7 +353,7 @@ class VectorService:
                 (project_name, api_key_hash, api_key_prefix, is_active, settings)
                 VALUES (%s, %s, %s, true, %s)
                 """,
-                (project, key_hash, key_prefix, '{}'),
+                (project, key_hash, key_prefix, "{}"),
             )
             cursor.close()
             conn.close()
@@ -376,7 +370,8 @@ class VectorService:
             conn.execute(
                 """
                 INSERT INTO vector_projects
-                (project_name, enabled, api_key, api_key_hash, api_key_prefix, database_name, created_at)
+                (project_name, enabled, api_key, api_key_hash,
+                api_key_prefix, database_name, created_at)
                 VALUES (?, 1, ?, ?, ?, ?, datetime('now'))
                 """,
                 (project, api_key, key_hash, key_prefix, project_db),
@@ -921,8 +916,7 @@ class VectorService:
     def _generate_api_key(self, project: str) -> str:
         """Generate a new API key for a project."""
         random_part = "".join(
-            secrets.choice(string.ascii_letters + string.digits)
-            for _ in range(32)
+            secrets.choice(string.ascii_letters + string.digits) for _ in range(32)
         )
         return f"vk_{project}_{random_part}"
 
@@ -964,9 +958,7 @@ class VectorService:
             cursor = conn.cursor()
 
             # Create database
-            cursor.execute(
-                sql.SQL("CREATE DATABASE {}").format(sql.Identifier(db_name))
-            )
+            cursor.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(db_name)))
 
             # Grant privileges to vector user
             cursor.execute(
@@ -1015,9 +1007,15 @@ class VectorService:
                     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
                 )
             """)
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_documents_collection ON documents(collection_id)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_documents_source_name ON documents(source_name)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_documents_content_hash ON documents(content_hash)")
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_documents_collection ON documents(collection_id)"
+            )
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_documents_source_name ON documents(source_name)"
+            )
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_documents_content_hash ON documents(content_hash)"
+            )
 
             # Create chunks table
             cursor.execute("""
@@ -1033,9 +1031,15 @@ class VectorService:
                     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
                 )
             """)
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_chunks_collection ON chunks(collection_id)")
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_chunks_collection ON chunks(collection_id)"
+            )
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_chunks_document ON chunks(document_id)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_chunks_collection_index ON chunks(collection_id, chunk_index)")
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS"
+                " idx_chunks_collection_index"
+                " ON chunks(collection_id, chunk_index)"
+            )
 
             # Create vector index (IVFFlat)
             cursor.execute("""
@@ -1046,7 +1050,9 @@ class VectorService:
 
             # Grant permissions to hostkit_vector user
             cursor.execute("GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO hostkit_vector")
-            cursor.execute("GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO hostkit_vector")
+            cursor.execute(
+                "GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO hostkit_vector"
+            )
 
             cursor.close()
             conn.close()
@@ -1075,11 +1081,7 @@ class VectorService:
             )
 
             # Drop database
-            cursor.execute(
-                sql.SQL("DROP DATABASE IF EXISTS {}").format(
-                    sql.Identifier(db_name)
-                )
-            )
+            cursor.execute(sql.SQL("DROP DATABASE IF EXISTS {}").format(sql.Identifier(db_name)))
 
             cursor.close()
             conn.close()

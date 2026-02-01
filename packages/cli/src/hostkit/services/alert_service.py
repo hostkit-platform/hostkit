@@ -7,15 +7,14 @@ for deployment, migration, and health check events.
 import hashlib
 import hmac
 import json
-import os
 import smtplib
 import time
-import urllib.request
 import urllib.error
+import urllib.request
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 from typing import Any
 
 from hostkit import __version__
@@ -72,7 +71,11 @@ class AlertChannel:
         if not self.muted_until:
             return False
         mute_time = datetime.fromisoformat(self.muted_until.replace("Z", "+00:00"))
-        return datetime.now(mute_time.tzinfo) < mute_time if mute_time.tzinfo else datetime.utcnow() < mute_time
+        return (
+            datetime.now(mute_time.tzinfo) < mute_time
+            if mute_time.tzinfo
+            else datetime.utcnow() < mute_time
+        )
 
 
 @dataclass
@@ -323,7 +326,9 @@ class AlertService:
             project_name=channel_record["project_name"],
             name=channel_record["name"],
             channel_type=channel_record["channel_type"],
-            config=self._parse_channel_config(channel_record["config"], channel_record["channel_type"]),
+            config=self._parse_channel_config(
+                channel_record["config"], channel_record["channel_type"]
+            ),
             enabled=bool(channel_record["enabled"]),
             muted_until=channel_record.get("muted_until"),
             created_at=channel_record["created_at"],
@@ -353,7 +358,7 @@ class AlertService:
     def remove_channel(self, project_name: str, name: str) -> dict[str, Any]:
         """Remove a channel."""
         # Verify channel exists
-        channel = self.get_channel(project_name, name)
+        self.get_channel(project_name, name)
 
         # Delete
         self.db.delete_alert_channel(project_name, name)
@@ -521,7 +526,10 @@ class AlertService:
             Tuple of (success, error_message)
         """
         # Build email content
-        subject = f"{config.subject_prefix} {event.event_type.title()} {event.event_status}: {event.project}"
+        subject = (
+            f"{config.subject_prefix} {event.event_type.title()}"
+            f" {event.event_status}: {event.project}"
+        )
 
         # Plain text body
         body_lines = [
@@ -535,13 +543,15 @@ class AlertService:
         for key, value in event.data.items():
             body_lines.append(f"  {key}: {value}")
 
-        body_lines.extend([
-            "",
-            f"Timestamp: {event.timestamp}",
-            "",
-            "---",
-            "Sent by HostKit Alert Service",
-        ])
+        body_lines.extend(
+            [
+                "",
+                f"Timestamp: {event.timestamp}",
+                "",
+                "---",
+                "Sent by HostKit Alert Service",
+            ]
+        )
 
         body = "\n".join(body_lines)
 
@@ -604,24 +614,28 @@ class AlertService:
             data_fields = []
             for key, value in event.data.items():
                 data_fields.append(f"*{key}:* {value}")
-            blocks.append({
-                "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": " | ".join(data_fields[:5]),  # Limit to 5 fields
-                },
-            })
+            blocks.append(
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": " | ".join(data_fields[:5]),  # Limit to 5 fields
+                    },
+                }
+            )
 
         # Add context with timestamp
-        blocks.append({
-            "type": "context",
-            "elements": [
-                {
-                    "type": "mrkdwn",
-                    "text": f"Sent by HostKit at {event.timestamp}",
-                },
-            ],
-        })
+        blocks.append(
+            {
+                "type": "context",
+                "elements": [
+                    {
+                        "type": "mrkdwn",
+                        "text": f"Sent by HostKit at {event.timestamp}",
+                    },
+                ],
+            }
+        )
 
         payload = {
             "blocks": blocks,
@@ -801,7 +815,11 @@ class AlertService:
             muted_until = ch.get("muted_until")
             if muted_until:
                 mute_time = datetime.fromisoformat(muted_until.replace("Z", "+00:00"))
-                is_muted = datetime.utcnow() < mute_time.replace(tzinfo=None) if mute_time.tzinfo else datetime.utcnow() < mute_time
+                is_muted = (
+                    datetime.utcnow() < mute_time.replace(tzinfo=None)
+                    if mute_time.tzinfo
+                    else datetime.utcnow() < mute_time
+                )
                 if is_muted:
                     muted_count += 1
                     # Record in history as muted
@@ -814,12 +832,14 @@ class AlertService:
                         notification_error="Channel is muted",
                         payload=payload_json,
                     )
-                    results.append({
-                        "channel": ch["name"],
-                        "success": False,
-                        "muted": True,
-                        "error": "Channel is muted",
-                    })
+                    results.append(
+                        {
+                            "channel": ch["name"],
+                            "success": False,
+                            "muted": True,
+                            "error": "Channel is muted",
+                        }
+                    )
                     continue
 
             # Send based on channel type
@@ -858,18 +878,22 @@ class AlertService:
                 payload=payload_json,
             )
 
-            results.append({
-                "channel": ch["name"],
-                "success": success,
-                "error": error,
-            })
+            results.append(
+                {
+                    "channel": ch["name"],
+                    "success": success,
+                    "error": error,
+                }
+            )
 
         return {
             "project": project_name,
             "event_type": event_type,
             "event_status": event_status,
             "channels_notified": sum(1 for r in results if r.get("success")),
-            "channels_failed": sum(1 for r in results if not r.get("success") and not r.get("muted")),
+            "channels_failed": sum(
+                1 for r in results if not r.get("success") and not r.get("muted")
+            ),
             "channels_muted": muted_count,
             "results": results,
             "sent_at": datetime.utcnow().isoformat(),

@@ -6,8 +6,8 @@ from datetime import datetime
 import click
 
 from hostkit.access import project_access
-from hostkit.services.health_service import HealthCheck, HealthService, HealthServiceError
 from hostkit.services.alert_service import AlertService
+from hostkit.services.health_service import HealthCheck, HealthService, HealthServiceError
 
 
 def _format_status(status: str) -> str:
@@ -51,7 +51,13 @@ def _print_health_check(health: HealthCheck, verbose: bool = False) -> None:
     if health.error:
         click.echo(f"  Status: {click.style('ERROR', fg='red')} - {health.error}")
     elif health.http_status:
-        status_color = "green" if 200 <= health.http_status < 300 else "yellow" if health.http_status < 500 else "red"
+        status_color = (
+            "green"
+            if 200 <= health.http_status < 300
+            else "yellow"
+            if health.http_status < 500
+            else "red"
+        )
         click.echo(f"  Status: {click.style(str(health.http_status), fg=status_color)}")
         if health.http_response_ms:
             click.echo(f"  Response Time: {health.http_response_ms:.0f}ms")
@@ -100,7 +106,7 @@ def _print_watch_line(health: HealthCheck) -> None:
     if health.http_status:
         parts.append(f"HTTP:{health.http_status}")
     elif health.error:
-        parts.append(f"HTTP:ERR")
+        parts.append("HTTP:ERR")
 
     # Add response time
     if health.http_response_ms:
@@ -261,6 +267,7 @@ def health(
                             formatter.success(data=health_result.to_dict())
                         else:
                             import json
+
                             click.echo(json.dumps(health_result.to_dict()))
 
                         # Send alerts on state change
@@ -312,6 +319,7 @@ def health(
                     formatter.success(data=health_result.to_dict())
                 else:
                     import json
+
                     click.echo(json.dumps(health_result.to_dict()))
             else:
                 _print_health_check(health_result, verbose=verbose)

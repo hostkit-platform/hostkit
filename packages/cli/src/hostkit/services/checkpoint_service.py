@@ -143,10 +143,14 @@ class CheckpointService:
 
         pg_dump_cmd = [
             "pg_dump",
-            "-h", self.config.postgres_host,
-            "-p", str(self.config.postgres_port),
-            "-U", self._admin_user,
-            "-d", db_name,
+            "-h",
+            self.config.postgres_host,
+            "-p",
+            str(self.config.postgres_port),
+            "-U",
+            self._admin_user,
+            "-d",
+            db_name,
             "--no-owner",
             "--no-acl",
         ]
@@ -332,7 +336,11 @@ class CheckpointService:
         if checkpoint.project_name != project_name:
             raise CheckpointServiceError(
                 code="CHECKPOINT_MISMATCH",
-                message=f"Checkpoint {checkpoint_id} belongs to project '{checkpoint.project_name}', not '{project_name}'",
+                message=(
+                    f"Checkpoint {checkpoint_id} belongs to"
+                    f" project '{checkpoint.project_name}',"
+                    f" not '{project_name}'"
+                ),
                 suggestion="Specify the correct project or checkpoint ID",
             )
 
@@ -395,9 +403,7 @@ class CheckpointService:
                     # Drop and recreate database
                     role_name = f"{project_name}_user"
                     cur.execute(
-                        sql.SQL("DROP DATABASE IF EXISTS {}").format(
-                            sql.Identifier(db_name)
-                        )
+                        sql.SQL("DROP DATABASE IF EXISTS {}").format(sql.Identifier(db_name))
                     )
                     cur.execute(
                         sql.SQL("CREATE DATABASE {} OWNER {}").format(
@@ -417,10 +423,14 @@ class CheckpointService:
         # Build psql restore command
         psql_cmd = [
             "psql",
-            "-h", self.config.postgres_host,
-            "-p", str(self.config.postgres_port),
-            "-U", self._admin_user,
-            "-d", db_name,
+            "-h",
+            self.config.postgres_host,
+            "-p",
+            str(self.config.postgres_port),
+            "-U",
+            self._admin_user,
+            "-d",
+            db_name,
             "-q",  # Quiet mode
         ]
 
@@ -471,7 +481,9 @@ class CheckpointService:
             "restored_from_checkpoint": checkpoint_id,
             "checkpoint_label": checkpoint.label,
             "checkpoint_created_at": checkpoint.created_at,
-            "pre_restore_checkpoint_id": pre_restore_checkpoint.id if pre_restore_checkpoint else None,
+            "pre_restore_checkpoint_id": pre_restore_checkpoint.id
+            if pre_restore_checkpoint
+            else None,
             "restored_at": datetime.utcnow().isoformat(),
         }
 
@@ -505,7 +517,11 @@ class CheckpointService:
         if checkpoint.project_name != project_name:
             raise CheckpointServiceError(
                 code="CHECKPOINT_MISMATCH",
-                message=f"Checkpoint {checkpoint_id} belongs to project '{checkpoint.project_name}', not '{project_name}'",
+                message=(
+                    f"Checkpoint {checkpoint_id} belongs to"
+                    f" project '{checkpoint.project_name}',"
+                    f" not '{project_name}'"
+                ),
                 suggestion="Specify the correct project or checkpoint ID",
             )
 
@@ -549,10 +565,12 @@ class CheckpointService:
                 deleted_count += 1
 
             except Exception as e:
-                errors.append({
-                    "checkpoint_id": cp["id"],
-                    "error": str(e),
-                })
+                errors.append(
+                    {
+                        "checkpoint_id": cp["id"],
+                        "error": str(e),
+                    }
+                )
 
         return {
             "deleted_count": deleted_count,

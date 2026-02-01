@@ -1,8 +1,8 @@
 """SSL certificate management for HostKit using Let's Encrypt/Certbot."""
 
+import re
 import socket
 import subprocess
-import re
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -94,7 +94,9 @@ class SSLService:
         if resolved_ip != self.config.vps_ip:
             raise SSLError(
                 code="DNS_MISMATCH",
-                message=f"Domain '{domain}' resolves to {resolved_ip}, expected {self.config.vps_ip}",
+                message=(
+                    f"Domain '{domain}' resolves to {resolved_ip}, expected {self.config.vps_ip}"
+                ),
                 suggestion=f"Update the domain's A record to point to {self.config.vps_ip}",
             )
 
@@ -109,8 +111,12 @@ class SSLService:
         if attempts_today >= SSL_MAX_ATTEMPTS_PER_DAY:
             raise SSLError(
                 code="RATE_LIMIT_EXCEEDED",
-                message=f"SSL rate limit exceeded: {attempts_today}/{SSL_MAX_ATTEMPTS_PER_DAY} attempts in last 24 hours",
-                suggestion=f"Wait until tomorrow or contact administrator",
+                message=(
+                    f"SSL rate limit exceeded:"
+                    f" {attempts_today}/{SSL_MAX_ATTEMPTS_PER_DAY}"
+                    f" attempts in last 24 hours"
+                ),
+                suggestion="Wait until tomorrow or contact administrator",
             )
 
         # Check for recent failure cooldown
@@ -125,7 +131,9 @@ class SSLService:
                 minutes = int(remaining.total_seconds() / 60)
                 raise SSLError(
                     code="COOLDOWN_ACTIVE",
-                    message=f"SSL cooldown active: {minutes} minutes remaining after failed attempt",
+                    message=(
+                        f"SSL cooldown active: {minutes} minutes remaining after failed attempt"
+                    ),
                     suggestion=f"Wait {minutes} minutes before retrying",
                 )
 
@@ -214,8 +222,12 @@ class SSLService:
             days_remaining=cert_data.get("days_remaining", 0),
             serial=cert_data.get("serial", ""),
             subject_alt_names=domains,
-            certificate_path=cert_data.get("cert_path", f"/etc/letsencrypt/live/{primary_domain}/fullchain.pem"),
-            key_path=cert_data.get("key_path", f"/etc/letsencrypt/live/{primary_domain}/privkey.pem"),
+            certificate_path=cert_data.get(
+                "cert_path", f"/etc/letsencrypt/live/{primary_domain}/fullchain.pem"
+            ),
+            key_path=cert_data.get(
+                "key_path", f"/etc/letsencrypt/live/{primary_domain}/privkey.pem"
+            ),
         )
 
     def get_certificate(self, domain: str) -> CertificateInfo:
@@ -297,7 +309,11 @@ class SSLService:
             if existing.days_remaining > 30:
                 raise SSLError(
                     code="CERTIFICATE_EXISTS",
-                    message=f"Certificate for '{domain}' already exists and is valid for {existing.days_remaining} days",
+                    message=(
+                        f"Certificate for '{domain}' already"
+                        f" exists and is valid for"
+                        f" {existing.days_remaining} days"
+                    ),
                     suggestion="Use 'hostkit ssl renew' to renew early if needed",
                 )
         except SSLError as e:
@@ -320,10 +336,12 @@ class SSLService:
                 self.certbot_bin,
                 "certonly",
                 "--nginx",
-                "-d", domain,
+                "-d",
+                domain,
                 "--non-interactive",
                 "--agree-tos",
-                "--email", email,
+                "--email",
+                email,
             ]
 
             result = subprocess.run(
@@ -336,14 +354,18 @@ class SSLService:
             if result.returncode != 0:
                 error_msg = result.stderr or result.stdout
                 # Record the failed attempt
-                self.db.record_ssl_attempt(project, domain, success=False, error_message=error_msg[:500])
+                self.db.record_ssl_attempt(
+                    project, domain, success=False, error_message=error_msg[:500]
+                )
 
                 # Check for common errors
                 if "DNS problem" in error_msg or "NXDOMAIN" in error_msg:
                     raise SSLError(
                         code="DNS_ERROR",
                         message=f"DNS is not configured for '{domain}'",
-                        suggestion="Ensure the domain points to this server's IP before provisioning SSL",
+                        suggestion=(
+                            "Ensure the domain points to this server's IP before provisioning SSL"
+                        ),
                     )
                 elif "rate limit" in error_msg.lower():
                     raise SSLError(
@@ -372,6 +394,7 @@ class SSLService:
 
             # Update Nginx config to use SSL
             from hostkit.services.nginx_service import NginxService
+
             nginx = NginxService()
             nginx.enable_ssl_for_project(domain_record["project"])
 
@@ -410,9 +433,12 @@ class SSLService:
                 cmd.append("--force-renewal")
 
             # Add hooks to reload nginx after renewal
-            cmd.extend([
-                "--deploy-hook", "systemctl reload nginx",
-            ])
+            cmd.extend(
+                [
+                    "--deploy-hook",
+                    "systemctl reload nginx",
+                ]
+            )
 
             result = subprocess.run(
                 cmd,
@@ -436,7 +462,9 @@ class SSLService:
                 "renewed": renewed_count,
                 "skipped": skipped_count,
                 "output": output,
-                "message": f"Renewed {renewed_count} certificate(s), {skipped_count} not due for renewal",
+                "message": (
+                    f"Renewed {renewed_count} certificate(s), {skipped_count} not due for renewal"
+                ),
             }
 
         except subprocess.TimeoutExpired:
@@ -519,7 +547,10 @@ class SSLService:
         except subprocess.CalledProcessError as e:
             raise SSLError(
                 code="ENABLE_FAILED",
-                message=f"Failed to enable auto-renewal: {e.stderr.decode() if e.stderr else 'unknown error'}",
+                message=(
+                    "Failed to enable auto-renewal: "
+                    + (e.stderr.decode() if e.stderr else "unknown error")
+                ),
             )
 
     def test_renewal(self, domain: str | None = None) -> dict[str, Any]:

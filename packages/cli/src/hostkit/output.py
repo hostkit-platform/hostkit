@@ -5,16 +5,11 @@ import sys
 from datetime import datetime
 from typing import Any
 
+from rich.box import ROUNDED
 from rich.console import Console
+from rich.progress import BarColumn, Progress, SpinnerColumn, TaskProgressColumn, TextColumn
 from rich.table import Table
-from rich.panel import Panel
 from rich.text import Text
-from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn
-from rich.columns import Columns
-from rich.box import ROUNDED, SIMPLE
-from rich.live import Live
-from rich.layout import Layout
-
 
 # Status indicators with colors
 STATUS_INDICATORS = {
@@ -213,13 +208,19 @@ class OutputFormatter:
                     display_value = str(value)
                     if isinstance(value, str):
                         display_value = get_status_display(value)
-                    elif isinstance(value, int) and key.lower() in ("errors_24h", "error_count_24h"):
+                    elif isinstance(value, int) and key.lower() in (
+                        "errors_24h",
+                        "error_count_24h",
+                    ):
                         # Highlight error counts
                         if value > 0:
                             display_value = f"[red]{value}[/red]"
                         else:
                             display_value = f"[green]{value}[/green]"
-                    elif isinstance(value, int) and key.lower() in ("warnings_24h", "warning_count_24h"):
+                    elif isinstance(value, int) and key.lower() in (
+                        "warnings_24h",
+                        "warning_count_24h",
+                    ):
                         # Highlight warning counts
                         if value > 0:
                             display_value = f"[yellow]{value}[/yellow]"

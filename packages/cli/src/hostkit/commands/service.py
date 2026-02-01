@@ -4,9 +4,9 @@ import sys
 
 import click
 
-from hostkit.access import project_access, root_only, service_access
+from hostkit.access import root_only, service_access
 from hostkit.output import OutputFormatter
-from hostkit.services.service_service import ServiceService, ServiceError
+from hostkit.services.service_service import ServiceError, ServiceService
 
 
 @click.group()
@@ -65,9 +65,12 @@ def service_list(ctx: click.Context, project: str | None) -> None:
         else:
             click.echo("\nServices:")
             click.echo("-" * 80)
-            click.echo(
-                f"{'SERVICE':<30} {'PROJECT':<12} {'TYPE':<8} {'STATUS':<10} {'ENABLED':<8} {'PID':<8}"
+            header = (
+                f"{'SERVICE':<30} {'PROJECT':<12} "
+                f"{'TYPE':<8} {'STATUS':<10} "
+                f"{'ENABLED':<8} {'PID':<8}"
             )
+            click.echo(header)
             click.echo("-" * 80)
 
             for s in services:
@@ -82,9 +85,13 @@ def service_list(ctx: click.Context, project: str | None) -> None:
                 enabled_str = "yes" if s.enabled else "no"
                 pid_str = str(s.pid) if s.pid else "-"
 
-                click.echo(
-                    f"{s.name:<30} {s.project:<12} {s.service_type:<8} {status_colored:<19} {enabled_str:<8} {pid_str:<8}"
+                row = (
+                    f"{s.name:<30} {s.project:<12} "
+                    f"{s.service_type:<8} "
+                    f"{status_colored:<19} "
+                    f"{enabled_str:<8} {pid_str:<8}"
                 )
+                click.echo(row)
 
             click.echo("-" * 80)
             click.echo(f"Total: {len(services)} service(s)")
@@ -350,7 +357,9 @@ def service_logs(
                     },
                 )
             else:
-                log_type = "systemd/journalctl" if systemd else ("error" if error else "application")
+                log_type = (
+                    "systemd/journalctl" if systemd else ("error" if error else "application")
+                )
                 click.echo(f"\n{log_type.title()} logs for {name} (last {lines} lines):")
                 click.echo("-" * 60)
                 click.echo(logs)
@@ -382,9 +391,7 @@ def service_create_worker(
     svc = ServiceService()
 
     try:
-        result = svc.create_worker(
-            project=project, app_module=app_module, concurrency=concurrency
-        )
+        result = svc.create_worker(project=project, app_module=app_module, concurrency=concurrency)
         formatter.success(
             message=f"Celery worker created for '{project}'",
             data=result,

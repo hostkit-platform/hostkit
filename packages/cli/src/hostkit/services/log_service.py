@@ -1,14 +1,14 @@
 """Log management service for HostKit."""
 
 import gzip
-import os
 import re
 import shutil
 import subprocess
+from collections.abc import Generator
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Generator
+from typing import Any
 
 from hostkit.config import get_config
 from hostkit.database import get_db
@@ -177,13 +177,15 @@ class LogService:
         for log_file in log_dir.iterdir():
             if log_file.is_file():
                 stat = log_file.stat()
-                files.append({
-                    "name": log_file.name,
-                    "path": str(log_file),
-                    "size": stat.st_size,
-                    "modified": datetime.fromtimestamp(stat.st_mtime).isoformat(),
-                    "compressed": log_file.suffix == ".gz",
-                })
+                files.append(
+                    {
+                        "name": log_file.name,
+                        "path": str(log_file),
+                        "size": stat.st_size,
+                        "modified": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+                        "compressed": log_file.suffix == ".gz",
+                    }
+                )
 
         return sorted(files, key=lambda x: x["modified"], reverse=True)
 
@@ -217,7 +219,13 @@ class LogService:
                 cmd.extend(["--until", until])
             if priority:
                 # Map log levels to journald priorities
-                prio_map = {"DEBUG": "7", "INFO": "6", "WARNING": "4", "ERROR": "3", "CRITICAL": "2"}
+                prio_map = {
+                    "DEBUG": "7",
+                    "INFO": "6",
+                    "WARNING": "4",
+                    "ERROR": "3",
+                    "CRITICAL": "2",
+                }
                 if priority.upper() in prio_map:
                     cmd.extend(["-p", prio_map[priority.upper()]])
 
@@ -225,20 +233,23 @@ class LogService:
                 result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
                 if result.returncode == 0:
                     import json
+
                     for line in result.stdout.strip().split("\n"):
                         if not line:
                             continue
                         try:
                             entry = json.loads(line)
-                            entries.append(LogEntry(
-                                timestamp=datetime.fromtimestamp(
-                                    int(entry.get("__REALTIME_TIMESTAMP", 0)) / 1000000
-                                ).isoformat(),
-                                source="journal",
-                                level=self._priority_to_level(entry.get("PRIORITY", "6")),
-                                message=entry.get("MESSAGE", ""),
-                                file=unit,
-                            ))
+                            entries.append(
+                                LogEntry(
+                                    timestamp=datetime.fromtimestamp(
+                                        int(entry.get("__REALTIME_TIMESTAMP", 0)) / 1000000
+                                    ).isoformat(),
+                                    source="journal",
+                                    level=self._priority_to_level(entry.get("PRIORITY", "6")),
+                                    message=entry.get("MESSAGE", ""),
+                                    file=unit,
+                                )
+                            )
                         except (json.JSONDecodeError, ValueError):
                             continue
             except subprocess.SubprocessError:
@@ -252,11 +263,11 @@ class LogService:
             "0": "CRITICAL",  # emerg
             "1": "CRITICAL",  # alert
             "2": "CRITICAL",  # crit
-            "3": "ERROR",     # err
-            "4": "WARNING",   # warning
-            "5": "INFO",      # notice
-            "6": "INFO",      # info
-            "7": "DEBUG",     # debug
+            "3": "ERROR",  # err
+            "4": "WARNING",  # warning
+            "5": "INFO",  # notice
+            "6": "INFO",  # info
+            "7": "DEBUG",  # debug
         }
         return prio_map.get(str(priority), "INFO")
 
@@ -293,7 +304,8 @@ class LogService:
                     entry = self._parse_log_line(line.strip(), filename)
                     if entry:
                         # Filter by level
-                        entry_level = LOG_LEVELS.get(entry.level.upper() if entry.level else "INFO", 1)
+                        level_key = entry.level.upper() if entry.level else "INFO"
+                        entry_level = LOG_LEVELS.get(level_key, 1)
                         if entry_level >= level_threshold:
                             entry.line_number = len(all_lines) - len(recent_lines) + i + 1
                             entries.append(entry)
@@ -312,10 +324,12 @@ class LogService:
 
         # Try common log formats
         # Format 1: ISO timestamp with level: 2025-12-12T10:30:00 [INFO] message
-        match = re.match(
-            r"^(\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?)\s*\[?(\w+)\]?\s*(.*)$",
-            line
+        timestamp_re = (
+            r"^(\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}"
+            r"(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?)"
+            r"\s*\[?(\w+)\]?\s*(.*)$"
         )
+        match = re.match(timestamp_re, line)
         if match:
             return LogEntry(
                 timestamp=match.group(1),
@@ -376,8 +390,13 @@ class LogService:
             if source == "journal":
                 # Journal logs
                 cmd = [
-                    "journalctl", "-u", f"hostkit-{project}.service",
-                    "-f", "-o", "cat", "--no-pager"
+                    "journalctl",
+                    "-u",
+                    f"hostkit-{project}.service",
+                    "-f",
+                    "-o",
+                    "cat",
+                    "--no-pager",
                 ]
                 proc = subprocess.Popen(
                     cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True
@@ -397,6 +416,7 @@ class LogService:
 
         try:
             import select
+
             while processes:
                 # Wait for any process to have output
                 readable = [p[1].stdout for p in processes if p[1].stdout]
@@ -452,7 +472,9 @@ class LogService:
         if files:
             search_files = [log_dir / f for f in files if (log_dir / f).exists()]
         else:
-            search_files = [f for f in log_dir.iterdir() if f.is_file() and f.suffix in (".log", ".gz")]
+            search_files = [
+                f for f in log_dir.iterdir() if f.is_file() and f.suffix in (".log", ".gz")
+            ]
 
         for log_file in search_files:
             try:
@@ -470,13 +492,15 @@ class LogService:
                         start = max(0, i - context)
                         end = min(len(lines), i + context + 1)
 
-                        results.append(LogSearchResult(
-                            file=str(log_file),
-                            line_number=i + 1,
-                            match=line.strip(),
-                            context_before=[l.strip() for l in lines[start:i]],
-                            context_after=[l.strip() for l in lines[i+1:end]],
-                        ))
+                        results.append(
+                            LogSearchResult(
+                                file=str(log_file),
+                                line_number=i + 1,
+                                match=line.strip(),
+                                context_before=[line.strip() for line in lines[start:i]],
+                                context_after=[line.strip() for line in lines[i + 1 : end]],
+                            )
+                        )
 
             except Exception:
                 # Skip files that can't be read
@@ -509,9 +533,9 @@ class LogService:
                 if log_file.is_file() and log_file.suffix == ".log":
                     try:
                         content = log_file.read_text()
-                        all_logs.append(f"\n{'='*60}\n")
+                        all_logs.append(f"\n{'=' * 60}\n")
                         all_logs.append(f"=== {log_file.name} ===\n")
-                        all_logs.append(f"{'='*60}\n\n")
+                        all_logs.append(f"{'=' * 60}\n\n")
                         all_logs.append(content)
                         files_included.append(log_file.name)
                     except Exception:
@@ -528,9 +552,9 @@ class LogService:
             try:
                 result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
                 if result.returncode == 0 and result.stdout:
-                    all_logs.append(f"\n{'='*60}\n")
-                    all_logs.append(f"=== systemd journal ===\n")
-                    all_logs.append(f"{'='*60}\n\n")
+                    all_logs.append(f"\n{'=' * 60}\n")
+                    all_logs.append("=== systemd journal ===\n")
+                    all_logs.append(f"{'=' * 60}\n\n")
                     all_logs.append(result.stdout)
                     files_included.append("systemd-journal")
             except subprocess.SubprocessError:
@@ -586,7 +610,7 @@ class LogService:
             for log_file in log_dir.iterdir():
                 if log_file.is_file() and log_file.suffix == ".log":
                     try:
-                        with open(log_file, "r") as f:
+                        with open(log_file) as f:
                             for line in f:
                                 line_upper = line.upper()
                                 if "ERROR" in line_upper or "CRITICAL" in line_upper:
@@ -630,9 +654,7 @@ class LogService:
         # Gather from file logs
         for source in sources:
             if source == "journal":
-                entries = self.get_journal_logs(
-                    project, lines=lines, since=since, until=until
-                )
+                entries = self.get_journal_logs(project, lines=lines, since=since, until=until)
                 all_entries.extend(entries)
             else:
                 entries = self.read_log_file(project, source, lines=lines * 2, level=level)
@@ -677,7 +699,11 @@ class LogService:
         time_str = time_str.strip().lower()
 
         # Relative format: 1h, 30m, 24h, 7d
-        match = re.match(r"^(\d+)\s*(h|hour|hours|m|min|mins|minutes|d|day|days|w|week|weeks)$", time_str)
+        relative_re = (
+            r"^(\d+)\s*"
+            r"(h|hour|hours|m|min|mins|minutes|d|day|days|w|week|weeks)$"
+        )
+        match = re.match(relative_re, time_str)
         if match:
             value = int(match.group(1))
             unit = match.group(2)
@@ -692,7 +718,12 @@ class LogService:
                 return now - timedelta(weeks=value)
 
         # Human readable: "X hours/days ago"
-        match = re.match(r"^(\d+)\s*(hour|hours|day|days|minute|minutes|week|weeks)\s+ago$", time_str)
+        human_re = (
+            r"^(\d+)\s*"
+            r"(hour|hours|day|days|minute|minutes|week|weeks)"
+            r"\s+ago$"
+        )
+        match = re.match(human_re, time_str)
         if match:
             value = int(match.group(1))
             unit = match.group(2)

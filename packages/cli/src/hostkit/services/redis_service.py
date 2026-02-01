@@ -10,14 +10,16 @@ from hostkit.database import get_db
 from hostkit.registry import CapabilitiesRegistry, ServiceMeta
 
 # Register service with capabilities registry
-CapabilitiesRegistry.register_service(ServiceMeta(
-    name="redis",
-    description="Redis cache/queue (auto-assigned db number)",
-    provision_flag=None,
-    enable_command=None,
-    env_vars_provided=["REDIS_URL"],
-    related_commands=["redis info", "redis flush"],
-))
+CapabilitiesRegistry.register_service(
+    ServiceMeta(
+        name="redis",
+        description="Redis cache/queue (auto-assigned db number)",
+        provision_flag=None,
+        enable_command=None,
+        env_vars_provided=["REDIS_URL"],
+        related_commands=["redis info", "redis flush"],
+    )
+)
 
 
 @dataclass
@@ -102,9 +104,7 @@ class RedisService:
         finally:
             client.close()
 
-    def get_keys(
-        self, project_name: str, pattern: str = "*", limit: int = 100
-    ) -> dict[str, Any]:
+    def get_keys(self, project_name: str, pattern: str = "*", limit: int = 100) -> dict[str, Any]:
         """Get keys for a project's Redis database."""
         # Get project's Redis database number
         project = self.hostkit_db.get_project(project_name)

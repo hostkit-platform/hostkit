@@ -47,7 +47,8 @@ def project() -> None:
     help="Create a static site project",
 )
 @click.option(
-    "--description", "-d",
+    "--description",
+    "-d",
     help="Project description",
 )
 @click.option(
@@ -150,7 +151,8 @@ def create(
         hostkit project create myapp --with-auth
         hostkit project create myapp --with-auth --google-client-id=xxx --google-client-secret=yyy
         hostkit project create fullstack --python --with-db --with-auth
-        hostkit project create custom --node --start-cmd "/usr/bin/node /home/{project_name}/app/server.js"
+        hostkit project create custom --node \\
+            --start-cmd "/usr/bin/node /home/{project_name}/app/server.js"
         hostkit project create spa --nextjs --with-db --with-auth --with-booking --with-payments
     """
     formatter: OutputFormatter = ctx.obj["formatter"]
@@ -333,7 +335,7 @@ def create(
                 from hostkit.services.vector_service import VectorService
 
                 vector_service = VectorService()
-                vector_result = vector_service.enable_project(name)
+                vector_service.enable_project(name)
                 data["vector_enabled"] = True
                 data["services_enabled"].append("vector")
             except Exception as e:
@@ -351,7 +353,8 @@ def create(
 @project.command("delete")
 @click.argument("name")
 @click.option(
-    "--force", "-f",
+    "--force",
+    "-f",
     is_flag=True,
     help="Confirm deletion (required)",
 )
@@ -503,10 +506,11 @@ def start(ctx: click.Context, name: str) -> None:
 
     try:
         # Verify project exists
-        project_info = service.get_project(name)
+        service.get_project(name)
 
         # Start the service
         import subprocess
+
         subprocess.run(
             ["systemctl", "start", f"hostkit-{name}"],
             check=True,
@@ -515,6 +519,7 @@ def start(ctx: click.Context, name: str) -> None:
 
         # Update status
         from hostkit.database import get_db
+
         get_db().update_project_status(name, "running")
 
         formatter.success(
@@ -547,10 +552,11 @@ def stop(ctx: click.Context, name: str) -> None:
 
     try:
         # Verify project exists
-        project_info = service.get_project(name)
+        service.get_project(name)
 
         # Stop the service
         import subprocess
+
         subprocess.run(
             ["systemctl", "stop", f"hostkit-{name}"],
             check=True,
@@ -559,6 +565,7 @@ def stop(ctx: click.Context, name: str) -> None:
 
         # Update status
         from hostkit.database import get_db
+
         get_db().update_project_status(name, "stopped")
 
         formatter.success(
@@ -590,10 +597,11 @@ def restart(ctx: click.Context, name: str) -> None:
 
     try:
         # Verify project exists
-        project_info = service.get_project(name)
+        service.get_project(name)
 
         # Restart the service
         import subprocess
+
         subprocess.run(
             ["systemctl", "restart", f"hostkit-{name}"],
             check=True,
@@ -602,6 +610,7 @@ def restart(ctx: click.Context, name: str) -> None:
 
         # Update status
         from hostkit.database import get_db
+
         get_db().update_project_status(name, "running")
 
         formatter.success(
@@ -622,7 +631,8 @@ def restart(ctx: click.Context, name: str) -> None:
 @project.command("regenerate-sudoers")
 @click.argument("name", required=False)
 @click.option(
-    "--all", "all_projects",
+    "--all",
+    "all_projects",
     is_flag=True,
     help="Regenerate sudoers for all projects",
 )

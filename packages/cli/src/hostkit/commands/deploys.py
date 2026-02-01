@@ -3,7 +3,7 @@
 import click
 
 from hostkit.output import OutputFormatter
-from hostkit.services.rate_limit_service import RateLimitService, RateLimitError
+from hostkit.services.rate_limit_service import RateLimitError, RateLimitService
 
 
 def get_formatter(ctx: click.Context) -> OutputFormatter:
@@ -82,7 +82,12 @@ def deploys(ctx: click.Context, project: str, since: str | None, limit: int) -> 
             click.echo(f"\n{title} ({len(history)} total):\n")
 
             # Header
-            click.echo(f"{'ID':<5} {'Time':<20} {'Status':<8} {'Duration':<10} {'Files':<7} {'By':<12} {'Override'}")
+            header = (
+                f"{'ID':<5} {'Time':<20} {'Status':<8} "
+                f"{'Duration':<10} {'Files':<7} {'By':<12} "
+                f"{'Override'}"
+            )
+            click.echo(header)
             click.echo("-" * 85)
 
             for d in history:
@@ -99,7 +104,7 @@ def deploys(ctx: click.Context, project: str, since: str | None, limit: int) -> 
                 if d["duration_ms"]:
                     secs = d["duration_ms"] / 1000
                     if secs >= 60:
-                        duration = f"{secs/60:.1f}m"
+                        duration = f"{secs / 60:.1f}m"
                     else:
                         duration = f"{secs:.1f}s"
                 else:
@@ -114,7 +119,13 @@ def deploys(ctx: click.Context, project: str, since: str | None, limit: int) -> 
                 # Truncate deployed_by
                 deployed_by = d["deployed_by"][:12] if d["deployed_by"] else "-"
 
-                click.echo(f"{d['id']:<5} {time_str:<20} {status:<17} {duration:<10} {files:<7} {deployed_by:<12} {override}")
+                row = (
+                    f"{d['id']:<5} {time_str:<20} "
+                    f"{status:<17} {duration:<10} "
+                    f"{files:<7} {deployed_by:<12} "
+                    f"{override}"
+                )
+                click.echo(row)
 
                 # Show error if failed
                 if not d["success"] and d["error_message"]:
@@ -128,7 +139,9 @@ def deploys(ctx: click.Context, project: str, since: str | None, limit: int) -> 
             fail_count = len(history) - success_count
 
             if fail_count > 0:
-                click.echo(f"Summary: {click.style(str(success_count), fg='green')} succeeded, {click.style(str(fail_count), fg='red')} failed")
+                ok = click.style(str(success_count), fg="green")
+                fail = click.style(str(fail_count), fg="red")
+                click.echo(f"Summary: {ok} succeeded, {fail} failed")
             else:
                 click.echo(f"Summary: {click.style(str(success_count), fg='green')} succeeded")
             click.echo()

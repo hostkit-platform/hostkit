@@ -7,7 +7,7 @@ import click
 from hostkit.access import project_access, root_only
 from hostkit.output import OutputFormatter
 from hostkit.services.auth_service import AuthService, AuthServiceError
-from hostkit.services.secrets_service import get_secrets_service, SecretsServiceError
+from hostkit.services.secrets_service import SecretsServiceError, get_secrets_service
 
 
 @click.group()
@@ -78,6 +78,7 @@ def auth_enable(
 
         # Auto-sync JWT public key to project's .env file
         from pathlib import Path
+
         env_path = Path(f"/home/{project}/.env")
         public_key_path = Path(f"/home/{project}/.auth/jwt_public.pem")
 
@@ -99,7 +100,8 @@ def auth_enable(
                     new_lines.append(line)
 
             if not updated:
-                new_lines.append(f'\n# JWT Public Key (auto-synced by HostKit Auth)\nAUTH_JWT_PUBLIC_KEY="{escaped_key}"\n')
+                comment = "# JWT Public Key (auto-synced by HostKit Auth)"
+                new_lines.append(f'\n{comment}\nAUTH_JWT_PUBLIC_KEY="{escaped_key}"\n')
 
             with open(env_path, "w") as f:
                 f.writelines(new_lines)
@@ -186,7 +188,11 @@ def auth_disable(ctx: click.Context, project: str, force: bool) -> None:
 @click.option("--magic-link/--no-magic-link", default=None, help="Enable/disable magic links")
 @click.option("--anonymous/--no-anonymous", default=None, help="Enable/disable anonymous sessions")
 @click.option("--from-secrets", is_flag=True, help="Read OAuth credentials from secrets vault")
-@click.option("--from-platform", is_flag=True, help="Read OAuth credentials from platform config (/etc/hostkit/oauth.ini)")
+@click.option(
+    "--from-platform",
+    is_flag=True,
+    help="Read OAuth credentials from platform config (/etc/hostkit/oauth.ini)",
+)
 @click.option("--no-restart", is_flag=True, help="Don't restart auth service after config changes")
 @click.pass_context
 @project_access("project")
@@ -283,7 +289,12 @@ def auth_config(
                 formatter.error(
                     code="NO_SECRETS_FOUND",
                     message=f"No OAuth secrets found in vault for '{project}'",
-                    suggestion=f"Store secrets with 'hostkit secrets set {project} GOOGLE_CLIENT_ID' or define them via 'hostkit secrets define {project} --from .env.example'",
+                    suggestion=(
+                        f"Store secrets with 'hostkit secrets set"
+                        f" {project} GOOGLE_CLIENT_ID' or define"
+                        f" them via 'hostkit secrets define"
+                        f" {project} --from .env.example'"
+                    ),
                 )
                 raise SystemExit(1)
 
@@ -298,7 +309,9 @@ def auth_config(
                 formatter.error(
                     code="PLATFORM_CONFIG_NOT_FOUND",
                     message="Platform OAuth config not found at /etc/hostkit/oauth.ini",
-                    suggestion="Platform OAuth credentials must be configured by HostKit administrator",
+                    suggestion=(
+                        "Platform OAuth credentials must be configured by HostKit administrator"
+                    ),
                 )
                 raise SystemExit(1)
 
@@ -351,24 +364,30 @@ def auth_config(
                 formatter.error(
                     code="NO_PLATFORM_CREDENTIALS",
                     message="No OAuth credentials found in platform config",
-                    suggestion="Platform OAuth credentials must be configured by HostKit administrator in /etc/hostkit/oauth.ini",
+                    suggestion=(
+                        "Platform OAuth credentials must be"
+                        " configured by HostKit administrator"
+                        " in /etc/hostkit/oauth.ini"
+                    ),
                 )
                 raise SystemExit(1)
 
         # Check if any updates were requested
-        has_updates = any([
-            settings,
-            base_url is not None,
-            google_client_id is not None,
-            google_web_client_id is not None,
-            google_client_secret is not None,
-            apple_client_id is not None,
-            apple_team_id is not None,
-            apple_key_id is not None,
-            email is not None,
-            magic_link is not None,
-            anonymous is not None,
-        ])
+        has_updates = any(
+            [
+                settings,
+                base_url is not None,
+                google_client_id is not None,
+                google_web_client_id is not None,
+                google_client_secret is not None,
+                apple_client_id is not None,
+                apple_team_id is not None,
+                apple_key_id is not None,
+                email is not None,
+                magic_link is not None,
+                anonymous is not None,
+            ]
+        )
 
         if has_updates:
             # Handle base_url update (modifies config.py directly)
@@ -382,9 +401,7 @@ def auth_config(
                     content = config_path.read_text()
                     # Update the base_url line in config.py
                     new_content = re.sub(
-                        r'base_url: str = "[^"]*"',
-                        f'base_url: str = "{base_url}"',
-                        content
+                        r'base_url: str = "[^"]*"', f'base_url: str = "{base_url}"', content
                     )
                     if new_content != content:
                         config_path.write_text(new_content)
@@ -466,7 +483,8 @@ def auth_config(
                 updated["oauth_env_injected"] = oauth_env_injected
 
             formatter.success(
-                message=f"Configuration updated for '{project}'" + (" (auth service restarted)" if service_restarted else ""),
+                message=f"Configuration updated for '{project}'"
+                + (" (auth service restarted)" if service_restarted else ""),
                 data=updated,
             )
         else:
@@ -486,17 +504,21 @@ def auth_config(
                 click.echo(f"  Auth DB User:  {config['auth_db_user']}")
 
                 click.echo("\n  Providers:")
-                click.echo(f"    Email/Password: {'Enabled' if config['email_enabled'] else 'Disabled'}")
-                click.echo(f"    Magic Links:    {'Enabled' if config['magic_link_enabled'] else 'Disabled'}")
-                click.echo(f"    Anonymous:      {'Enabled' if config['anonymous_enabled'] else 'Disabled'}")
+                click.echo(
+                    f"    Email/Password: {'Enabled' if config['email_enabled'] else 'Disabled'}"
+                )
+                ml_status = "Enabled" if config["magic_link_enabled"] else "Disabled"
+                click.echo(f"    Magic Links:    {ml_status}")
+                anon_status = "Enabled" if config["anonymous_enabled"] else "Disabled"
+                click.echo(f"    Anonymous:      {anon_status}")
 
                 click.echo("\n  OAuth:")
-                if config.get('google_client_id'):
+                if config.get("google_client_id"):
                     click.echo(f"    Google: Configured (ID: {config['google_client_id'][:12]}...)")
                 else:
                     click.echo("    Google: Not configured")
 
-                if config.get('apple_client_id'):
+                if config.get("apple_client_id"):
                     click.echo(f"    Apple:  Configured (ID: {config['apple_client_id'][:12]}...)")
                 else:
                     click.echo("    Apple:  Not configured")
@@ -527,7 +549,8 @@ def auth_status(ctx: click.Context, project: str | None) -> None:
     service = AuthService()
 
     # Access control: if project specified, check access; otherwise require root
-    from hostkit.access import require_project_access, require_root, AccessDeniedError
+    from hostkit.access import AccessDeniedError, require_project_access, require_root
+
     try:
         if project:
             require_project_access(project)
@@ -558,16 +581,24 @@ def auth_status(ctx: click.Context, project: str | None) -> None:
                     click.echo("  Status: ENABLED")
                     click.echo(f"  Auth Port: {status['auth_port']}")
                     click.echo(f"  Auth DB: {status['auth_db']}")
-                    click.echo(f"  JWT Keys: {'Present' if status['jwt_keys_exist'] else 'Missing'}")
+                    click.echo(
+                        f"  JWT Keys: {'Present' if status['jwt_keys_exist'] else 'Missing'}"
+                    )
                     click.echo(f"  Created: {status['created_at']}")
 
                     click.echo("\n  Providers:")
                     providers = status["providers"]
-                    click.echo(f"    Email/Password: {'Enabled' if providers.get('email') else 'Disabled'}")
-                    click.echo(f"    Magic Links:    {'Enabled' if providers.get('magic_link') else 'Disabled'}")
-                    click.echo(f"    Anonymous:      {'Enabled' if providers.get('anonymous') else 'Disabled'}")
-                    click.echo(f"    Google OAuth:   {'Configured' if providers.get('google') else 'Not configured'}")
-                    click.echo(f"    Apple Sign-In:  {'Configured' if providers.get('apple') else 'Not configured'}")
+                    click.echo(
+                        f"    Email/Password: {'Enabled' if providers.get('email') else 'Disabled'}"
+                    )
+                    ml = "Enabled" if providers.get("magic_link") else "Disabled"
+                    click.echo(f"    Magic Links:    {ml}")
+                    anon = "Enabled" if providers.get("anonymous") else "Disabled"
+                    click.echo(f"    Anonymous:      {anon}")
+                    google = "Configured" if providers.get("google") else "Not configured"
+                    click.echo(f"    Google OAuth:   {google}")
+                    apple = "Configured" if providers.get("apple") else "Not configured"
+                    click.echo(f"    Apple Sign-In:  {apple}")
         else:
             # All projects summary
             if ctx.obj["json_mode"]:
@@ -578,9 +609,7 @@ def auth_status(ctx: click.Context, project: str | None) -> None:
             else:
                 click.echo("\nAuthentication Status")
                 click.echo("-" * 70)
-                click.echo(
-                    f"{'PROJECT':<20} {'STATUS':<10} {'PORT':<8} {'PROVIDERS':<30}"
-                )
+                click.echo(f"{'PROJECT':<20} {'STATUS':<10} {'PORT':<8} {'PROVIDERS':<30}")
                 click.echo("-" * 70)
 
                 for proj_status in status["projects"]:
@@ -658,18 +687,16 @@ def auth_users(
         else:
             click.echo(f"\nAuth Users: {project}")
             click.echo("-" * 90)
-            click.echo(
-                f"{'ID':<36} {'EMAIL':<30} {'VERIFIED':<10} {'PROVIDERS':<14}"
-            )
+            click.echo(f"{'ID':<36} {'EMAIL':<30} {'VERIFIED':<10} {'PROVIDERS':<14}")
             click.echo("-" * 90)
 
             for user in users:
-                user_id = user['id']
-                email = user.get('email') or '(anonymous)'
+                user_id = user["id"]
+                email = user.get("email") or "(anonymous)"
                 if len(email) > 28:
-                    email = email[:25] + '...'
-                verified = 'Yes' if user.get('email_verified') else 'No'
-                providers = ', '.join(user.get('providers', [])) or 'email'
+                    email = email[:25] + "..."
+                verified = "Yes" if user.get("email_verified") else "No"
+                providers = ", ".join(user.get("providers", [])) or "email"
 
                 click.echo(f"{user_id:<36} {email:<30} {verified:<10} {providers:<14}")
 
@@ -782,6 +809,7 @@ def auth_sync(ctx: click.Context, project: str) -> None:
         hostkit auth sync myapp
     """
     from pathlib import Path
+
     from hostkit.database import get_db
 
     formatter: OutputFormatter = ctx.obj["formatter"]
@@ -941,7 +969,11 @@ def auth_export_key(
             raise AuthServiceError(
                 code="KEY_NOT_FOUND",
                 message=f"Public key not found at {public_key_path}",
-                suggestion="Re-enable auth to regenerate keys: hostkit auth disable {project} --force && hostkit auth enable {project}",
+                suggestion=(
+                    f"Re-enable auth to regenerate keys:"
+                    f" hostkit auth disable {project} --force"
+                    f" && hostkit auth enable {project}"
+                ),
             )
 
         # Read the key content
@@ -975,7 +1007,8 @@ def auth_export_key(
 
             if not updated:
                 # Add the key if not present
-                new_lines.append(f'\n# JWT Public Key (inline for Edge runtime)\nAUTH_JWT_PUBLIC_KEY="{escaped_key}"\n')
+                comment = "# JWT Public Key (inline for Edge runtime)"
+                new_lines.append(f'\n{comment}\nAUTH_JWT_PUBLIC_KEY="{escaped_key}"\n')
 
             with open(env_path, "w") as f:
                 f.writelines(new_lines)

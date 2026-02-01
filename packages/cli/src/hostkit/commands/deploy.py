@@ -1,15 +1,16 @@
 """Deploy command for HostKit."""
 
 import time
-import click
 from pathlib import Path
 
-from hostkit.access import project_owner, get_access_context, AccessLevel
+import click
+
+from hostkit.access import project_owner
 from hostkit.database import get_db
 from hostkit.output import OutputFormatter
-from hostkit.services.deploy_service import DeployService, DeployServiceError
 from hostkit.services.alert_service import send_alert
 from hostkit.services.auto_pause_service import AutoPauseService
+from hostkit.services.deploy_service import DeployService, DeployServiceError
 from hostkit.services.event_service import EventService
 
 
@@ -145,7 +146,9 @@ def deploy(
             formatter.error(
                 code="ENVIRONMENT_NOT_FOUND",
                 message=f"Environment '{env_name}' not found for project '{project}'",
-                suggestion=f"Run 'hostkit environment list {project}' to see available environments",
+                suggestion=(
+                    f"Run 'hostkit environment list {project}' to see available environments"
+                ),
             )
             raise SystemExit(1)
 
@@ -194,8 +197,11 @@ def deploy(
                 code="SOURCE_NOT_FOUND",
                 message="Default source directory './app' does not exist on VPS",
                 suggestion=(
-                    "Specify a source with --source, use --git for repository, or deploy from local:\n"
-                    f"  hostkit_deploy_local MCP tool for local machine deployments"
+                    "Specify a source with --source, "
+                    "use --git for repository, "
+                    "or deploy from local:\n"
+                    "  hostkit_deploy_local MCP tool"
+                    " for local machine deployments"
                 ),
             )
             raise SystemExit(1)
@@ -304,7 +310,9 @@ def deploy(
             formatter.success(data, message=", ".join(status_parts))
             # Show validation warning
             click.echo()
-            click.echo(click.style("WARNING: Post-deploy validation failed", fg="yellow", bold=True))
+            click.echo(
+                click.style("WARNING: Post-deploy validation failed", fg="yellow", bold=True)
+            )
             if result.validation_message:
                 click.echo(f"  {result.validation_message}")
             click.echo("  The service may not be running correctly.")
@@ -380,10 +388,14 @@ def deploy(
                     # Project was just paused
                     if not formatter.json_mode:
                         click.echo()
-                        click.echo(click.style(
-                            f"WARNING: Project '{project}' has been auto-paused due to repeated failures.",
-                            fg="yellow", bold=True
-                        ))
+                        click.echo(
+                            click.style(
+                                f"WARNING: Project '{project}' has been "
+                                "auto-paused due to repeated failures.",
+                                fg="yellow",
+                                bold=True,
+                            )
+                        )
                         click.echo(f"Run 'hostkit resume {project}' to continue.")
             except Exception:
                 pass  # Auto-pause check is non-blocking
@@ -422,10 +434,14 @@ def deploy(
                     # Project was just paused
                     if not formatter.json_mode:
                         click.echo()
-                        click.echo(click.style(
-                            f"WARNING: Project '{project}' has been auto-paused due to repeated failures.",
-                            fg="yellow", bold=True
-                        ))
+                        click.echo(
+                            click.style(
+                                f"WARNING: Project '{project}' has been "
+                                "auto-paused due to repeated failures.",
+                                fg="yellow",
+                                bold=True,
+                            )
+                        )
                         click.echo(f"Run 'hostkit resume {project}' to continue.")
             except Exception:
                 pass  # Auto-pause check is non-blocking

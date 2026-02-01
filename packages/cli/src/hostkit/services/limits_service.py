@@ -246,15 +246,27 @@ class LimitsService:
             defaults = ResourceLimits.default(project_name)
             updated = self.db.create_resource_limits(
                 project_name,
-                cpu_quota=cpu_quota if cpu_quota is not None else (None if unlimited else defaults.cpu_quota),
-                memory_max_mb=memory_max_mb if memory_max_mb is not None else (None if unlimited else defaults.memory_max_mb),
-                memory_high_mb=memory_high_mb if memory_high_mb is not None else (None if unlimited else defaults.memory_high_mb),
-                tasks_max=tasks_max if tasks_max is not None else (None if unlimited else defaults.tasks_max),
-                disk_quota_mb=disk_quota_mb if disk_quota_mb is not None else (None if unlimited else defaults.disk_quota_mb),
+                cpu_quota=cpu_quota
+                if cpu_quota is not None
+                else (None if unlimited else defaults.cpu_quota),
+                memory_max_mb=memory_max_mb
+                if memory_max_mb is not None
+                else (None if unlimited else defaults.memory_max_mb),
+                memory_high_mb=memory_high_mb
+                if memory_high_mb is not None
+                else (None if unlimited else defaults.memory_high_mb),
+                tasks_max=tasks_max
+                if tasks_max is not None
+                else (None if unlimited else defaults.tasks_max),
+                disk_quota_mb=disk_quota_mb
+                if disk_quota_mb is not None
+                else (None if unlimited else defaults.disk_quota_mb),
                 enabled=enabled if enabled is not None else True,
             )
 
-        return ResourceLimits.from_dict(updated) if updated else ResourceLimits.default(project_name)
+        return (
+            ResourceLimits.from_dict(updated) if updated else ResourceLimits.default(project_name)
+        )
 
     def reset_limits(self, project_name: str) -> ResourceLimits:
         """Reset resource limits to defaults.
@@ -450,7 +462,9 @@ class LimitsService:
             if status.over_quota:
                 return {
                     "warning": "OVER_DISK_QUOTA",
-                    "message": f"Project exceeds disk quota ({status.total_mb}MB / {status.quota_mb}MB)",
+                    "message": (
+                        f"Project exceeds disk quota ({status.total_mb}MB / {status.quota_mb}MB)"
+                    ),
                     "suggestion": "Consider cleaning up files or increasing the quota",
                     "usage": status.to_dict(),
                 }

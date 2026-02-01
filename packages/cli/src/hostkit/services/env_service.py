@@ -408,9 +408,9 @@ class EnvService:
 
         current_vars = self._read_env_file(project)
 
-        added = []      # In current but not in snapshot
-        removed = []    # In snapshot but not in current
-        changed = []    # Different values
+        added = []  # In current but not in snapshot
+        removed = []  # In snapshot but not in current
+        changed = []  # Different values
 
         snapshot_keys = set(snapshot_vars.keys())
         current_keys = set(current_vars.keys())
@@ -423,11 +423,17 @@ class EnvService:
 
         for key in snapshot_keys & current_keys:
             if snapshot_vars[key] != current_vars[key]:
-                changed.append({
-                    "key": key,
-                    "snapshot_value": snapshot_vars[key] if not self._is_secret_key(key) else "********",
-                    "current_value": current_vars[key] if not self._is_secret_key(key) else "********",
-                })
+                changed.append(
+                    {
+                        "key": key,
+                        "snapshot_value": snapshot_vars[key]
+                        if not self._is_secret_key(key)
+                        else "********",
+                        "current_value": current_vars[key]
+                        if not self._is_secret_key(key)
+                        else "********",
+                    }
+                )
 
         return {
             "project": project,

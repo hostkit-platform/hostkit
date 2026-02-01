@@ -1,6 +1,5 @@
 """Execute arbitrary commands in project context for HostKit."""
 
-import os
 import shlex
 import subprocess
 
@@ -154,15 +153,11 @@ def exec_cmd(
                 click.echo(click.style("Command completed successfully", fg="green"))
             else:
                 click.echo(
-                    click.style(
-                        f"Command failed with exit code {result.returncode}", fg="red"
-                    )
+                    click.style(f"Command failed with exit code {result.returncode}", fg="red")
                 )
                 raise SystemExit(result.returncode)
 
         except subprocess.TimeoutExpired:
             click.echo("-" * 60)
-            click.echo(
-                click.style(f"Command timed out after {timeout} seconds", fg="red")
-            )
+            click.echo(click.style(f"Command timed out after {timeout} seconds", fg="red"))
             raise SystemExit(1)

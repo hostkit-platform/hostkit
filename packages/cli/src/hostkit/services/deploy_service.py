@@ -10,8 +10,8 @@ from typing import TYPE_CHECKING
 
 from hostkit.config import get_config
 from hostkit.database import get_db
-from hostkit.services.release_service import Release, ReleaseService
 from hostkit.services.build_detector import BuildDetector, BuildType
+from hostkit.services.release_service import Release, ReleaseService
 
 if TYPE_CHECKING:
     from hostkit.services.git_service import GitInfo
@@ -118,7 +118,8 @@ class DeployService:
             )
 
         # Step 0a: Check if project is paused (auto-pause)
-        from hostkit.services.auto_pause_service import AutoPauseService, AutoPauseError
+        from hostkit.services.auto_pause_service import AutoPauseError, AutoPauseService
+
         auto_pause_service = AutoPauseService()
 
         try:
@@ -131,7 +132,8 @@ class DeployService:
             )
 
         # Step 0b: Check rate limit (unless override)
-        from hostkit.services.rate_limit_service import RateLimitService, RateLimitError
+        from hostkit.services.rate_limit_service import RateLimitError, RateLimitService
+
         rate_limit_service = RateLimitService()
 
         if not override_ratelimit:
@@ -158,10 +160,14 @@ class DeployService:
             # Check if this looks like a local workstation path
             source_str = str(source)
             looks_like_local = (
-                source_str.startswith("/Users/") or      # macOS
-                source_str.startswith("/home/") and not source_str.startswith("/home/" + project) or  # Linux home (but not project dir)
-                source_str.startswith("C:\\") or         # Windows
-                source_str.startswith("./") and "/" in source_str[2:]  # Relative with nested dirs
+                source_str.startswith("/Users/")  # macOS
+                or source_str.startswith("/home/")
+                and not source_str.startswith(
+                    "/home/" + project
+                )  # Linux home (but not project dir)
+                or source_str.startswith("C:\\")  # Windows
+                or source_str.startswith("./")
+                and "/" in source_str[2:]  # Relative with nested dirs
             )
 
             if looks_like_local:
@@ -248,6 +254,7 @@ class DeployService:
         env_snapshot_captured = False
         try:
             from hostkit.services.env_service import EnvService
+
             env_service = EnvService()
             env_snapshot = env_service.capture_snapshot(project)
             env_snapshot_captured = True
@@ -259,10 +266,11 @@ class DeployService:
         if self._project_has_database(project):
             try:
                 from hostkit.services.checkpoint_service import CheckpointService
+
                 checkpoint_service = CheckpointService()
                 checkpoint = checkpoint_service.create_checkpoint(
                     project_name=project,
-                    label=f"pre-deploy",
+                    label="pre-deploy",
                     checkpoint_type="pre_deploy",
                     trigger_source="deploy",
                 )
@@ -332,9 +340,7 @@ class DeployService:
         # Step 6 (continued): Now install dependencies with symlink active
         iron_session_installed = False
         if install_deps:
-            deps_installed, iron_session_installed = self._install_dependencies(
-                project, runtime
-            )
+            deps_installed, iron_session_installed = self._install_dependencies(project, runtime)
 
         # Step 9: Inject secrets if requested
         secrets_injected = False
@@ -444,14 +450,17 @@ class DeployService:
                 raise DeployServiceError(
                     code="GIT_NOT_CONFIGURED",
                     message=f"No git repository configured for project '{project}'",
-                    suggestion="Run 'hostkit git config <project> --repo <url>' or provide --git <url>",
+                    suggestion=(
+                        "Run 'hostkit git config <project> --repo <url>' or provide --git <url>"
+                    ),
                 )
             repo_url = git_config.repo_url
             if not branch and not tag and not commit:
                 branch = git_config.default_branch
 
         # Step 0a: Check if project is paused (auto-pause)
-        from hostkit.services.auto_pause_service import AutoPauseService, AutoPauseError
+        from hostkit.services.auto_pause_service import AutoPauseError, AutoPauseService
+
         auto_pause_service = AutoPauseService()
 
         try:
@@ -464,7 +473,8 @@ class DeployService:
             )
 
         # Step 0b: Check rate limit (unless override)
-        from hostkit.services.rate_limit_service import RateLimitService, RateLimitError
+        from hostkit.services.rate_limit_service import RateLimitError, RateLimitService
+
         rate_limit_service = RateLimitService()
 
         if not override_ratelimit:
@@ -522,6 +532,7 @@ class DeployService:
             env_snapshot_captured = False
             try:
                 from hostkit.services.env_service import EnvService
+
                 env_service = EnvService()
                 env_snapshot = env_service.capture_snapshot(project)
                 env_snapshot_captured = True
@@ -533,6 +544,7 @@ class DeployService:
             if self._project_has_database(project):
                 try:
                     from hostkit.services.checkpoint_service import CheckpointService
+
                     checkpoint_service = CheckpointService()
                     checkpoint = checkpoint_service.create_checkpoint(
                         project_name=project,
@@ -554,8 +566,10 @@ class DeployService:
                     code="NEXTJS_STANDALONE_INCOMPLETE",
                     message=detection.warning,
                     suggestion=(
-                        "Next.js standalone builds require node_modules in the standalone directory. "
-                        "Make sure the repository includes the built .next/standalone directory."
+                        "Next.js standalone builds require node_modules"
+                        " in the standalone directory. Make sure the"
+                        " repository includes the built"
+                        " .next/standalone directory."
                     ),
                 )
 
@@ -676,6 +690,7 @@ class DeployService:
     def _project_has_database(self, project: str) -> bool:
         """Check if a project has a database."""
         from hostkit.services.database_service import DatabaseService
+
         try:
             db_service = DatabaseService()
             return db_service.database_exists(project)
@@ -741,9 +756,7 @@ class DeployService:
 
         # Fix ownership
         try:
-            subprocess.run(
-                ["chown", "-R", f"{project}:{project}", str(target)], check=True
-            )
+            subprocess.run(["chown", "-R", f"{project}:{project}", str(target)], check=True)
         except subprocess.CalledProcessError:
             # Non-fatal - files were synced but ownership may be wrong
             pass
@@ -855,6 +868,7 @@ class DeployService:
             package_json_path = work_dir / "package.json"
             if package_json_path.exists():
                 import json
+
                 try:
                     with open(package_json_path) as f:
                         package_data = json.load(f)
@@ -1015,7 +1029,7 @@ class DeployService:
             # The server.js is at the root of the app directory after standalone deploy
             new_content = content.replace(
                 "ExecStart=/usr/bin/npm start",
-                f"ExecStart=/usr/bin/node /home/{project}/app/server.js"
+                f"ExecStart=/usr/bin/node /home/{project}/app/server.js",
             )
 
             if new_content == content:
@@ -1063,10 +1077,11 @@ class DeployService:
 
             # Replace node server.js with npm start
             import re
+
             new_content = re.sub(
                 rf"ExecStart=/usr/bin/node /home/{project}/app/server\.js",
                 "ExecStart=/usr/bin/npm start",
-                content
+                content,
             )
 
             if new_content == content:
@@ -1099,7 +1114,12 @@ class DeployService:
         # Common error patterns to look for (order matters - more specific first)
         patterns = [
             # Next.js specific - standalone node_modules missing
-            ("Cannot find module 'next'", "Next.js standalone node_modules missing. Check source includes .next/standalone/.../node_modules"),
+            (
+                "Cannot find module 'next'",
+                "Next.js standalone node_modules missing."
+                " Check source includes"
+                " .next/standalone/.../node_modules",
+            ),
             # General patterns
             ("ModuleNotFoundError:", "Missing Python module. Run deploy with --install"),
             ("ImportError:", "Import error. Check dependencies with --install"),
@@ -1119,9 +1139,7 @@ class DeployService:
 
         return "Check logs with: hostkit service logs <project>"
 
-    def _build_app(
-        self, project: str, source: Path, runtime: str
-    ) -> tuple[str, Path]:
+    def _build_app(self, project: str, source: Path, runtime: str) -> tuple[str, Path]:
         """
         Build the application in a temporary directory.
 
@@ -1153,12 +1171,18 @@ class DeployService:
             cmd = [
                 "rsync",
                 "-av",
-                "--exclude", "__pycache__",
-                "--exclude", "*.pyc",
-                "--exclude", ".git",
-                "--exclude", "node_modules",
-                "--exclude", ".next",
-                "--exclude", "dist",
+                "--exclude",
+                "__pycache__",
+                "--exclude",
+                "*.pyc",
+                "--exclude",
+                ".git",
+                "--exclude",
+                "node_modules",
+                "--exclude",
+                ".next",
+                "--exclude",
+                "dist",
                 f"{source}/",
                 f"{build_dir}/",
             ]
@@ -1214,6 +1238,7 @@ class DeployService:
 
             # Check if there's a build script
             import json
+
             try:
                 with open(package_json) as f:
                     pkg = json.load(f)
@@ -1226,7 +1251,9 @@ class DeployService:
                 raise DeployServiceError(
                     code="NO_BUILD_SCRIPT",
                     message="No 'build' script found in package.json",
-                    suggestion="Add a build script to your package.json, e.g., \"build\": \"next build\"",
+                    suggestion=(
+                        'Add a build script to your package.json, e.g., "build": "next build"'
+                    ),
                 )
 
             # Run npm install

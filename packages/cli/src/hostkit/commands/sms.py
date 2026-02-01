@@ -1,7 +1,8 @@
 """SMS service management commands for HostKit."""
 
-import click
 import json
+
+import click
 
 from hostkit.access import project_access, project_owner
 from hostkit.output import OutputFormatter
@@ -26,7 +27,13 @@ def sms(ctx: click.Context) -> None:
 @click.option("--agent", help="Default AI agent name")
 @click.pass_context
 @project_owner("project")
-def sms_enable(ctx: click.Context, project: str, phone_number: str | None, ai: bool, agent: str | None) -> None:
+def sms_enable(
+    ctx: click.Context,
+    project: str,
+    phone_number: str | None,
+    ai: bool,
+    agent: str | None,
+) -> None:
     """Enable SMS service for a project.
 
     Creates SMS database tables, configures Twilio webhooks,
@@ -133,11 +140,11 @@ def sms_status(ctx: click.Context, project: str) -> None:
                 click.echo("  Status: DISABLED")
                 click.echo(f"\n  Enable with: hostkit sms enable {project}")
             else:
-                click.echo(f"  Status: ENABLED")
+                click.echo("  Status: ENABLED")
                 click.echo(f"  Phone Number: {status['phone_number']}")
                 click.echo(f"  SMS Port: {status['sms_port']}")
                 click.echo(f"  AI Enabled: {status['ai_enabled']}")
-                if status['default_agent']:
+                if status["default_agent"]:
                     click.echo(f"  Default Agent: {status['default_agent']}")
                 click.echo(f"  Messages Today: {status['messages_today']}")
                 click.echo(f"  Active Conversations: {status['active_conversations']}")
@@ -172,7 +179,8 @@ def sms_send(
     Consent checking is enforced unless --skip-consent (OTP only).
 
     Example:
-        hostkit sms send myapp --to +15551234567 --template booking_confirmation --vars '{"name":"John"}'
+        hostkit sms send myapp --to +15551234567 \\
+            --template booking_confirmation --vars '{"name":"John"}'
         hostkit sms send myapp --to +15551234567 --body "Your code is 123456" --skip-consent
     """
     formatter: OutputFormatter = ctx.obj["formatter"]
@@ -228,7 +236,11 @@ def sms_send(
 @click.argument("project")
 @click.argument("name", required=False)
 @click.option("--body", help="Template body text")
-@click.option("--category", type=click.Choice(["transactional", "marketing", "otp"]), default="transactional")
+@click.option(
+    "--category",
+    type=click.Choice(["transactional", "marketing", "otp"]),
+    default="transactional",
+)
 @click.option("--no-opt-out", is_flag=True, help="Don't append opt-out text")
 @click.option("--force", is_flag=True, help="Confirm deletion")
 @click.pass_context
@@ -249,7 +261,8 @@ def sms_template(
 
     Examples:
         hostkit sms template list myapp
-        hostkit sms template create myapp welcome --body "Welcome {{name}}!" --category transactional
+        hostkit sms template create myapp welcome \\
+            --body "Welcome {{name}}!" --category transactional
         hostkit sms template show myapp welcome
         hostkit sms template delete myapp welcome --force
     """
@@ -265,7 +278,10 @@ def sms_template(
                 click.echo(f"\nSMS Templates: {project}")
                 click.echo("-" * 60)
                 for tmpl in templates:
-                    click.echo(f"  {tmpl['name']} ({tmpl['category']}) - Sent {tmpl['times_sent']} times")
+                    name = tmpl["name"]
+                    cat = tmpl["category"]
+                    sent = tmpl["times_sent"]
+                    click.echo(f"  {name} ({cat}) - Sent {sent} times")
 
         elif action == "create":
             if not name or not body:
@@ -287,7 +303,11 @@ def sms_template(
 
         elif action == "show":
             if not name:
-                formatter.error(code="MISSING_NAME", message="Template name required", suggestion="Provide template name")
+                formatter.error(
+                    code="MISSING_NAME",
+                    message="Template name required",
+                    suggestion="Provide template name",
+                )
                 raise SystemExit(1)
 
             template = service.get_template(project, name)
@@ -303,21 +323,37 @@ def sms_template(
 
         elif action == "update":
             if not name:
-                formatter.error(code="MISSING_NAME", message="Template name required", suggestion="Provide template name")
+                formatter.error(
+                    code="MISSING_NAME",
+                    message="Template name required",
+                    suggestion="Provide template name",
+                )
                 raise SystemExit(1)
 
-            result = service.update_template(project=project, name=name, body=body, category=category)
+            result = service.update_template(
+                project=project,
+                name=name,
+                body=body,
+                category=category,
+            )
             formatter.success(message=f"Template '{name}' updated", data=result)
 
         elif action == "delete":
             if not name:
-                formatter.error(code="MISSING_NAME", message="Template name required", suggestion="Provide template name")
+                formatter.error(
+                    code="MISSING_NAME",
+                    message="Template name required",
+                    suggestion="Provide template name",
+                )
                 raise SystemExit(1)
             if not force:
                 formatter.error(
                     code="FORCE_REQUIRED",
                     message="The --force flag is required to delete templates",
-                    suggestion=f"Add --force to confirm: 'hostkit sms template delete {project} {name} --force'",
+                    suggestion=(
+                        "Add --force to confirm: "
+                        f"'hostkit sms template delete {project} {name} --force'"
+                    ),
                 )
                 raise SystemExit(1)
 

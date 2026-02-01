@@ -1,10 +1,11 @@
 """SQLite database layer for HostKit."""
 
 import sqlite3
+from collections.abc import Generator
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Generator
+from typing import Any
 
 from hostkit.config import get_config
 
@@ -539,7 +540,10 @@ CREATE TABLE IF NOT EXISTS voice_sentiment_analysis (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     call_id INTEGER NOT NULL,
     timestamp_seconds REAL NOT NULL,
-    sentiment TEXT CHECK(sentiment IN ('positive', 'neutral', 'negative', 'frustrated', 'confused', 'angry', 'satisfied')),
+    sentiment TEXT CHECK(sentiment IN (
+        'positive', 'neutral', 'negative',
+        'frustrated', 'confused', 'angry', 'satisfied'
+    )),
     score REAL NOT NULL,
     turn_id INTEGER,
     action_taken TEXT,
@@ -617,6 +621,7 @@ class Database:
     def _secure_db_permissions(self) -> None:
         """Set secure permissions on the database file (readable by owner only)."""
         import os
+
         if self.db_path.exists():
             try:
                 os.chmod(self.db_path, 0o600)
@@ -739,9 +744,7 @@ class Database:
                     FOREIGN KEY (project) REFERENCES projects(name) ON DELETE CASCADE
                 )
             """)
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_releases_project ON releases(project)"
-            )
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_releases_project ON releases(project)")
             conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_releases_current ON releases(project, is_current)"
             )
@@ -756,9 +759,7 @@ class Database:
             """)
 
             # Add created_by column to existing projects table
-            conn.execute(
-                "ALTER TABLE projects ADD COLUMN created_by TEXT DEFAULT 'root'"
-            )
+            conn.execute("ALTER TABLE projects ADD COLUMN created_by TEXT DEFAULT 'root'")
 
             conn.execute(
                 "INSERT INTO schema_version (version, applied_at) VALUES (?, ?)",
@@ -782,7 +783,9 @@ class Database:
                 "CREATE INDEX IF NOT EXISTS idx_ssl_rate_limits_project ON ssl_rate_limits(project)"
             )
             conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_ssl_rate_limits_attempted ON ssl_rate_limits(attempted_at)"
+                "CREATE INDEX IF NOT EXISTS "
+                "idx_ssl_rate_limits_attempted "
+                "ON ssl_rate_limits(attempted_at)"
             )
 
             # Add ssh_key_audit table
@@ -856,9 +859,7 @@ class Database:
                     FOREIGN KEY (project) REFERENCES projects(name) ON DELETE CASCADE
                 )
             """)
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_workers_project ON workers(project)"
-            )
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_workers_project ON workers(project)")
 
             # Add celery_beat table for beat scheduler
             conn.execute("""
@@ -893,7 +894,9 @@ class Database:
                 )
             """)
             conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_vector_projects_project ON vector_projects(project_name)"
+                "CREATE INDEX IF NOT EXISTS "
+                "idx_vector_projects_project "
+                "ON vector_projects(project_name)"
             )
 
             conn.execute(
@@ -903,9 +906,7 @@ class Database:
 
         if from_version < 9:
             # Add api_key column to vector_projects for CLI access
-            conn.execute(
-                "ALTER TABLE vector_projects ADD COLUMN api_key TEXT"
-            )
+            conn.execute("ALTER TABLE vector_projects ADD COLUMN api_key TEXT")
 
             # Add checkpoints table
             conn.execute("""
@@ -956,7 +957,9 @@ class Database:
                 )
             """)
             conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_alert_channels_project ON alert_channels(project_name)"
+                "CREATE INDEX IF NOT EXISTS "
+                "idx_alert_channels_project "
+                "ON alert_channels(project_name)"
             )
 
             # Add alert_history table
@@ -975,7 +978,9 @@ class Database:
                 )
             """)
             conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_alert_history_project ON alert_history(project_name)"
+                "CREATE INDEX IF NOT EXISTS "
+                "idx_alert_history_project "
+                "ON alert_history(project_name)"
             )
             conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_alert_history_created ON alert_history(created_at)"
@@ -988,9 +993,7 @@ class Database:
 
         if from_version < 11:
             # Add muted_until column to alert_channels for alert muting
-            conn.execute(
-                "ALTER TABLE alert_channels ADD COLUMN muted_until TEXT"
-            )
+            conn.execute("ALTER TABLE alert_channels ADD COLUMN muted_until TEXT")
             conn.execute(
                 "INSERT INTO schema_version (version, applied_at) VALUES (?, ?)",
                 (11, datetime.utcnow().isoformat()),
@@ -999,11 +1002,11 @@ class Database:
         if from_version < 12:
             # Add checkpoint_id and env_snapshot columns to releases for multi-layer rollback
             conn.execute(
-                "ALTER TABLE releases ADD COLUMN checkpoint_id INTEGER REFERENCES checkpoints(id) ON DELETE SET NULL"
+                "ALTER TABLE releases ADD COLUMN checkpoint_id "
+                "INTEGER REFERENCES checkpoints(id) "
+                "ON DELETE SET NULL"
             )
-            conn.execute(
-                "ALTER TABLE releases ADD COLUMN env_snapshot TEXT"
-            )
+            conn.execute("ALTER TABLE releases ADD COLUMN env_snapshot TEXT")
             conn.execute(
                 "INSERT INTO schema_version (version, applied_at) VALUES (?, ?)",
                 (12, datetime.utcnow().isoformat()),
@@ -1027,10 +1030,14 @@ class Database:
                 )
             """)
             conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_deploy_history_project ON deploy_history(project_name)"
+                "CREATE INDEX IF NOT EXISTS "
+                "idx_deploy_history_project "
+                "ON deploy_history(project_name)"
             )
             conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_deploy_history_deployed ON deploy_history(deployed_at)"
+                "CREATE INDEX IF NOT EXISTS "
+                "idx_deploy_history_deployed "
+                "ON deploy_history(deployed_at)"
             )
 
             # Add rate_limits table for per-project configuration
@@ -1098,9 +1105,7 @@ class Database:
             conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_sandboxes_expires ON sandboxes(expires_at)"
             )
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_sandboxes_status ON sandboxes(status)"
-            )
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_sandboxes_status ON sandboxes(status)")
             conn.execute(
                 "INSERT INTO schema_version (version, applied_at) VALUES (?, ?)",
                 (15, datetime.utcnow().isoformat()),
@@ -1123,7 +1128,9 @@ class Database:
                 )
             """)
             conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_resource_limits_project ON resource_limits(project_name)"
+                "CREATE INDEX IF NOT EXISTS "
+                "idx_resource_limits_project "
+                "ON resource_limits(project_name)"
             )
             conn.execute(
                 "INSERT INTO schema_version (version, applied_at) VALUES (?, ?)",
@@ -1148,18 +1155,10 @@ class Database:
             )
 
             # Add git columns to releases table
-            conn.execute(
-                "ALTER TABLE releases ADD COLUMN git_commit TEXT"
-            )
-            conn.execute(
-                "ALTER TABLE releases ADD COLUMN git_branch TEXT"
-            )
-            conn.execute(
-                "ALTER TABLE releases ADD COLUMN git_tag TEXT"
-            )
-            conn.execute(
-                "ALTER TABLE releases ADD COLUMN git_repo TEXT"
-            )
+            conn.execute("ALTER TABLE releases ADD COLUMN git_commit TEXT")
+            conn.execute("ALTER TABLE releases ADD COLUMN git_branch TEXT")
+            conn.execute("ALTER TABLE releases ADD COLUMN git_tag TEXT")
+            conn.execute("ALTER TABLE releases ADD COLUMN git_repo TEXT")
 
             conn.execute(
                 "INSERT INTO schema_version (version, applied_at) VALUES (?, ?)",
@@ -1211,18 +1210,10 @@ class Database:
                     FOREIGN KEY (project_name) REFERENCES projects(name) ON DELETE CASCADE
                 )
             """)
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_events_project ON events(project_name)"
-            )
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_events_category ON events(category)"
-            )
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_events_created ON events(created_at)"
-            )
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_events_level ON events(level)"
-            )
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_events_project ON events(project_name)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_events_category ON events(category)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_events_created ON events(created_at)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_events_level ON events(level)")
             conn.execute(
                 "INSERT INTO schema_version (version, applied_at) VALUES (?, ?)",
                 (19, datetime.utcnow().isoformat()),
@@ -1273,13 +1264,15 @@ class Database:
                 )
             """)
             conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_metrics_project_time ON metrics(project_name, collected_at DESC)"
+                "CREATE INDEX IF NOT EXISTS "
+                "idx_metrics_project_time "
+                "ON metrics(project_name, collected_at DESC)"
             )
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_metrics_type ON metrics(metric_type)")
             conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_metrics_type ON metrics(metric_type)"
-            )
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_metrics_config_project ON metrics_config(project_name)"
+                "CREATE INDEX IF NOT EXISTS "
+                "idx_metrics_config_project "
+                "ON metrics_config(project_name)"
             )
             conn.execute(
                 "INSERT INTO schema_version (version, applied_at) VALUES (?, ?)",
@@ -1304,10 +1297,14 @@ class Database:
                 )
             """)
             conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_image_generations_project ON image_generations(project)"
+                "CREATE INDEX IF NOT EXISTS "
+                "idx_image_generations_project "
+                "ON image_generations(project)"
             )
             conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_image_generations_created ON image_generations(created_at)"
+                "CREATE INDEX IF NOT EXISTS "
+                "idx_image_generations_created "
+                "ON image_generations(created_at)"
             )
             conn.execute(
                 "INSERT INTO schema_version (version, applied_at) VALUES (?, ?)",
@@ -1317,9 +1314,7 @@ class Database:
         if from_version < 22:
             # Add google_web_client_id column to auth_services for web OAuth
             try:
-                conn.execute(
-                    "ALTER TABLE auth_services ADD COLUMN google_web_client_id TEXT"
-                )
+                conn.execute("ALTER TABLE auth_services ADD COLUMN google_web_client_id TEXT")
             except sqlite3.OperationalError:
                 pass  # Column already exists
             conn.execute(
@@ -1351,7 +1346,9 @@ class Database:
                     ended_at TEXT,
                     duration_seconds INTEGER,
                     turns_count INTEGER DEFAULT 0,
-                    outcome TEXT CHECK(outcome IN ('completed', 'failed', 'transferred', 'timeout')),
+                    outcome TEXT CHECK(outcome IN (
+                        'completed', 'failed',
+                        'transferred', 'timeout')),
                     slots TEXT,
                     transcript_summary TEXT,
                     cost REAL,
@@ -1414,7 +1411,10 @@ class Database:
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     call_id INTEGER NOT NULL,
                     timestamp_seconds REAL NOT NULL,
-                    sentiment TEXT CHECK(sentiment IN ('positive', 'neutral', 'negative', 'frustrated', 'confused', 'angry', 'satisfied')),
+                    sentiment TEXT CHECK(sentiment IN (
+                        'positive', 'neutral', 'negative',
+                        'frustrated', 'confused',
+                        'angry', 'satisfied')),
                     score REAL NOT NULL,
                     turn_id INTEGER,
                     action_taken TEXT,
@@ -1456,21 +1456,34 @@ class Database:
                 CREATE INDEX IF NOT EXISTS idx_voice_calls_started ON voice_calls(started_at);
                 CREATE INDEX IF NOT EXISTS idx_voice_calls_call_sid ON voice_calls(call_sid);
                 CREATE INDEX IF NOT EXISTS idx_voice_calls_outcome ON voice_calls(outcome);
-                CREATE INDEX IF NOT EXISTS idx_voice_turns_call ON voice_conversation_turns(call_id);
-                CREATE INDEX IF NOT EXISTS idx_voice_turns_speaker ON voice_conversation_turns(speaker);
-                CREATE INDEX IF NOT EXISTS idx_voice_actions_call ON voice_action_results(call_id);
-                CREATE INDEX IF NOT EXISTS idx_voice_actions_name ON voice_action_results(action_name);
-                CREATE INDEX IF NOT EXISTS idx_voice_actions_success ON voice_action_results(success);
-                CREATE INDEX IF NOT EXISTS idx_voice_slots_call ON voice_slot_extractions(call_id);
-                CREATE INDEX IF NOT EXISTS idx_voice_slots_name ON voice_slot_extractions(slot_name);
-                CREATE INDEX IF NOT EXISTS idx_voice_events_call ON voice_call_events(call_id);
-                CREATE INDEX IF NOT EXISTS idx_voice_events_type ON voice_call_events(event_type);
-                CREATE INDEX IF NOT EXISTS idx_voice_events_severity ON voice_call_events(severity);
-                CREATE INDEX IF NOT EXISTS idx_voice_sentiment_call ON voice_sentiment_analysis(call_id);
-                CREATE INDEX IF NOT EXISTS idx_voice_sentiment_type ON voice_sentiment_analysis(sentiment);
+                CREATE INDEX IF NOT EXISTS idx_voice_turns_call
+                    ON voice_conversation_turns(call_id);
+                CREATE INDEX IF NOT EXISTS idx_voice_turns_speaker
+                    ON voice_conversation_turns(speaker);
+                CREATE INDEX IF NOT EXISTS idx_voice_actions_call
+                    ON voice_action_results(call_id);
+                CREATE INDEX IF NOT EXISTS idx_voice_actions_name
+                    ON voice_action_results(action_name);
+                CREATE INDEX IF NOT EXISTS idx_voice_actions_success
+                    ON voice_action_results(success);
+                CREATE INDEX IF NOT EXISTS idx_voice_slots_call
+                    ON voice_slot_extractions(call_id);
+                CREATE INDEX IF NOT EXISTS idx_voice_slots_name
+                    ON voice_slot_extractions(slot_name);
+                CREATE INDEX IF NOT EXISTS idx_voice_events_call
+                    ON voice_call_events(call_id);
+                CREATE INDEX IF NOT EXISTS idx_voice_events_type
+                    ON voice_call_events(event_type);
+                CREATE INDEX IF NOT EXISTS idx_voice_events_severity
+                    ON voice_call_events(severity);
+                CREATE INDEX IF NOT EXISTS idx_voice_sentiment_call
+                    ON voice_sentiment_analysis(call_id);
+                CREATE INDEX IF NOT EXISTS idx_voice_sentiment_type
+                    ON voice_sentiment_analysis(sentiment);
                 CREATE INDEX IF NOT EXISTS idx_voice_dnc_project ON voice_dnc_list(project);
                 CREATE INDEX IF NOT EXISTS idx_voice_dnc_phone ON voice_dnc_list(phone_number);
-                CREATE INDEX IF NOT EXISTS idx_voice_usage_project_date ON voice_usage(project, date);
+                CREATE INDEX IF NOT EXISTS idx_voice_usage_project_date
+                    ON voice_usage(project, date);
                 CREATE INDEX IF NOT EXISTS idx_voice_usage_date ON voice_usage(date);
             """)
             conn.execute(
@@ -1481,9 +1494,7 @@ class Database:
         if from_version < 24:
             # Add R2 cloud backup columns to backups table
             try:
-                conn.execute(
-                    "ALTER TABLE backups ADD COLUMN r2_synced INTEGER NOT NULL DEFAULT 0"
-                )
+                conn.execute("ALTER TABLE backups ADD COLUMN r2_synced INTEGER NOT NULL DEFAULT 0")
             except sqlite3.OperationalError:
                 pass  # Column already exists
             try:
@@ -1523,10 +1534,21 @@ class Database:
         with self.transaction() as conn:
             conn.execute(
                 """
-                INSERT INTO projects (name, created_at, runtime, port, redis_db, status, description, created_by)
+                INSERT INTO projects (
+                    name, created_at, runtime, port,
+                    redis_db, status, description, created_by
+                )
                 VALUES (?, ?, ?, ?, ?, 'stopped', ?, ?)
                 """,
-                (name, datetime.utcnow().isoformat(), runtime, port, redis_db, description, created_by),
+                (
+                    name,
+                    datetime.utcnow().isoformat(),
+                    runtime,
+                    port,
+                    redis_db,
+                    description,
+                    created_by,
+                ),
             )
         return self.get_project(name)  # type: ignore
 
@@ -1731,13 +1753,21 @@ class Database:
                 ) VALUES (?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
-                    project, auth_port, auth_db_name, auth_db_user,
-                    google_client_id, google_web_client_id, google_client_secret,
-                    apple_client_id, apple_team_id, apple_key_id,
+                    project,
+                    auth_port,
+                    auth_db_name,
+                    auth_db_user,
+                    google_client_id,
+                    google_web_client_id,
+                    google_client_secret,
+                    apple_client_id,
+                    apple_team_id,
+                    apple_key_id,
                     1 if email_enabled else 0,
                     1 if magic_link_enabled else 0,
                     1 if anonymous_enabled else 0,
-                    now, now,
+                    now,
+                    now,
                 ),
             )
         return self.get_auth_service(project)  # type: ignore
@@ -1745,9 +1775,7 @@ class Database:
     def get_auth_service(self, project: str) -> dict[str, Any] | None:
         """Get auth service record for a project."""
         with self.connection() as conn:
-            cursor = conn.execute(
-                "SELECT * FROM auth_services WHERE project = ?", (project,)
-            )
+            cursor = conn.execute("SELECT * FROM auth_services WHERE project = ?", (project,))
             row = cursor.fetchone()
             return dict(row) if row else None
 
@@ -1759,9 +1787,7 @@ class Database:
                     "SELECT * FROM auth_services WHERE enabled = 1 ORDER BY created_at"
                 )
             else:
-                cursor = conn.execute(
-                    "SELECT * FROM auth_services ORDER BY created_at"
-                )
+                cursor = conn.execute("SELECT * FROM auth_services ORDER BY created_at")
             return [dict(row) for row in cursor.fetchall()]
 
     def update_auth_service(
@@ -1830,9 +1856,7 @@ class Database:
     def delete_auth_service(self, project: str) -> bool:
         """Delete an auth service record. Returns True if deleted."""
         with self.transaction() as conn:
-            cursor = conn.execute(
-                "DELETE FROM auth_services WHERE project = ?", (project,)
-            )
+            cursor = conn.execute("DELETE FROM auth_services WHERE project = ?", (project,))
             return cursor.rowcount > 0
 
     # SSH config operations
@@ -1842,15 +1866,11 @@ class Database:
         Returns True if no record exists (enabled by default).
         """
         with self.connection() as conn:
-            cursor = conn.execute(
-                "SELECT enabled FROM ssh_config WHERE project = ?", (project,)
-            )
+            cursor = conn.execute("SELECT enabled FROM ssh_config WHERE project = ?", (project,))
             row = cursor.fetchone()
             return bool(row["enabled"]) if row else True
 
-    def set_ssh_enabled(
-        self, project: str, enabled: bool, changed_by: str | None = None
-    ) -> None:
+    def set_ssh_enabled(self, project: str, enabled: bool, changed_by: str | None = None) -> None:
         """Set SSH enabled status for a project."""
         with self.transaction() as conn:
             if enabled:
@@ -1894,9 +1914,7 @@ class Database:
     def get_operator(self, username: str) -> dict[str, Any] | None:
         """Get an operator by username."""
         with self.connection() as conn:
-            cursor = conn.execute(
-                "SELECT * FROM operators WHERE username = ?", (username,)
-            )
+            cursor = conn.execute("SELECT * FROM operators WHERE username = ?", (username,))
             row = cursor.fetchone()
             return dict(row) if row else None
 
@@ -1938,9 +1956,7 @@ class Database:
     def delete_operator(self, username: str) -> bool:
         """Delete an operator. Returns True if deleted."""
         with self.transaction() as conn:
-            cursor = conn.execute(
-                "DELETE FROM operators WHERE username = ?", (username,)
-            )
+            cursor = conn.execute("DELETE FROM operators WHERE username = ?", (username,))
             return cursor.rowcount > 0
 
     # Release operations
@@ -1958,7 +1974,11 @@ class Database:
         with self.transaction() as conn:
             conn.execute(
                 """
-                INSERT INTO releases (id, project, release_name, release_path, deployed_at, is_current, files_synced, deployed_by)
+                INSERT INTO releases (
+                    id, project, release_name, release_path,
+                    deployed_at, is_current, files_synced,
+                    deployed_by
+                )
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
@@ -2186,7 +2206,13 @@ class Database:
                 INSERT INTO ssl_rate_limits (project, domain, attempted_at, success, error_message)
                 VALUES (?, ?, ?, ?, ?)
                 """,
-                (project, domain, datetime.utcnow().isoformat(), 1 if success else 0, error_message),
+                (
+                    project,
+                    domain,
+                    datetime.utcnow().isoformat(),
+                    1 if success else 0,
+                    error_message,
+                ),
             )
         return {
             "project": project,
@@ -2247,15 +2273,26 @@ class Database:
         """Record an SSH key action for audit logging."""
         if added_by is None:
             import os
+
             added_by = os.environ.get("SUDO_USER") or os.environ.get("USER", "unknown")
 
         with self.transaction() as conn:
             conn.execute(
                 """
-                INSERT INTO ssh_key_audit (project, action, fingerprint, key_comment, added_by, created_at)
+                INSERT INTO ssh_key_audit (
+                    project, action, fingerprint,
+                    key_comment, added_by, created_at
+                )
                 VALUES (?, ?, ?, ?, ?, ?)
                 """,
-                (project, action, fingerprint, key_comment, added_by, datetime.utcnow().isoformat()),
+                (
+                    project,
+                    action,
+                    fingerprint,
+                    key_comment,
+                    added_by,
+                    datetime.utcnow().isoformat(),
+                ),
             )
         return {
             "project": project,
@@ -2323,8 +2360,18 @@ class Database:
                     description, enabled, created_at, updated_at, created_by
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)
                 """,
-                (task_id, project, name, schedule, schedule_cron, command,
-                 description, now, now, created_by),
+                (
+                    task_id,
+                    project,
+                    name,
+                    schedule,
+                    schedule_cron,
+                    command,
+                    description,
+                    now,
+                    now,
+                    created_by,
+                ),
             )
         return self.get_scheduled_task(project, name)  # type: ignore
 
@@ -2357,9 +2404,7 @@ class Database:
                     (project,),
                 )
             else:
-                cursor = conn.execute(
-                    "SELECT * FROM scheduled_tasks ORDER BY project, name"
-                )
+                cursor = conn.execute("SELECT * FROM scheduled_tasks ORDER BY project, name")
             return [dict(row) for row in cursor.fetchall()]
 
     def update_scheduled_task(
@@ -2458,8 +2503,18 @@ class Database:
                     app_module, loglevel, enabled, created_at, updated_at, created_by
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)
                 """,
-                (worker_id, project, worker_name, concurrency, queues,
-                 app_module, loglevel, now, now, created_by),
+                (
+                    worker_id,
+                    project,
+                    worker_name,
+                    concurrency,
+                    queues,
+                    app_module,
+                    loglevel,
+                    now,
+                    now,
+                    created_by,
+                ),
             )
         return self.get_worker(project, worker_name)  # type: ignore
 
@@ -2492,9 +2547,7 @@ class Database:
                     (project,),
                 )
             else:
-                cursor = conn.execute(
-                    "SELECT * FROM workers ORDER BY project, worker_name"
-                )
+                cursor = conn.execute("SELECT * FROM workers ORDER BY project, worker_name")
             return [dict(row) for row in cursor.fetchall()]
 
     def update_worker(
@@ -2557,7 +2610,11 @@ class Database:
             return cursor.rowcount
 
     # Celery Beat operations
-    def create_celery_beat(self, project: str, schedule_file: str = "celerybeat-schedule") -> dict[str, Any]:
+    def create_celery_beat(
+        self,
+        project: str,
+        schedule_file: str = "celerybeat-schedule",
+    ) -> dict[str, Any]:
         """Create a Celery beat record for a project."""
         now = datetime.utcnow().isoformat()
         with self.transaction() as conn:
@@ -2869,7 +2926,9 @@ class Database:
 
         with self.transaction() as conn:
             conn.execute(
-                f"UPDATE alert_channels SET {', '.join(updates)} WHERE project_name = ? AND name = ?",
+                "UPDATE alert_channels SET "
+                f"{', '.join(updates)} "
+                "WHERE project_name = ? AND name = ?",
                 params,
             )
         return self.get_alert_channel(project_name, name)
@@ -3407,13 +3466,15 @@ class Database:
         params: list[Any] = []
 
         if clear_limits:
-            updates.extend([
-                "cpu_quota = NULL",
-                "memory_max_mb = NULL",
-                "memory_high_mb = NULL",
-                "tasks_max = NULL",
-                "disk_quota_mb = NULL",
-            ])
+            updates.extend(
+                [
+                    "cpu_quota = NULL",
+                    "memory_max_mb = NULL",
+                    "memory_high_mb = NULL",
+                    "tasks_max = NULL",
+                    "disk_quota_mb = NULL",
+                ]
+            )
         else:
             if cpu_quota is not None:
                 updates.append("cpu_quota = ?")
@@ -3693,9 +3754,7 @@ class Database:
                     (project_name,),
                 )
             else:
-                cursor = conn.execute(
-                    "SELECT * FROM environments ORDER BY project_name, env_name"
-                )
+                cursor = conn.execute("SELECT * FROM environments ORDER BY project_name, env_name")
             return [dict(row) for row in cursor.fetchall()]
 
     def update_environment_status(self, project_name: str, env_name: str, status: str) -> None:
@@ -3793,7 +3852,7 @@ class Database:
             # Filter by level and above
             level_order = {"DEBUG": 0, "INFO": 1, "WARNING": 2, "ERROR": 3, "CRITICAL": 4}
             min_level = level_order.get(level.upper(), 1)
-            levels = [l for l, v in level_order.items() if v >= min_level]
+            levels = [line for line, v in level_order.items() if v >= min_level]
             placeholders = ",".join("?" * len(levels))
             query += f" AND level IN ({placeholders})"
             params.extend(levels)
@@ -3834,7 +3893,7 @@ class Database:
         if level:
             level_order = {"DEBUG": 0, "INFO": 1, "WARNING": 2, "ERROR": 3, "CRITICAL": 4}
             min_level = level_order.get(level.upper(), 1)
-            levels = [l for l, v in level_order.items() if v >= min_level]
+            levels = [line for line, v in level_order.items() if v >= min_level]
             placeholders = ",".join("?" * len(levels))
             query += f" AND level IN ({placeholders})"
             params.extend(levels)
@@ -3855,6 +3914,7 @@ class Database:
     def delete_old_events(self, older_than_days: int = 30) -> int:
         """Delete events older than the specified number of days."""
         from datetime import timedelta
+
         cutoff = (datetime.utcnow() - timedelta(days=older_than_days)).isoformat()
         with self.transaction() as conn:
             cursor = conn.execute(

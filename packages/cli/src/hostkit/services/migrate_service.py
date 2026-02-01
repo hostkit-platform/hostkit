@@ -12,7 +12,6 @@ from pathlib import Path
 from hostkit.database import get_db
 from hostkit.services.env_service import EnvService
 
-
 # Migration framework detection and commands
 MIGRATION_FRAMEWORKS: dict[str, dict[str, list[str] | str]] = {
     "django": {

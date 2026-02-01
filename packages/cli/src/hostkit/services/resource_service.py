@@ -2,10 +2,11 @@
 
 import subprocess
 import time
+from collections.abc import Generator
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Generator
+from typing import Any
 
 import psutil
 
@@ -185,9 +186,7 @@ class ResourceService:
                     # Calculate memory percent
                     total_memory = psutil.virtual_memory().total
                     if total_memory > 0:
-                        result["memory_percent"] = round(
-                            (total_rss / total_memory) * 100, 2
-                        )
+                        result["memory_percent"] = round((total_rss / total_memory) * 100, 2)
 
                 except (psutil.NoSuchProcess, psutil.AccessDenied):
                     pass

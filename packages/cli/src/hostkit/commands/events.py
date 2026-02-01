@@ -21,8 +21,17 @@ def events(ctx: click.Context) -> None:
 
 @events.command(name="list")
 @click.argument("project")
-@click.option("-c", "--category", help="Filter by category (deploy, health, auth, migrate, etc.). Comma-separate for multiple.")
-@click.option("-l", "--level", type=click.Choice(["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"], case_sensitive=False), help="Minimum log level")
+@click.option(
+    "-c",
+    "--category",
+    help="Filter by category (deploy, health, auth, migrate, etc.). Comma-separate for multiple.",
+)
+@click.option(
+    "-l",
+    "--level",
+    type=click.Choice(["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"], case_sensitive=False),
+    help="Minimum log level",
+)
 @click.option("--since", help="Show events since time (e.g., '1h', '24h', '7d', '2025-12-15')")
 @click.option("--until", help="Show events until time")
 @click.option("-n", "--limit", default=50, help="Maximum events to show")
@@ -116,6 +125,7 @@ def list_events(
                 # Show data if present and in verbose mode
                 if event.data and ctx.obj.get("verbose"):
                     import json
+
                     click.echo(f"                              Data: {json.dumps(event.data)}")
 
     except EventServiceError as e:
@@ -163,6 +173,7 @@ def show_event(ctx: click.Context, event_id: int) -> None:
             click.echo()
             click.echo("  Data:")
             import json
+
             for key, value in event.data.items():
                 if isinstance(value, (dict, list)):
                     value = json.dumps(value)
@@ -186,7 +197,20 @@ def event_stats(ctx: click.Context, project: str, since: str) -> None:
 
     try:
         # Get counts by category
-        categories = ["deploy", "health", "auth", "migrate", "cron", "worker", "service", "checkpoint", "alert", "sandbox", "environment", "project"]
+        categories = [
+            "deploy",
+            "health",
+            "auth",
+            "migrate",
+            "cron",
+            "worker",
+            "service",
+            "checkpoint",
+            "alert",
+            "sandbox",
+            "environment",
+            "project",
+        ]
         stats = {}
 
         for cat in categories:

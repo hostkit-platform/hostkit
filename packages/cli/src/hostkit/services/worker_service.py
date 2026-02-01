@@ -140,7 +140,11 @@ class WorkerService:
             raise WorkerError(
                 code="INVALID_WORKER_NAME",
                 message=f"Invalid worker name '{name}'",
-                suggestion="Worker name must start with a letter and contain only lowercase letters, numbers, and hyphens",
+                suggestion=(
+                    "Worker name must start with a letter and"
+                    " contain only lowercase letters,"
+                    " numbers, and hyphens"
+                ),
             )
         if len(name) > 50:
             raise WorkerError(
@@ -228,7 +232,9 @@ class WorkerService:
             timeout=10,
         )
 
-    def _create_beat_systemd_unit(self, project: str, beat: CeleryBeat, app_module: str = "app", loglevel: str = "info") -> None:
+    def _create_beat_systemd_unit(
+        self, project: str, beat: CeleryBeat, app_module: str = "app", loglevel: str = "info"
+    ) -> None:
         """Create systemd service unit file for beat scheduler."""
         service_name = self._beat_service_name(project)
 
@@ -315,7 +321,9 @@ class WorkerService:
             raise WorkerError(
                 code="WORKER_EXISTS",
                 message=f"Worker '{worker_name}' already exists for project '{project}'",
-                suggestion=f"Use 'hostkit worker remove {project} --name {worker_name}' to delete it first",
+                suggestion=(
+                    f"Use 'hostkit worker remove {project} --name {worker_name}' to delete it first"
+                ),
             )
 
         # Validate concurrency
@@ -465,7 +473,7 @@ class WorkerService:
         Returns:
             Updated Worker
         """
-        worker = self.get_worker(project, worker_name)
+        self.get_worker(project, worker_name)
 
         service_name = self._service_name(project, worker_name)
 
@@ -497,7 +505,7 @@ class WorkerService:
         Returns:
             Updated Worker
         """
-        worker = self.get_worker(project, worker_name)
+        self.get_worker(project, worker_name)
 
         service_name = self._service_name(project, worker_name)
 
@@ -521,7 +529,7 @@ class WorkerService:
         Returns:
             Updated Worker
         """
-        worker = self.get_worker(project, worker_name)
+        self.get_worker(project, worker_name)
 
         service_name = self._service_name(project, worker_name)
 
@@ -622,7 +630,9 @@ class WorkerService:
             return None
 
     # Beat scheduler methods
-    def enable_beat(self, project: str, app_module: str = "app", loglevel: str = "info") -> CeleryBeat:
+    def enable_beat(
+        self, project: str, app_module: str = "app", loglevel: str = "info"
+    ) -> CeleryBeat:
         """Enable Celery beat scheduler for a project.
 
         Args:

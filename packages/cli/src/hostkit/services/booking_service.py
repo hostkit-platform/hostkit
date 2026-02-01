@@ -5,7 +5,6 @@ Provides per-project appointment scheduling with provider pooling and room manag
 
 import os
 import subprocess
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -17,16 +16,23 @@ from hostkit.config import get_config
 from hostkit.database import get_db
 from hostkit.registry import CapabilitiesRegistry, ServiceMeta
 
-
 # Register booking service with capabilities registry
-CapabilitiesRegistry.register_service(ServiceMeta(
-    name="booking",
-    description="Time-first appointment scheduling (providers, rooms, intake forms, reminders)",
-    provision_flag="--with-booking",
-    enable_command="hostkit booking enable {project}",
-    env_vars_provided=["BOOKING_API_URL", "BOOKING_ADMIN_URL", "BOOKING_DOCS_URL"],
-    related_commands=["booking enable", "booking disable", "booking status", "booking seed", "booking logs"],
-))
+CapabilitiesRegistry.register_service(
+    ServiceMeta(
+        name="booking",
+        description="Time-first appointment scheduling (providers, rooms, intake forms, reminders)",
+        provision_flag="--with-booking",
+        enable_command="hostkit booking enable {project}",
+        env_vars_provided=["BOOKING_API_URL", "BOOKING_ADMIN_URL", "BOOKING_DOCS_URL"],
+        related_commands=[
+            "booking enable",
+            "booking disable",
+            "booking status",
+            "booking seed",
+            "booking logs",
+        ],
+    )
+)
 
 
 class BookingServiceError(Exception):
@@ -104,8 +110,7 @@ class BookingService:
         try:
             with conn.cursor() as cur:
                 cur.execute(
-                    "SELECT 1 FROM information_schema.tables WHERE table_name = %s",
-                    [table_name]
+                    "SELECT 1 FROM information_schema.tables WHERE table_name = %s", [table_name]
                 )
                 return cur.fetchone() is not None
         finally:
@@ -117,7 +122,9 @@ class BookingService:
         schema_path = Path("/var/lib/hostkit/templates/booking/schema.sql")
         if not schema_path.exists():
             # Try dev path
-            schema_path = Path(__file__).parent.parent.parent.parent / "templates" / "booking" / "schema.sql"
+            schema_path = (
+                Path(__file__).parent.parent.parent.parent / "templates" / "booking" / "schema.sql"
+            )
 
         if not schema_path.exists():
             raise BookingServiceError(
@@ -133,21 +140,30 @@ class BookingService:
             with conn.cursor() as cur:
                 cur.execute(schema_sql)
 
-                # Grant permissions to project database user on all booking tables
-                # Tables are created by hostkit admin, but the FastAPI service runs as {project}_user
+                # Grant permissions to project database user on
+                # all booking tables. Tables are created by hostkit
+                # admin, but the FastAPI service runs as {project}_user
                 project_db_user = f"{project}_user"
                 booking_tables = [
-                    "booking_configs", "providers", "rooms", "services",
-                    "provider_services", "room_services", "provider_schedules",
-                    "schedule_overrides", "customers", "appointments",
-                    "intake_templates", "intake_forms", "service_intake_forms",
-                    "notifications"
+                    "booking_configs",
+                    "providers",
+                    "rooms",
+                    "services",
+                    "provider_services",
+                    "room_services",
+                    "provider_schedules",
+                    "schedule_overrides",
+                    "customers",
+                    "appointments",
+                    "intake_templates",
+                    "intake_forms",
+                    "service_intake_forms",
+                    "notifications",
                 ]
                 for table in booking_tables:
                     cur.execute(
                         sql.SQL("GRANT SELECT, INSERT, UPDATE, DELETE ON {} TO {}").format(
-                            sql.Identifier(table),
-                            sql.Identifier(project_db_user)
+                            sql.Identifier(table), sql.Identifier(project_db_user)
                         )
                     )
 
@@ -180,7 +196,9 @@ class BookingService:
         migrations_path = Path("/var/lib/hostkit/templates/booking/migrations")
         if not migrations_path.exists():
             # Try dev path
-            migrations_path = Path(__file__).parent.parent.parent.parent / "templates" / "booking" / "migrations"
+            migrations_path = (
+                Path(__file__).parent.parent.parent.parent / "templates" / "booking" / "migrations"
+            )
 
         if not migrations_path.exists():
             return  # No migrations directory is fine
@@ -222,13 +240,22 @@ class BookingService:
                       AND table_name = 'booking_configs'
                       AND privilege_type = 'SELECT'
                     """,
-                    [project_db_user]
+                    [project_db_user],
                 )
                 if not cur.fetchone():
                     raise BookingServiceError(
                         code="PERMISSION_VERIFICATION_FAILED",
-                        message=f"Database user '{project_db_user}' does not have SELECT permission on booking_configs",
-                        suggestion="This may be a race condition. Try running 'hostkit booking disable --force' and then 'hostkit booking enable' again",
+                        message=(
+                            f"Database user '{project_db_user}'"
+                            " does not have SELECT permission"
+                            " on booking_configs"
+                        ),
+                        suggestion=(
+                            "This may be a race condition."
+                            " Try running 'hostkit booking"
+                            " disable --force' and then"
+                            " 'hostkit booking enable' again"
+                        ),
                     )
 
                 # Verify by actually testing a query as the project user
@@ -243,9 +270,14 @@ class BookingService:
             raise BookingServiceError(
                 code="PERMISSION_VERIFICATION_FAILED",
                 message=f"Permission verification failed: {e}",
-                suggestion="This may be a race condition. Try running 'hostkit booking disable --force' and then 'hostkit booking enable' again",
+                suggestion=(
+                    "This may be a race condition."
+                    " Try running 'hostkit booking"
+                    " disable --force' and then"
+                    " 'hostkit booking enable' again"
+                ),
             )
-        except psycopg2.Error as e:
+        except psycopg2.Error:
             # Don't fail on other errors - just log and continue
             pass
         finally:
@@ -293,6 +325,7 @@ class BookingService:
         5. Create log files
         """
         import shutil
+
         from jinja2 import Template
 
         booking_dir = self._booking_dir(project)
@@ -371,7 +404,10 @@ class BookingService:
         except subprocess.CalledProcessError as e:
             raise BookingServiceError(
                 code="VENV_CREATE_FAILED",
-                message=f"Failed to create virtual environment: {e.stderr.decode() if e.stderr else 'unknown error'}",
+                message=(
+                    "Failed to create virtual environment: "
+                    + (e.stderr.decode() if e.stderr else "unknown error")
+                ),
                 suggestion="Ensure python3-venv is installed",
             )
 
@@ -388,14 +424,19 @@ class BookingService:
         except subprocess.CalledProcessError as e:
             raise BookingServiceError(
                 code="PIP_INSTALL_FAILED",
-                message=f"Failed to install dependencies: {e.stderr.decode() if e.stderr else 'unknown error'}",
+                message=(
+                    "Failed to install dependencies: "
+                    + (e.stderr.decode() if e.stderr else "unknown error")
+                ),
                 suggestion="Check requirements.txt and network connectivity",
             )
 
         # Step 4: Generate systemd service file
         service_template_path = Path("/var/lib/hostkit/templates/booking.service.j2")
         if not service_template_path.exists():
-            service_template_path = Path(__file__).parent.parent.parent.parent / "templates" / "booking.service.j2"
+            service_template_path = (
+                Path(__file__).parent.parent.parent.parent / "templates" / "booking.service.j2"
+            )
 
         if not service_template_path.exists():
             raise BookingServiceError(
@@ -477,7 +518,10 @@ class BookingService:
         except subprocess.CalledProcessError as e:
             raise BookingServiceError(
                 code="SERVICE_START_FAILED",
-                message=f"Failed to start booking service: {e.stderr.decode() if e.stderr else 'unknown error'}",
+                message=(
+                    "Failed to start booking service: "
+                    + (e.stderr.decode() if e.stderr else "unknown error")
+                ),
                 suggestion=f"Check logs: journalctl -u {service_name}.service",
             )
 
@@ -513,7 +557,7 @@ class BookingService:
                     VALUES (%s, %s, %s)
                     ON CONFLICT (project_id) DO NOTHING
                     """,
-                    [project, project.title().replace("_", " "), "America/New_York"]
+                    [project, project.title().replace("_", " "), "America/New_York"],
                 )
         except psycopg2.Error as e:
             raise BookingServiceError(
@@ -587,6 +631,7 @@ class BookingService:
 
             # Step 7: Regenerate nginx port mappings for wildcard routing
             from hostkit.services.project_service import ProjectService
+
             ProjectService()._regenerate_nginx_port_mappings()
 
             return {
@@ -612,6 +657,7 @@ class BookingService:
                 pass
             try:
                 import shutil
+
                 booking_dir = self._booking_dir(project)
                 if booking_dir.exists():
                     shutil.rmtree(booking_dir)
@@ -682,6 +728,7 @@ class BookingService:
 
         # Step 5: Remove booking directory
         import shutil
+
         booking_dir = self._booking_dir(project)
         if booking_dir.exists():
             shutil.rmtree(booking_dir)
@@ -771,7 +818,10 @@ class BookingService:
                 """)
                 if not cur.fetchone():
                     return 1
-                cur.execute("SELECT COALESCE(schema_version, 1) FROM booking_configs WHERE project_id = %s", [project])
+                cur.execute(
+                    "SELECT COALESCE(schema_version, 1) FROM booking_configs WHERE project_id = %s",
+                    [project],
+                )
                 result = cur.fetchone()
                 return result[0] if result else 1
         finally:
@@ -780,9 +830,16 @@ class BookingService:
     def _get_template_version(self) -> int:
         """Get the current template schema version from manifest."""
         import json
+
         manifest_path = Path("/var/lib/hostkit/templates/booking/migrations/manifest.json")
         if not manifest_path.exists():
-            manifest_path = Path(__file__).parent.parent.parent.parent / "templates" / "booking" / "migrations" / "manifest.json"
+            manifest_path = (
+                Path(__file__).parent.parent.parent.parent
+                / "templates"
+                / "booking"
+                / "migrations"
+                / "manifest.json"
+            )
         if not manifest_path.exists():
             return 1
         try:
@@ -794,10 +851,17 @@ class BookingService:
     def _get_pending_migrations(self, project: str) -> list[tuple[int, Path, str]]:
         """Get list of migrations that haven't been applied yet."""
         import json
+
         current_version = self._get_schema_version(project)
         manifest_path = Path("/var/lib/hostkit/templates/booking/migrations/manifest.json")
         if not manifest_path.exists():
-            manifest_path = Path(__file__).parent.parent.parent.parent / "templates" / "booking" / "migrations" / "manifest.json"
+            manifest_path = (
+                Path(__file__).parent.parent.parent.parent
+                / "templates"
+                / "booking"
+                / "migrations"
+                / "manifest.json"
+            )
         if not manifest_path.exists():
             return []
         try:
@@ -816,14 +880,17 @@ class BookingService:
 
     def _sync_template_files(self, project: str, dry_run: bool = False) -> list[dict[str, str]]:
         """Sync template files to project's booking directory."""
-        import shutil
         import hashlib
+        import shutil
+
         booking_dir = self._booking_dir(project)
         templates_dir = Path("/var/lib/hostkit/templates/booking")
         if not templates_dir.exists():
             templates_dir = Path(__file__).parent.parent.parent.parent / "templates" / "booking"
         if not templates_dir.exists():
-            raise BookingServiceError(code="TEMPLATES_NOT_FOUND", message="Booking templates not found")
+            raise BookingServiceError(
+                code="TEMPLATES_NOT_FOUND", message="Booking templates not found"
+            )
         preserve = {".env", "venv", "__pycache__", ".pyc"}
         changes = []
         for src_file in templates_dir.rglob("*"):
@@ -850,15 +917,21 @@ class BookingService:
         """Restart the booking service."""
         service_name = f"hostkit-{project}-booking"
         try:
-            subprocess.run(["systemctl", "restart", f"{service_name}.service"], check=True, capture_output=True, timeout=30)
+            subprocess.run(
+                ["systemctl", "restart", f"{service_name}.service"],
+                check=True,
+                capture_output=True,
+                timeout=30,
+            )
             return True
         except subprocess.SubprocessError:
             return False
 
     def _health_check(self, project: str, timeout: int = 10) -> bool:
         """Check if booking service is healthy."""
-        import urllib.request
         import urllib.error
+        import urllib.request
+
         port = self._booking_port(project)
         url = f"http://127.0.0.1:{port}/health"
         try:
@@ -870,7 +943,9 @@ class BookingService:
     def upgrade_booking(self, project: str, dry_run: bool = False) -> dict[str, Any]:
         """Upgrade booking service to latest version."""
         if not self.booking_is_enabled(project):
-            raise BookingServiceError(code="BOOKING_NOT_ENABLED", message=f"Booking not enabled for '{project}'")
+            raise BookingServiceError(
+                code="BOOKING_NOT_ENABLED", message=f"Booking not enabled for '{project}'"
+            )
         current_version = self._get_schema_version(project)
         target_version = self._get_template_version()
         pending_migrations = self._get_pending_migrations(project)
@@ -878,13 +953,21 @@ class BookingService:
         files_to_update = [f for f in file_changes if f["action"] != "unchanged"]
         status = self.get_booking_status(project)
         result = {
-            "project": project, "current_version": current_version, "target_version": target_version,
-            "dry_run": dry_run, "file_changes": files_to_update,
+            "project": project,
+            "current_version": current_version,
+            "target_version": target_version,
+            "dry_run": dry_run,
+            "file_changes": files_to_update,
             "files_copied": len([f for f in files_to_update if f["action"] in ("new", "modified")]),
             "migrations": [{"version": v, "description": d} for v, _, d in pending_migrations],
             "migrations_applied": 0,
-            "preserved_data": {"providers": status.get("provider_count", 0), "services": status.get("service_count", 0), "appointments": status.get("appointment_count", 0)},
-            "restarted": False, "healthy": False,
+            "preserved_data": {
+                "providers": status.get("provider_count", 0),
+                "services": status.get("service_count", 0),
+                "appointments": status.get("appointment_count", 0),
+            },
+            "restarted": False,
+            "healthy": False,
         }
         if dry_run:
             result["message"] = "Dry run - no changes applied"
@@ -897,13 +980,19 @@ class BookingService:
                     for version, migration_path, _ in pending_migrations:
                         cur.execute(migration_path.read_text())
                         result["migrations_applied"] += 1
-                        cur.execute("UPDATE booking_configs SET schema_version = %s WHERE project_id = %s", [version, project])
+                        cur.execute(
+                            "UPDATE booking_configs SET schema_version = %s WHERE project_id = %s",
+                            [version, project],
+                        )
             finally:
                 conn.close()
             booking_dir = self._booking_dir(project)
-            subprocess.run(["chown", "-R", f"{project}:{project}", str(booking_dir)], capture_output=True)
+            subprocess.run(
+                ["chown", "-R", f"{project}:{project}", str(booking_dir)], capture_output=True
+            )
             result["restarted"] = self._restart_booking_service(project)
             import time
+
             for _ in range(6):
                 time.sleep(2)
                 if self._health_check(project):
@@ -914,7 +1003,9 @@ class BookingService:
         except Exception as e:
             raise BookingServiceError(code="UPGRADE_FAILED", message=f"Failed to upgrade: {e}")
 
-    def seed_demo_data(self, project: str, provider_count: int = 3, service_count: int = 5) -> dict[str, Any]:
+    def seed_demo_data(
+        self, project: str, provider_count: int = 3, service_count: int = 5
+    ) -> dict[str, Any]:
         """Seed demo data for testing.
 
         Creates sample providers, services, and rooms.
@@ -964,10 +1055,10 @@ class BookingService:
                             config_id,
                             provider_names[i],
                             f"{provider_names[i].lower()}@example.com",
-                            f"Licensed professional with 5+ years of experience.",
+                            "Licensed professional with 5+ years of experience.",
                             True,
                             i,
-                        ]
+                        ],
                     )
                     created_providers += 1
 
@@ -979,7 +1070,13 @@ class BookingService:
                         INSERT INTO rooms (config_id, name, type, is_active, sort_order)
                         VALUES (%s, %s, %s, %s, %s)
                         """,
-                        [config_id, room_name, "treatment" if "Treatment" in room_name else "consultation", True, i]
+                        [
+                            config_id,
+                            room_name,
+                            "treatment" if "Treatment" in room_name else "consultation",
+                            True,
+                            i,
+                        ],
                     )
                     created_rooms += 1
 
@@ -996,11 +1093,15 @@ class BookingService:
                     name, desc, duration, price, category = services[i]
                     cur.execute(
                         """
-                        INSERT INTO services (config_id, name, description, duration_minutes, price_cents, category, is_active, sort_order)
+                        INSERT INTO services (
+                            config_id, name, description,
+                            duration_minutes, price_cents,
+                            category, is_active, sort_order
+                        )
                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                         RETURNING id
                         """,
-                        [config_id, name, desc, duration, price, category, True, i]
+                        [config_id, name, desc, duration, price, category, True, i],
                     )
                     service_id = cur.fetchone()[0]
                     service_ids.append(service_id)
@@ -1018,7 +1119,7 @@ class BookingService:
                             VALUES (%s, %s)
                             ON CONFLICT DO NOTHING
                             """,
-                            [provider_id, service_id]
+                            [provider_id, service_id],
                         )
 
                 # Also create provider schedules (Mon-Fri 9am-5pm)
@@ -1026,11 +1127,14 @@ class BookingService:
                     for day in range(5):  # Monday (0) to Friday (4)
                         cur.execute(
                             """
-                            INSERT INTO provider_schedules (provider_id, day_of_week, start_time, end_time, is_active)
+                            INSERT INTO provider_schedules (
+                                provider_id, day_of_week,
+                                start_time, end_time, is_active
+                            )
                             VALUES (%s, %s, %s, %s, %s)
                             ON CONFLICT DO NOTHING
                             """,
-                            [provider_id, day, "09:00", "17:00", True]
+                            [provider_id, day, "09:00", "17:00", True],
                         )
 
         except psycopg2.Error as e:

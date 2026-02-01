@@ -1,14 +1,13 @@
 """Backup management service for HostKit."""
 
 import configparser
-import gzip
 import logging
 import os
 import shutil
 import subprocess
 import tarfile
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -353,12 +352,14 @@ class BackupService:
                     parts = key.split("/", 1)
                     proj = parts[0] if len(parts) > 0 else "unknown"
 
-                    backups.append({
-                        "key": key,
-                        "project": proj,
-                        "size_bytes": obj["Size"],
-                        "last_modified": obj["LastModified"].isoformat(),
-                    })
+                    backups.append(
+                        {
+                            "key": key,
+                            "project": proj,
+                            "size_bytes": obj["Size"],
+                            "last_modified": obj["LastModified"].isoformat(),
+                        }
+                    )
 
             return backups
 
@@ -399,9 +400,7 @@ class BackupService:
             kept_weekly = 0
 
             # Sort by last modified (newest first)
-            proj_backups.sort(
-                key=lambda x: x["last_modified"], reverse=True
-            )
+            proj_backups.sort(key=lambda x: x["last_modified"], reverse=True)
 
             for backup in proj_backups:
                 modified = datetime.fromisoformat(
@@ -430,9 +429,7 @@ class BackupService:
 
                 if not keep:
                     try:
-                        client.delete_object(
-                            Bucket=R2_BACKUP_BUCKET, Key=backup["key"]
-                        )
+                        client.delete_object(Bucket=R2_BACKUP_BUCKET, Key=backup["key"])
                         deleted_count += 1
                     except ClientError:
                         pass  # Log but continue
@@ -634,13 +631,18 @@ class BackupService:
 
         pg_dump_cmd = [
             "pg_dump",
-            "-h", self.config.postgres_host,
-            "-p", str(self.config.postgres_port),
-            "-U", admin_user,
-            "-d", db_name,
+            "-h",
+            self.config.postgres_host,
+            "-p",
+            str(self.config.postgres_port),
+            "-U",
+            admin_user,
+            "-d",
+            db_name,
             "--no-owner",
             "--no-acl",
-            "-f", str(dump_path),
+            "-f",
+            str(dump_path),
         ]
 
         try:
@@ -713,19 +715,21 @@ class BackupService:
                 created = datetime.fromisoformat(record["created_at"])
                 is_weekly = created.weekday() == 0  # Monday
 
-                backups.append(BackupInfo(
-                    id=record["id"],
-                    project=record["project"],
-                    backup_type=record["type"],
-                    path=record["path"],
-                    size_bytes=record["size_bytes"],
-                    created_at=record["created_at"],
-                    is_weekly=is_weekly,
-                    r2_synced=r2_synced,
-                    r2_key=record.get("r2_key"),
-                    r2_synced_at=record.get("r2_synced_at"),
-                    local_exists=local_exists,
-                ))
+                backups.append(
+                    BackupInfo(
+                        id=record["id"],
+                        project=record["project"],
+                        backup_type=record["type"],
+                        path=record["path"],
+                        size_bytes=record["size_bytes"],
+                        created_at=record["created_at"],
+                        is_weekly=is_weekly,
+                        r2_synced=r2_synced,
+                        r2_key=record.get("r2_key"),
+                        r2_synced_at=record.get("r2_synced_at"),
+                        local_exists=local_exists,
+                    )
+                )
 
         return backups
 
@@ -807,9 +811,7 @@ class BackupService:
                 self.download_from_r2(backup_id=backup_id, dest_path=backup_path)
             else:
                 suggestion = (
-                    "Use --from-r2 to restore from cloud backup"
-                    if backup.r2_synced
-                    else None
+                    "Use --from-r2 to restore from cloud backup" if backup.r2_synced else None
                 )
                 raise BackupServiceError(
                     code="BACKUP_FILE_MISSING",
@@ -902,11 +904,18 @@ class BackupService:
             subprocess.run(
                 [
                     "psql",
-                    "-h", self.config.postgres_host,
-                    "-p", str(self.config.postgres_port),
-                    "-U", admin_user,
-                    "-d", "postgres",
-                    "-c", f"SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '{db_name}' AND pid <> pg_backend_pid();",
+                    "-h",
+                    self.config.postgres_host,
+                    "-p",
+                    str(self.config.postgres_port),
+                    "-U",
+                    admin_user,
+                    "-d",
+                    "postgres",
+                    "-c",
+                    f"SELECT pg_terminate_backend(pid) FROM pg_stat_activity"
+                    f" WHERE datname = '{db_name}'"
+                    f" AND pid <> pg_backend_pid();",
                 ],
                 env=env,
                 capture_output=True,
@@ -917,11 +926,16 @@ class BackupService:
             subprocess.run(
                 [
                     "psql",
-                    "-h", self.config.postgres_host,
-                    "-p", str(self.config.postgres_port),
-                    "-U", admin_user,
-                    "-d", "postgres",
-                    "-c", f"DROP DATABASE IF EXISTS {db_name};",
+                    "-h",
+                    self.config.postgres_host,
+                    "-p",
+                    str(self.config.postgres_port),
+                    "-U",
+                    admin_user,
+                    "-d",
+                    "postgres",
+                    "-c",
+                    f"DROP DATABASE IF EXISTS {db_name};",
                 ],
                 env=env,
                 capture_output=True,
@@ -932,11 +946,16 @@ class BackupService:
             subprocess.run(
                 [
                     "psql",
-                    "-h", self.config.postgres_host,
-                    "-p", str(self.config.postgres_port),
-                    "-U", admin_user,
-                    "-d", "postgres",
-                    "-c", f"CREATE DATABASE {db_name} OWNER {role_name};",
+                    "-h",
+                    self.config.postgres_host,
+                    "-p",
+                    str(self.config.postgres_port),
+                    "-U",
+                    admin_user,
+                    "-d",
+                    "postgres",
+                    "-c",
+                    f"CREATE DATABASE {db_name} OWNER {role_name};",
                 ],
                 env=env,
                 capture_output=True,
@@ -947,11 +966,16 @@ class BackupService:
             subprocess.run(
                 [
                     "psql",
-                    "-h", self.config.postgres_host,
-                    "-p", str(self.config.postgres_port),
-                    "-U", admin_user,
-                    "-d", db_name,
-                    "-f", str(dump_path),
+                    "-h",
+                    self.config.postgres_host,
+                    "-p",
+                    str(self.config.postgres_port),
+                    "-U",
+                    admin_user,
+                    "-d",
+                    db_name,
+                    "-f",
+                    str(dump_path),
                 ],
                 env=env,
                 capture_output=True,

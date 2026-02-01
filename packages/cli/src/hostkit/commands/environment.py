@@ -2,12 +2,11 @@
 
 import click
 
-from hostkit.access import root_only, project_access
+from hostkit.access import project_access, root_only
 from hostkit.output import OutputFormatter
 from hostkit.services.environment_service import (
     EnvironmentService,
     EnvironmentServiceError,
-    MAX_ENVIRONMENTS_PER_PROJECT,
 )
 
 
@@ -77,6 +76,7 @@ def create(
 
         linux_user = env_info.linux_user
         from hostkit.config import get_config
+
         domain = f"{linux_user}.{get_config().vps_ip}.nip.io"
 
         formatter.success(
@@ -176,7 +176,8 @@ def info(ctx: click.Context, project: str, env_name: str) -> None:
 @click.argument("project")
 @click.argument("env_name")
 @click.option(
-    "--force", "-f",
+    "--force",
+    "-f",
     is_flag=True,
     help="Confirm deletion (required)",
 )

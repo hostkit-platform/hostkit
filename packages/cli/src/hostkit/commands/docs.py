@@ -52,17 +52,17 @@ def docs_index(ctx: click.Context, force: bool) -> None:
                 data=result,
             )
         else:
-            click.echo(f"\nDocumentation Index Complete")
+            click.echo("\nDocumentation Index Complete")
             click.echo("-" * 40)
             click.echo(f"  Total chunks: {result['chunks_total']}")
             click.echo(f"  Ingested: {result['chunks_ingested']}")
-            if result['chunks_errors'] > 0:
+            if result["chunks_errors"] > 0:
                 click.echo(f"  Errors: {result['chunks_errors']}")
-            click.echo(f"\n  Sources:")
+            click.echo("\n  Sources:")
             click.echo(f"    CLAUDE.md: {result['sources']['claude_md']} chunks")
             click.echo(f"    Capabilities: {result['sources']['capabilities']} chunks")
             click.echo(f"\n  Indexed at: {result['indexed_at']}")
-            click.echo(f"\nRun 'hostkit query \"<question>\"' to search.")
+            click.echo("\nRun 'hostkit query \"<question>\"' to search.")
 
     except DocsServiceError as e:
         formatter.error(code=e.code, message=e.message, suggestion=e.suggestion)
@@ -93,21 +93,21 @@ def docs_status(ctx: click.Context) -> None:
                 data=status,
             )
         else:
-            click.echo(f"\nDocumentation Index Status")
+            click.echo("\nDocumentation Index Status")
             click.echo("-" * 40)
 
             if not status.get("indexed"):
-                click.echo(f"  Status: NOT INDEXED")
+                click.echo("  Status: NOT INDEXED")
                 click.echo(f"\n  {status.get('message', '')}")
                 if status.get("suggestion"):
                     click.echo(f"  Suggestion: {status['suggestion']}")
             else:
-                click.echo(f"  Status: INDEXED")
+                click.echo("  Status: INDEXED")
                 click.echo(f"  Collection: {status.get('collection', 'docs')}")
                 click.echo(f"  Chunks indexed: {status.get('chunk_count', 0)}")
                 click.echo(f"  Documents in store: {status.get('document_count', 0)}")
                 click.echo(f"  Last indexed: {status.get('indexed_at', 'Unknown')}")
-                click.echo(f"\nRun 'hostkit query \"<question>\"' to search.")
+                click.echo("\nRun 'hostkit query \"<question>\"' to search.")
 
     except DocsServiceError as e:
         formatter.error(code=e.code, message=e.message, suggestion=e.suggestion)

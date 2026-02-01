@@ -2,9 +2,10 @@
 
 import subprocess
 import time
+from collections.abc import Generator
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Generator
+from typing import Any
 
 import psutil
 import requests
@@ -283,9 +284,7 @@ class HealthService:
         checks["process"] = process_info
 
         # Check HTTP health
-        http_info = self._check_http_health(
-            project, port, endpoint, timeout, expected_content
-        )
+        http_info = self._check_http_health(project, port, endpoint, timeout, expected_content)
         checks["http"] = http_info
 
         # Check database connectivity

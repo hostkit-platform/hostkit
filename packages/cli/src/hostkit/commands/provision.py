@@ -137,6 +137,7 @@ def provision(
     if dev_domain and not domain:
         # Use nip.io development domain
         from hostkit.config import get_config
+
         vps_ip = get_config().vps_ip
         actual_domain = f"{name}.{vps_ip}.nip.io"
 
@@ -244,30 +245,18 @@ def provision(
             click.echo(f"  Runtime: {result.runtime}")
 
             if result.database_created:
-                click.echo(
-                    click.style(f"  ✓ Database: {result.database_name}", fg="green")
-                )
+                click.echo(click.style(f"  ✓ Database: {result.database_name}", fg="green"))
 
             if result.auth_enabled:
-                click.echo(
-                    click.style(f"  ✓ Auth service: port {result.auth_port}", fg="green")
-                )
+                click.echo(click.style(f"  ✓ Auth service: port {result.auth_port}", fg="green"))
 
             if result.secrets_injected:
-                click.echo(
-                    click.style(
-                        f"  ✓ Secrets: {result.secrets_count} injected", fg="green"
-                    )
-                )
+                click.echo(click.style(f"  ✓ Secrets: {result.secrets_count} injected", fg="green"))
             elif with_secrets and not result.secrets_injected:
                 click.echo(click.style("  ✗ Secrets: failed to inject", fg="red"))
 
             if result.ssh_keys_added > 0:
-                click.echo(
-                    click.style(
-                        f"  ✓ SSH keys: {result.ssh_keys_added} added", fg="green"
-                    )
-                )
+                click.echo(click.style(f"  ✓ SSH keys: {result.ssh_keys_added} added", fg="green"))
             if result.ssh_keys_failed:
                 for failed in result.ssh_keys_failed:
                     click.echo(click.style(f"  ✗ SSH key failed: {failed}", fg="red"))
@@ -275,9 +264,7 @@ def provision(
                 click.echo(click.style("  ✗ SSH keys: none added", fg="red"))
 
             if result.domain_configured:
-                click.echo(
-                    click.style(f"  ✓ Domain: {result.domain_configured}", fg="green")
-                )
+                click.echo(click.style(f"  ✓ Domain: {result.domain_configured}", fg="green"))
 
             if result.ssl_provisioned:
                 click.echo(click.style("  ✓ SSL: provisioned", fg="green"))
@@ -285,9 +272,7 @@ def provision(
                 click.echo(click.style("  ✗ SSL: failed", fg="red"))
 
             if result.deployed:
-                click.echo(
-                    click.style(f"  ✓ Deployed: {result.release_name}", fg="green")
-                )
+                click.echo(click.style(f"  ✓ Deployed: {result.release_name}", fg="green"))
             elif source and not result.deployed:
                 click.echo(click.style("  ✗ Deploy: failed", fg="red"))
 
@@ -302,19 +287,13 @@ def provision(
                     "degraded": "yellow",
                     "unhealthy": "red",
                 }.get(result.health_status, "white")
-                click.echo(
-                    click.style(f"  Health: {result.health_status}", fg=health_color)
-                )
+                click.echo(click.style(f"  Health: {result.health_status}", fg=health_color))
 
             # Show completed/failed steps
             if result.steps_completed:
                 click.echo(f"\n  Completed: {len(result.steps_completed)} step(s)")
             if result.steps_failed:
-                click.echo(
-                    click.style(
-                        f"  Failed: {', '.join(result.steps_failed)}", fg="red"
-                    )
-                )
+                click.echo(click.style(f"  Failed: {', '.join(result.steps_failed)}", fg="red"))
 
             if result.error:
                 click.echo(click.style(f"\n  Error: {result.error}", fg="red"))
@@ -325,21 +304,13 @@ def provision(
             if result.success:
                 click.echo("Next steps:")
                 if not source:
-                    click.echo(
-                        f"  • Deploy code: hostkit deploy {name} --source ./your-app"
-                    )
+                    click.echo(f"  • Deploy code: hostkit deploy {name} --source ./your-app")
                 if not actual_domain:
-                    click.echo(
-                        f"  • Add domain: hostkit nginx add {name} your-domain.com"
-                    )
+                    click.echo(f"  • Add domain: hostkit nginx add {name} your-domain.com")
                 if actual_domain and not result.ssl_provisioned:
-                    click.echo(
-                        f"  • Get SSL: hostkit ssl provision {actual_domain}"
-                    )
+                    click.echo(f"  • Get SSL: hostkit ssl provision {actual_domain}")
                 if result.ssh_keys_added > 0:
-                    click.echo(
-                        f"  • SSH as project user: ssh {name}@<VPS_IP>"
-                    )
+                    click.echo(f"  • SSH as project user: ssh {name}@<VPS_IP>")
                 elif not ssh_keys and not github_users:
                     click.echo(
                         f"  • Add SSH access: hostkit ssh add-key {name} --github <username>"

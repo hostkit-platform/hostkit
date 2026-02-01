@@ -10,33 +10,33 @@ import os
 import re
 import secrets as py_secrets
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
 import jwt
 
 from hostkit.database import get_db
+from hostkit.registry import CapabilitiesRegistry, ServiceMeta
 from hostkit.services.crypto_service import CryptoService, CryptoServiceError, get_crypto
 from hostkit.services.providers import (
-    Provider,
     detect_provider_from_env_key,
     get_provider,
     get_provider_for_key,
     validate_secret,
 )
-from hostkit.registry import CapabilitiesRegistry, ServiceMeta
-
 
 # Register with capabilities registry
-CapabilitiesRegistry.register_service(ServiceMeta(
-    name="secrets",
-    description="Encrypted secrets portal for third-party API keys",
-    provision_flag="--with-secrets",
-    enable_command="hostkit secrets define {project} --from .env.example",
-    env_vars_provided=[],
-    related_commands=["secrets define", "secrets portal", "secrets verify"],
-))
+CapabilitiesRegistry.register_service(
+    ServiceMeta(
+        name="secrets",
+        description="Encrypted secrets portal for third-party API keys",
+        provision_flag="--with-secrets",
+        enable_command="hostkit secrets define {project} --from .env.example",
+        env_vars_provided=[],
+        related_commands=["secrets define", "secrets portal", "secrets verify"],
+    )
+)
 
 
 # Constants
@@ -99,9 +99,7 @@ class ProjectSecrets:
         return cls(
             project=data["project"],
             secrets=data.get("secrets", {}),
-            metadata={
-                k: SecretMetadata.from_dict(v) for k, v in data.get("metadata", {}).items()
-            },
+            metadata={k: SecretMetadata.from_dict(v) for k, v in data.get("metadata", {}).items()},
         )
 
 
@@ -127,7 +125,7 @@ class MagicLinkToken:
 
     @property
     def is_expired(self) -> bool:
-        return datetime.now(timezone.utc) > self.expires_at
+        return datetime.now(UTC) > self.expires_at
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -233,9 +231,7 @@ class SecretsService:
             try:
                 meta_content = meta_file.read_text()
                 meta_dict = json.loads(meta_content)
-                metadata = {
-                    k: SecretMetadata.from_dict(v) for k, v in meta_dict.items()
-                }
+                metadata = {k: SecretMetadata.from_dict(v) for k, v in meta_dict.items()}
             except Exception as e:
                 raise SecretsServiceError(
                     code="METADATA_LOAD_ERROR",
@@ -352,15 +348,17 @@ class SecretsService:
             value_length = len(project_secrets.secrets[key]) if is_set else None
             meta = project_secrets.metadata.get(key, SecretMetadata(key=key))
 
-            result.append({
-                "key": key,
-                "set": is_set,
-                "length": value_length,
-                "required": meta.required,
-                "provider": meta.provider,
-                "description": meta.description,
-                "set_at": meta.set_at,
-            })
+            result.append(
+                {
+                    "key": key,
+                    "set": is_set,
+                    "length": value_length,
+                    "required": meta.required,
+                    "provider": meta.provider,
+                    "description": meta.description,
+                    "set_at": meta.set_at,
+                }
+            )
 
         return result
 
@@ -419,8 +417,12 @@ class SecretsService:
         if not was_set and len(project_secrets.secrets) >= MAX_SECRETS_PER_PROJECT:
             raise SecretsServiceError(
                 code="SECRETS_LIMIT_EXCEEDED",
-                message=f"Maximum secrets ({MAX_SECRETS_PER_PROJECT}) reached for project '{project}'",
-                suggestion="Remove unused secrets before adding new ones with 'hostkit secrets delete'",
+                message=(
+                    f"Maximum secrets ({MAX_SECRETS_PER_PROJECT}) reached for project '{project}'"
+                ),
+                suggestion=(
+                    "Remove unused secrets before adding new ones with 'hostkit secrets delete'"
+                ),
             )
 
         # Update secret
@@ -1029,12 +1031,14 @@ class SecretsService:
                         provider=provider,
                         description=pending_comment,
                     )
-                    defined.append({
-                        "key": key,
-                        "required": required,
-                        "provider": provider,
-                        "description": pending_comment,
-                    })
+                    defined.append(
+                        {
+                            "key": key,
+                            "required": required,
+                            "provider": provider,
+                            "description": pending_comment,
+                        }
+                    )
                 except SecretsServiceError:
                     skipped.append(key)
 
@@ -1297,9 +1301,7 @@ class SecretsService:
 
         if jti not in revoked_data.get("revoked_jtis", []):
             revoked_data.setdefault("revoked_jtis", []).append(jti)
-            revoked_data.setdefault("revoked_at", []).append(
-                datetime.now(timezone.utc).isoformat()
-            )
+            revoked_data.setdefault("revoked_at", []).append(datetime.now(UTC).isoformat())
 
         revoked_file.write_text(json.dumps(revoked_data, indent=2))
         os.chmod(revoked_file, 0o600)
@@ -1349,7 +1351,7 @@ class SecretsService:
         jti = py_secrets.token_urlsafe(16)
 
         # Calculate timestamps
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         expires_at = now + timedelta(hours=expires_hours)
 
         # Create JWT payload
@@ -1450,7 +1452,7 @@ class SecretsService:
             )
 
         # Check if token was issued before a "revoke all" operation
-        issued_at = datetime.fromtimestamp(iat, tz=timezone.utc) if iat else None
+        issued_at = datetime.fromtimestamp(iat, tz=UTC) if iat else None
         if issued_at and self._is_token_revoked_by_timestamp(project, issued_at):
             raise SecretsServiceError(
                 code="TOKEN_REVOKED",
@@ -1463,8 +1465,8 @@ class SecretsService:
             project=project,
             jti=jti,
             scope=scope,
-            issued_at=datetime.fromtimestamp(iat, tz=timezone.utc) if iat else datetime.now(timezone.utc),
-            expires_at=datetime.fromtimestamp(exp, tz=timezone.utc) if exp else datetime.now(timezone.utc),
+            issued_at=datetime.fromtimestamp(iat, tz=UTC) if iat else datetime.now(UTC),
+            expires_at=datetime.fromtimestamp(exp, tz=UTC) if exp else datetime.now(UTC),
         )
 
     def revoke_magic_links(self, project: str) -> dict[str, Any]:
@@ -1486,7 +1488,7 @@ class SecretsService:
 
         # Store revocation timestamp - all tokens issued before this are invalid
         revocation_data = {
-            "revoked_all_at": datetime.now(timezone.utc).isoformat(),
+            "revoked_all_at": datetime.now(UTC).isoformat(),
             "revoked_jtis": [],  # Clear individual revocations
         }
 

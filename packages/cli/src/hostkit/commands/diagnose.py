@@ -4,7 +4,7 @@ import click
 
 from hostkit.access import project_owner
 from hostkit.output import OutputFormatter
-from hostkit.services.diagnosis_service import DiagnosisService, DiagnosisError
+from hostkit.services.diagnosis_service import DiagnosisError, DiagnosisService
 
 
 def get_formatter(ctx: click.Context) -> OutputFormatter:
@@ -18,7 +18,12 @@ def get_formatter(ctx: click.Context) -> OutputFormatter:
 @click.option("--check-db", is_flag=True, help="Also test database connectivity")
 @click.option("--quick", "-q", is_flag=True, help="Quick status check only (no log analysis)")
 @click.option("--run-test", is_flag=True, help="Run entrypoint directly and capture startup output")
-@click.option("--timeout", default=10, type=int, help="Timeout for --run-test in seconds (default: 10)")
+@click.option(
+    "--timeout",
+    default=10,
+    type=int,
+    help="Timeout for --run-test in seconds (default: 10)",
+)
 @click.option("--no-restart", is_flag=True, help="Don't restart service after --run-test")
 @click.pass_context
 @project_owner("project")
@@ -122,9 +127,22 @@ def _print_quick_status(status: dict) -> None:
     click.echo()
 
     # Health indicator
-    health_color = {"healthy": "green", "degraded": "yellow", "critical": "red"}.get(health, "white")
-    health_icon = {"healthy": "[OK]", "degraded": "[!]", "critical": "[X]"}.get(health, "[?]")
-    click.echo(f"  Health:    {click.style(health_icon + ' ' + health.upper(), fg=health_color, bold=True)}")
+    health_color = {
+        "healthy": "green",
+        "degraded": "yellow",
+        "critical": "red",
+    }.get(health, "white")
+    health_icon = {
+        "healthy": "[OK]",
+        "degraded": "[!]",
+        "critical": "[X]",
+    }.get(health, "[?]")
+    styled_health = click.style(
+        health_icon + " " + health.upper(),
+        fg=health_color,
+        bold=True,
+    )
+    click.echo(f"  Health:    {styled_health}")
 
     # Service status
     if running:
@@ -135,7 +153,11 @@ def _print_quick_status(status: dict) -> None:
     # Failure stats
     if consecutive_failures > 0:
         fail_color = "red" if consecutive_failures >= 3 else "yellow"
-        click.echo(f"  Consecutive failures: {click.style(str(consecutive_failures), fg=fail_color)}")
+        styled_fails = click.style(
+            str(consecutive_failures),
+            fg=fail_color,
+        )
+        click.echo(f"  Consecutive failures: {styled_fails}")
 
     if failures_1h > 0:
         click.echo(f"  Failures (1h):        {click.style(str(failures_1h), fg='yellow')}")
@@ -143,7 +165,12 @@ def _print_quick_status(status: dict) -> None:
     click.echo()
 
     if health == "critical":
-        click.echo(click.style("Run 'hostkit diagnose {project}' for detailed analysis", fg="yellow"))
+        click.echo(
+            click.style(
+                "Run 'hostkit diagnose {project}' for detailed analysis",
+                fg="yellow",
+            )
+        )
     elif health == "degraded":
         click.echo("Run full diagnosis for pattern detection: hostkit diagnose " + project)
 
@@ -159,9 +186,22 @@ def _print_diagnosis(result) -> None:
 
     # Overall health
     health = result.overall_health
-    health_color = {"healthy": "green", "degraded": "yellow", "critical": "red"}.get(health, "white")
-    health_icon = {"healthy": "[OK]", "degraded": "[!]", "critical": "[X]"}.get(health, "[?]")
-    click.echo(f"Overall Health: {click.style(health_icon + ' ' + health.upper(), fg=health_color, bold=True)}")
+    health_color = {
+        "healthy": "green",
+        "degraded": "yellow",
+        "critical": "red",
+    }.get(health, "white")
+    health_icon = {
+        "healthy": "[OK]",
+        "degraded": "[!]",
+        "critical": "[X]",
+    }.get(health, "[?]")
+    styled_health = click.style(
+        health_icon + " " + health.upper(),
+        fg=health_color,
+        bold=True,
+    )
+    click.echo(f"Overall Health: {styled_health}")
     click.echo()
 
     # Service status
@@ -224,8 +264,14 @@ def _print_diagnosis(result) -> None:
                 "low": "[i]",
             }.get(pattern.severity, "[?]")
 
-            click.echo(f"  {i}. {click.style(severity_icon, fg=severity_color)} {click.style(pattern.pattern_type, bold=True)}")
-            click.echo(f"     Severity:    {click.style(pattern.severity.upper(), fg=severity_color)}")
+            styled_icon = click.style(severity_icon, fg=severity_color)
+            styled_type = click.style(pattern.pattern_type, bold=True)
+            click.echo(f"  {i}. {styled_icon} {styled_type}")
+            styled_sev = click.style(
+                pattern.severity.upper(),
+                fg=severity_color,
+            )
+            click.echo(f"     Severity:    {styled_sev}")
             click.echo(f"     Occurrences: {pattern.occurrences} (window: {pattern.window})")
 
             if pattern.common_error:
@@ -333,6 +379,7 @@ def _print_startup_test(result: dict) -> None:
     if result["service_restarted"]:
         click.echo(f"  Service:  {click.style('Restarted', fg='green')}")
     elif result["service_was_running"]:
-        click.echo(f"  Service:  {click.style('Not restarted (use hostkit service start)', fg='yellow')}")
+        msg = "Not restarted (use hostkit service start)"
+        click.echo(f"  Service:  {click.style(msg, fg='yellow')}")
 
     click.echo()

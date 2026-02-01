@@ -4,7 +4,7 @@ import click
 
 from hostkit.access import project_owner
 from hostkit.output import OutputFormatter
-from hostkit.services.auto_pause_service import AutoPauseService, AutoPauseError
+from hostkit.services.auto_pause_service import AutoPauseError, AutoPauseService
 
 
 def get_formatter(ctx: click.Context) -> OutputFormatter:
@@ -14,7 +14,9 @@ def get_formatter(ctx: click.Context) -> OutputFormatter:
 
 @click.command()
 @click.argument("project")
-@click.option("--force", is_flag=True, help="Also reset failure history to prevent immediate re-pause")
+@click.option(
+    "--force", is_flag=True, help="Also reset failure history to prevent immediate re-pause"
+)
 @click.pass_context
 @project_owner("project")
 def resume(ctx: click.Context, project: str, force: bool) -> None:

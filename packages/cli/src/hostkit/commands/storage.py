@@ -51,12 +51,12 @@ def storage_enable(ctx: click.Context, project: str, public: bool) -> None:
             click.echo(f"  Bucket:      {result['bucket']}")
             click.echo(f"  Access Key:  {result['access_key']}")
             click.echo(f"  Secret Key:  {result['secret_key']}")
-            if result.get('public_url'):
+            if result.get("public_url"):
                 click.echo(f"  Public URL:  {result['public_url']}")
             click.echo("\n  Credentials added to project .env")
 
             if public:
-                click.echo(f"\n  Public files accessible at:")
+                click.echo("\n  Public files accessible at:")
                 click.echo(f"    {result['public_url']}/<filename>")
 
     except StorageServiceError as e:
@@ -554,8 +554,8 @@ def storage_proxy(ctx: click.Context, domain: str, ssl: bool) -> None:
         raise SystemExit(1)
 
     try:
-        from pathlib import Path
         import subprocess
+        from pathlib import Path
 
         # Create Nginx config for MinIO proxy
         if ssl:
@@ -625,10 +625,10 @@ server {{
 }}
 """
 
-        config_path = Path(f"/etc/nginx/sites-available/minio-proxy")
+        config_path = Path("/etc/nginx/sites-available/minio-proxy")
         config_path.write_text(config)
 
-        enabled_path = Path(f"/etc/nginx/sites-enabled/minio-proxy")
+        enabled_path = Path("/etc/nginx/sites-enabled/minio-proxy")
         if not enabled_path.exists():
             enabled_path.symlink_to(config_path)
 
@@ -649,14 +649,16 @@ server {{
         if not ctx.obj["json_mode"]:
             click.echo(f"\nS3 API is now accessible at: {'https' if ssl else 'http'}://{domain}")
             if not ssl:
-                click.echo(f"\nTo enable SSL, first provision a certificate:")
+                click.echo("\nTo enable SSL, first provision a certificate:")
                 click.echo(f"  hostkit ssl provision {domain}")
                 click.echo(f"  hostkit storage proxy {domain} --ssl")
 
     except subprocess.CalledProcessError as e:
         formatter.error(
             code="NGINX_CONFIG_FAILED",
-            message=f"Failed to configure Nginx: {e.stderr.decode() if e.stderr else 'unknown error'}",
+            message=(
+                f"Failed to configure Nginx: {e.stderr.decode() if e.stderr else 'unknown error'}"
+            ),
             suggestion="Check Nginx configuration with 'nginx -t'",
         )
         raise SystemExit(1)

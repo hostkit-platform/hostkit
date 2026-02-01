@@ -49,7 +49,11 @@ User={{ project_name }}
 Group={{ project_name }}
 WorkingDirectory=/home/{{ project_name }}
 EnvironmentFile=/home/{{ project_name }}/.env
-ExecStart=/home/{{ project_name }}/venv/bin/celery -A {{ app_module }} worker --loglevel=info --pidfile=/home/{{ project_name }}/celery.pid --concurrency={{ concurrency }}
+ExecStart=/home/{{ project_name }}/venv/bin/celery \
+    -A {{ app_module }} worker \
+    --loglevel=info \
+    --pidfile=/home/{{ project_name }}/celery.pid \
+    --concurrency={{ concurrency }}
 ExecStop=/bin/kill -TERM $MAINPID
 PIDFile=/home/{{ project_name }}/celery.pid
 Restart=always
@@ -272,9 +276,10 @@ class ServiceService:
                 timeout=30,
             )
         except subprocess.CalledProcessError as e:
+            stderr = e.stderr.decode() if e.stderr else "unknown error"
             raise ServiceError(
                 code="SERVICE_START_FAILED",
-                message=f"Failed to start service: {e.stderr.decode() if e.stderr else 'unknown error'}",
+                message=f"Failed to start service: {stderr}",
                 suggestion="Check logs with 'hostkit service logs'",
             )
 
@@ -305,9 +310,10 @@ class ServiceService:
                 timeout=30,
             )
         except subprocess.CalledProcessError as e:
+            stderr = e.stderr.decode() if e.stderr else "unknown error"
             raise ServiceError(
                 code="SERVICE_STOP_FAILED",
-                message=f"Failed to stop service: {e.stderr.decode() if e.stderr else 'unknown error'}",
+                message=f"Failed to stop service: {stderr}",
             )
 
         return {
@@ -328,9 +334,10 @@ class ServiceService:
                 timeout=30,
             )
         except subprocess.CalledProcessError as e:
+            stderr = e.stderr.decode() if e.stderr else "unknown error"
             raise ServiceError(
                 code="SERVICE_RESTART_FAILED",
-                message=f"Failed to restart service: {e.stderr.decode() if e.stderr else 'unknown error'}",
+                message=f"Failed to restart service: {stderr}",
                 suggestion="Check logs with 'hostkit service logs'",
             )
 
@@ -360,9 +367,10 @@ class ServiceService:
                 capture_output=True,
             )
         except subprocess.CalledProcessError as e:
+            stderr = e.stderr.decode() if e.stderr else "unknown error"
             raise ServiceError(
                 code="SERVICE_ENABLE_FAILED",
-                message=f"Failed to enable service: {e.stderr.decode() if e.stderr else 'unknown error'}",
+                message=f"Failed to enable service: {stderr}",
             )
 
         return {
@@ -388,9 +396,10 @@ class ServiceService:
                 capture_output=True,
             )
         except subprocess.CalledProcessError as e:
+            stderr = e.stderr.decode() if e.stderr else "unknown error"
             raise ServiceError(
                 code="SERVICE_DISABLE_FAILED",
-                message=f"Failed to disable service: {e.stderr.decode() if e.stderr else 'unknown error'}",
+                message=f"Failed to disable service: {stderr}",
             )
 
         return {
@@ -438,7 +447,14 @@ class ServiceService:
             else:
                 try:
                     result = subprocess.run(
-                        ["journalctl", "-u", f"{service.name}.service", "-n", str(lines), "--no-pager"],
+                        [
+                            "journalctl",
+                            "-u",
+                            f"{service.name}.service",
+                            "-n",
+                            str(lines),
+                            "--no-pager",
+                        ],
                         capture_output=True,
                         text=True,
                         timeout=30,

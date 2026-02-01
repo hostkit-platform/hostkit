@@ -2,7 +2,7 @@
 
 import json
 import os
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -12,6 +12,7 @@ from hostkit.database import get_db
 # Event categories
 class EventCategory:
     """Valid event categories."""
+
     DEPLOY = "deploy"
     HEALTH = "health"
     AUTH = "auth"
@@ -30,6 +31,7 @@ class EventCategory:
 # Event types per category
 class EventType:
     """Valid event types."""
+
     # General
     STARTED = "started"
     COMPLETED = "completed"
@@ -65,6 +67,7 @@ class EventType:
 # Log levels
 class EventLevel:
     """Valid event levels."""
+
     DEBUG = "DEBUG"
     INFO = "INFO"
     WARNING = "WARNING"
@@ -75,6 +78,7 @@ class EventLevel:
 @dataclass
 class Event:
     """A structured event."""
+
     id: int
     project_name: str
     category: str
@@ -279,7 +283,9 @@ class EventService:
         now = datetime.utcnow()
 
         # Relative format: 1h, 30m, 24h, 7d
-        match = re.match(r"^(\d+)\s*(h|hour|hours|m|min|mins|minutes|d|day|days|w|week|weeks)$", time_str)
+        match = re.match(
+            r"^(\d+)\s*(h|hour|hours|m|min|mins|minutes|d|day|days|w|week|weeks)$", time_str
+        )
         if match:
             value = int(match.group(1))
             unit = match.group(2)
@@ -296,7 +302,9 @@ class EventService:
             return result.isoformat()
 
         # Human readable: "X hours/days ago"
-        match = re.match(r"^(\d+)\s*(hour|hours|day|days|minute|minutes|week|weeks)\s+ago$", time_str)
+        match = re.match(
+            r"^(\d+)\s*(hour|hours|day|days|minute|minutes|week|weeks)\s+ago$", time_str
+        )
         if match:
             value = int(match.group(1))
             unit = match.group(2)
@@ -354,7 +362,10 @@ class EventService:
             project_name=project_name,
             category=EventCategory.DEPLOY,
             event_type=EventType.COMPLETED,
-            message=f"Deploy completed for {project_name} ({files_synced} files, {duration_seconds:.1f}s)",
+            message=(
+                f"Deploy completed for {project_name}"
+                f" ({files_synced} files, {duration_seconds:.1f}s)"
+            ),
             level=EventLevel.INFO,
             data={
                 "files_synced": files_synced,
@@ -393,7 +404,9 @@ class EventService:
             project_name=project_name,
             category=EventCategory.DEPLOY,
             event_type=EventType.RATE_LIMITED,
-            message=f"Deploy rate limited for {project_name}: {deploys_in_window}/{window_minutes}min",
+            message=(
+                f"Deploy rate limited for {project_name}: {deploys_in_window}/{window_minutes}min"
+            ),
             level=EventLevel.WARNING,
             data={
                 "deploys_in_window": deploys_in_window,

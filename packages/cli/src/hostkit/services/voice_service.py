@@ -4,9 +4,7 @@ Provides central voice calling service via Twilio Media Streams with
 real-time streaming STT (Deepgram), TTS (Cartesia), and LLM (OpenAI).
 """
 
-import os
 import secrets
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -14,16 +12,26 @@ from hostkit.config import get_config
 from hostkit.database import get_db
 from hostkit.registry import CapabilitiesRegistry, ServiceMeta
 
-
 # Register Voice service with capabilities registry
-CapabilitiesRegistry.register_service(ServiceMeta(
-    name="voice",
-    description="AI-powered phone calls via Twilio Media Streams (real-time STT/TTS/LLM streaming)",
-    provision_flag="--with-voice",
-    enable_command="hostkit voice enable {project}",
-    env_vars_provided=["VOICE_API_KEY", "VOICE_API_URL", "VOICE_WEBHOOK_SECRET"],
-    related_commands=["voice enable", "voice disable", "voice status", "voice agent", "voice call", "voice logs"],
-))
+CapabilitiesRegistry.register_service(
+    ServiceMeta(
+        name="voice",
+        description=(
+            "AI-powered phone calls via Twilio Media Streams (real-time STT/TTS/LLM streaming)"
+        ),
+        provision_flag="--with-voice",
+        enable_command="hostkit voice enable {project}",
+        env_vars_provided=["VOICE_API_KEY", "VOICE_API_URL", "VOICE_WEBHOOK_SECRET"],
+        related_commands=[
+            "voice enable",
+            "voice disable",
+            "voice status",
+            "voice agent",
+            "voice call",
+            "voice logs",
+        ],
+    )
+)
 
 
 class VoiceServiceError(Exception):
@@ -67,10 +75,7 @@ class VoiceService:
     def voice_is_enabled(self, project: str) -> bool:
         """Check if voice service is enabled for a project."""
         with self.hostkit_db.connection() as conn:
-            cur = conn.execute(
-                "SELECT enabled FROM voice_projects WHERE project = ?",
-                [project]
-            )
+            cur = conn.execute("SELECT enabled FROM voice_projects WHERE project = ?", [project])
             result = cur.fetchone()
             return result is not None and result["enabled"] == 1
 
@@ -140,11 +145,12 @@ constraints:
             conn.execute(
                 """INSERT INTO voice_projects (project, enabled, default_agent)
                    VALUES (?, 1, 'default')""",
-                [project]
+                [project],
             )
 
         # Set environment variables
         from hostkit.services.env_service import EnvService
+
         env_service = EnvService()
 
         primary_domain = f"{project}.hostkit.dev"
@@ -157,6 +163,7 @@ constraints:
 
         # Set ownership
         import subprocess
+
         try:
             subprocess.run(
                 ["chown", "-R", f"{project}:{project}", str(voice_dir)],
@@ -215,6 +222,7 @@ constraints:
 
         # Remove voice directory
         import shutil
+
         voice_dir = self._voice_dir(project)
         if voice_dir.exists():
             shutil.rmtree(voice_dir)
@@ -247,8 +255,7 @@ constraints:
         # Get default agent and call stats
         with self.hostkit_db.connection() as conn:
             cur = conn.execute(
-                "SELECT default_agent FROM voice_projects WHERE project = ?",
-                [project]
+                "SELECT default_agent FROM voice_projects WHERE project = ?", [project]
             )
             row = cur.fetchone()
             default_agent = row["default_agent"] if row else "default"
@@ -257,7 +264,7 @@ constraints:
             cur = conn.execute(
                 """SELECT COUNT(*) as count FROM voice_calls
                    WHERE project = ? AND DATE(started_at) = DATE('now')""",
-                [project]
+                [project],
             )
             calls_today = cur.fetchone()["count"]
 
@@ -265,7 +272,7 @@ constraints:
             cur = conn.execute(
                 """SELECT COUNT(*) as count FROM voice_calls
                    WHERE project = ? AND ended_at IS NULL""",
-                [project]
+                [project],
             )
             active_calls = cur.fetchone()["count"]
 
@@ -300,6 +307,7 @@ constraints:
 
         # Validate agent name
         import re
+
         if not re.match(r"^[a-z][a-z0-9_]*$", name):
             raise VoiceServiceError(
                 code="INVALID_AGENT_NAME",
@@ -356,10 +364,12 @@ constraints:
         agents = []
 
         for agent_file in agents_dir.glob("*.yaml"):
-            agents.append({
-                "name": agent_file.stem,
-                "description": f"Agent {agent_file.stem}",
-            })
+            agents.append(
+                {
+                    "name": agent_file.stem,
+                    "description": f"Agent {agent_file.stem}",
+                }
+            )
 
         return agents
 
@@ -391,6 +401,7 @@ constraints:
         # TODO: Implement actual call initiation via voice service API
         # For MVP, this is a placeholder
         import uuid
+
         call_id = f"call_{uuid.uuid4().hex[:16]}"
 
         # Insert call record
@@ -399,7 +410,7 @@ constraints:
                 """INSERT INTO voice_calls
                    (call_sid, project, agent_id, direction, to_number, started_at)
                    VALUES (?, ?, ?, 'outbound', ?, datetime('now'))""",
-                [call_id, project, agent, to]
+                [call_id, project, agent, to],
             )
 
         return {

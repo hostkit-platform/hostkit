@@ -15,7 +15,6 @@ from hostkit.database import get_db
 DEV_DOMAIN_SUFFIXES = (".nip.io", ".sslip.io", ".localhost", ".local")
 
 
-
 @dataclass
 class NginxSite:
     """Information about an Nginx site configuration."""
@@ -53,10 +52,19 @@ class NginxError(Exception):
 # - /auth/token/* (refresh, revoke)
 # - /auth/magic-link/* (send, verify)
 # - /auth/anonymous/* (signup, convert)
-AUTH_LOCATION_TEMPLATE = """
+_AUTH_REGEX = (
+    "signup|signin|signout|verify-email|resend-verification"
+    "|forgot-password|reset-password|health|docs|redoc"
+    "|openapi\\.json|oauth|identity|user|token"
+    "|magic-link|anonymous"
+)
+AUTH_LOCATION_TEMPLATE = (
+    """
     # HostKit Auth Service (specific endpoints only)
     # Other /auth/* routes pass through to the app
-    location ~ ^/auth/(signup|signin|signout|verify-email|resend-verification|forgot-password|reset-password|health|docs|redoc|openapi\\.json|oauth|identity|user|token|magic-link|anonymous)(/.*)?$ {
+    location ~ ^/auth/("""
+    + _AUTH_REGEX
+    + """)(/.*)?$ {
         proxy_pass http://127.0.0.1:{{ auth_port }};
         proxy_http_version 1.1;
         proxy_set_header Host $host;
@@ -66,6 +74,7 @@ AUTH_LOCATION_TEMPLATE = """
         proxy_read_timeout 60;
     }
 """
+)
 
 # Payment location block template (inserted into server blocks when payments are enabled)
 # Routes all /payments/* requests to the payment service
@@ -151,7 +160,9 @@ NGINX_SITE_TEMPLATE = """# Managed by HostKit - Do not edit manually
 server {
     listen 80;
     server_name {{ domains | join(' ') }};
-{{ auth_location }}{{ payment_location }}{{ sms_location }}{{ booking_location }}{{ chatbot_location }}
+{{ auth_location }}{{ payment_location -}}
+{{- sms_location }}{{ booking_location -}}
+{{- chatbot_location }}
     location / {
         proxy_pass http://127.0.0.1:{{ port }};
         proxy_http_version 1.1;
@@ -168,7 +179,14 @@ server {
 """
 
 # Nginx site template with SSL (after certificate is provisioned)
-NGINX_SSL_SITE_TEMPLATE = """# Managed by HostKit - Do not edit manually
+_SSL_CIPHERS = (
+    "ECDHE-ECDSA-AES128-GCM-SHA256:"
+    "ECDHE-RSA-AES128-GCM-SHA256:"
+    "ECDHE-ECDSA-AES256-GCM-SHA384:"
+    "ECDHE-RSA-AES256-GCM-SHA384"
+)
+NGINX_SSL_SITE_TEMPLATE = (
+    """# Managed by HostKit - Do not edit manually
 # Project: {{ project_name }}
 # Generated: {{ timestamp }}
 # SSL: enabled
@@ -184,11 +202,15 @@ server {
     # SSL configuration
     ssl_protocols TLSv1.2 TLSv1.3;
     ssl_prefer_server_ciphers off;
-    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384;
+    ssl_ciphers """
+    + _SSL_CIPHERS
+    + """;
 
     # HSTS (uncomment if you're sure)
     # add_header Strict-Transport-Security "max-age=63072000" always;
-{{ auth_location }}{{ payment_location }}{{ sms_location }}{{ booking_location }}{{ chatbot_location }}
+{{ auth_location }}{{ payment_location -}}
+{{- sms_location }}{{ booking_location -}}
+{{- chatbot_location }}
     location / {
         proxy_pass http://127.0.0.1:{{ port }};
         proxy_http_version 1.1;
@@ -210,6 +232,7 @@ server {
     return 301 https://$server_name$request_uri;
 }
 """
+)
 
 
 class NginxService:
@@ -264,8 +287,10 @@ class NginxService:
         if resolved_ip != self.config.vps_ip:
             raise NginxError(
                 code="DNS_MISMATCH",
-                message=f"Domain '{domain}' resolves to {resolved_ip}, expected {self.config.vps_ip}",
-                suggestion=f"Update the domain's A record to point to {self.config.vps_ip}",
+                message=(
+                    f"Domain '{domain}' resolves to {resolved_ip}, expected {self.config.vps_ip}"
+                ),
+                suggestion=(f"Update the domain's A record to point to {self.config.vps_ip}"),
             )
 
     def _site_config_name(self, project: str) -> str:
@@ -372,8 +397,10 @@ class NginxService:
                 )
             raise NginxError(
                 code="DOMAIN_IN_USE",
-                message=f"Domain '{domain}' is already used by project '{existing['project']}'",
-                suggestion=f"Remove it first with 'hostkit nginx remove {existing['project']} {domain}'",
+                message=(f"Domain '{domain}' is already used by project '{existing['project']}'"),
+                suggestion=(
+                    f"Remove it first with 'hostkit nginx remove {existing['project']} {domain}'"
+                ),
             )
 
         # Validate DNS points to this VPS (skip for dev domains or if --skip-dns)
@@ -414,7 +441,9 @@ class NginxService:
         if existing["project"] != project:
             raise NginxError(
                 code="DOMAIN_MISMATCH",
-                message=f"Domain '{domain}' belongs to project '{existing['project']}', not '{project}'",
+                message=(
+                    f"Domain '{domain}' belongs to project '{existing['project']}', not '{project}'"
+                ),
             )
 
         # Remove from database
@@ -453,6 +482,7 @@ class NginxService:
         """Get the payment service port if payments are enabled for project."""
         # Check if payment service is enabled by checking if payment DB exists
         from hostkit.services.payment_service import PaymentService
+
         payment_service = PaymentService()
         if payment_service.payment_is_enabled(project):
             return payment_service._payment_port(project)
@@ -461,6 +491,7 @@ class NginxService:
     def _get_sms_port(self, project: str) -> int | None:
         """Get SMS service port if enabled."""
         from hostkit.services.sms_service import SMSService
+
         sms_service = SMSService()
         if sms_service.sms_is_enabled(project):
             return sms_service._sms_port(project)
@@ -469,6 +500,7 @@ class NginxService:
     def _get_booking_port(self, project: str) -> int | None:
         """Get booking service port if booking is enabled for project."""
         from hostkit.services.booking_service import BookingService
+
         booking_service = BookingService()
         if booking_service.booking_is_enabled(project):
             return booking_service._booking_port(project)
@@ -477,12 +509,21 @@ class NginxService:
     def _get_chatbot_port(self, project: str) -> int | None:
         """Get chatbot service port if chatbot is enabled for project."""
         from hostkit.services.chatbot_service import ChatbotService
+
         chatbot_service = ChatbotService()
         if chatbot_service.chatbot_is_enabled(project):
             return chatbot_service._chatbot_port(project)
         return None
 
-    def _generate_site_config(self, project: str, auth_port: int | None = None, payment_port: int | None = None, sms_port: int | None = None, booking_port: int | None = None, chatbot_port: int | None = None) -> None:
+    def _generate_site_config(
+        self,
+        project: str,
+        auth_port: int | None = None,
+        payment_port: int | None = None,
+        sms_port: int | None = None,
+        booking_port: int | None = None,
+        chatbot_port: int | None = None,
+    ) -> None:
         """Generate or update Nginx site configuration for a project.
 
         Args:
@@ -728,7 +769,10 @@ class NginxService:
                 "project": project,
                 "auth_port": auth_port,
                 "configured": False,
-                "message": "No Nginx site configured yet. Auth location will be added when a domain is configured.",
+                "message": (
+                    "No Nginx site configured yet. Auth location "
+                    "will be added when a domain is configured."
+                ),
             }
 
         # Regenerate site config with auth location
@@ -812,7 +856,10 @@ class NginxService:
                 "project": project,
                 "payment_port": payment_port,
                 "configured": False,
-                "message": "No Nginx site configured yet. Payment location will be added when a domain is configured.",
+                "message": (
+                    "No Nginx site configured yet. Payment location "
+                    "will be added when a domain is configured."
+                ),
             }
 
         # Regenerate site config with payment location
@@ -895,7 +942,10 @@ class NginxService:
                 "project": project,
                 "sms_port": sms_port,
                 "configured": False,
-                "message": "No Nginx site configured yet. SMS location will be added when a domain is configured.",
+                "message": (
+                    "No Nginx site configured yet. SMS location "
+                    "will be added when a domain is configured."
+                ),
             }
 
         # Regenerate site config with SMS location
@@ -978,7 +1028,10 @@ class NginxService:
                 "project": project,
                 "booking_port": booking_port,
                 "configured": False,
-                "message": "No Nginx site configured yet. Booking location will be added when a domain is configured.",
+                "message": (
+                    "No Nginx site configured yet. Booking location "
+                    "will be added when a domain is configured."
+                ),
             }
 
         # Regenerate site config with booking location
@@ -1061,7 +1114,10 @@ class NginxService:
                 "project": project,
                 "chatbot_port": chatbot_port,
                 "configured": False,
-                "message": "No Nginx site configured yet. Chatbot location will be added when a domain is configured.",
+                "message": (
+                    "No Nginx site configured yet. Chatbot location "
+                    "will be added when a domain is configured."
+                ),
             }
 
         # Regenerate site config with chatbot location
@@ -1141,10 +1197,7 @@ class NginxService:
         content = wildcard_config.read_text()
 
         # Extract the current auth location regex pattern
-        old_pattern_match = re.search(
-            r'location ~ \^/auth/\(([^)]+)\)\(/\.\*\)\?\$',
-            content
-        )
+        old_pattern_match = re.search(r"location ~ \^/auth/\(([^)]+)\)\(/\.\*\)\?\$", content)
 
         if not old_pattern_match:
             raise NginxError(
@@ -1157,8 +1210,7 @@ class NginxService:
 
         # Extract the new pattern from AUTH_LOCATION_TEMPLATE
         new_pattern_match = re.search(
-            r'location ~ \^/auth/\(([^)]+)\)\(/\.\*\)\?\$',
-            AUTH_LOCATION_TEMPLATE
+            r"location ~ \^/auth/\(([^)]+)\)\(/\.\*\)\?\$", AUTH_LOCATION_TEMPLATE
         )
 
         if not new_pattern_match:
@@ -1178,8 +1230,7 @@ class NginxService:
 
         # Replace the old pattern with the new one
         new_content = content.replace(
-            f"location ~ ^/auth/({old_routes})(/.*)?$",
-            f"location ~ ^/auth/({new_routes})(/.*)?$"
+            f"location ~ ^/auth/({old_routes})(/.*)?$", f"location ~ ^/auth/({new_routes})(/.*)?$"
         )
 
         # Write the updated config

@@ -3,9 +3,9 @@
 Provides AI capabilities for projects via the shared Claude daemon.
 """
 
-import click
 import os
-from typing import Optional
+
+import click
 
 from hostkit.access import project_owner, root_only
 from hostkit.output import OutputFormatter
@@ -107,12 +107,12 @@ def claude_status(ctx: click.Context) -> None:
 
             status = result.get("status", "unknown")
             status_color = "green" if status == "active" else "red"
-            click.echo(f"  Service:  ", nl=False)
+            click.echo("  Service:  ", nl=False)
             click.secho(status, fg=status_color)
 
             db_status = result.get("database", "unknown")
             db_color = "green" if db_status == "connected" else "red"
-            click.echo(f"  Database: ", nl=False)
+            click.echo("  Database: ", nl=False)
             click.secho(db_status, fg=db_color)
 
             if result.get("endpoint"):
@@ -375,7 +375,7 @@ def claude_tools(ctx: click.Context, project: str) -> None:
 @click.pass_context
 def claude_usage(
     ctx: click.Context,
-    project: Optional[str],
+    project: str | None,
     detailed: bool,
     all_projects: bool,
 ) -> None:

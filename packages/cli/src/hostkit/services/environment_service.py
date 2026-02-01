@@ -15,7 +15,6 @@ from typing import Any
 from hostkit.config import get_config
 from hostkit.database import get_db
 
-
 # Environment limits
 MAX_ENVIRONMENTS_PER_PROJECT = 5
 
@@ -109,7 +108,9 @@ class EnvironmentService:
             raise EnvironmentServiceError(
                 code="ENVIRONMENT_EXISTS",
                 message=f"Environment '{env_name}' already exists for project '{project_name}'",
-                suggestion=f"Run 'hostkit environment info {project_name} {env_name}' to see details",
+                suggestion=(
+                    f"Run 'hostkit environment info {project_name} {env_name}' to see details"
+                ),
             )
 
         # 4. Check environment limit
@@ -118,7 +119,9 @@ class EnvironmentService:
             raise EnvironmentServiceError(
                 code="ENVIRONMENT_LIMIT_EXCEEDED",
                 message=f"Maximum {MAX_ENVIRONMENTS_PER_PROJECT} environments per project",
-                suggestion=f"Delete existing environments with 'hostkit environment list {project_name}'",
+                suggestion=(
+                    f"Delete existing environments with 'hostkit environment list {project_name}'"
+                ),
             )
 
         # 5. Validate db options
@@ -126,7 +129,10 @@ class EnvironmentService:
             raise EnvironmentServiceError(
                 code="INVALID_OPTIONS",
                 message="Cannot use both --with-db and --share-db",
-                suggestion="Choose one: --with-db for separate database, --share-db to use project's database",
+                suggestion=(
+                    "Choose one: --with-db for separate database,"
+                    " --share-db to use project's database"
+                ),
             )
 
         # 6. Generate linux user name
@@ -158,7 +164,7 @@ class EnvironmentService:
         port = self.db.get_next_port()
 
         # 9. Create database record first
-        env_record = self.db.create_environment(
+        self.db.create_environment(
             project_name=project_name,
             env_name=env_name,
             linux_user=linux_user,
@@ -250,7 +256,9 @@ class EnvironmentService:
             raise EnvironmentServiceError(
                 code="ENVIRONMENT_NOT_FOUND",
                 message=f"Environment '{env_name}' not found for project '{project_name}'",
-                suggestion=f"Run 'hostkit environment list {project_name}' to see available environments",
+                suggestion=(
+                    f"Run 'hostkit environment list {project_name}' to see available environments"
+                ),
             )
         return self._to_environment_info(env)
 
@@ -335,7 +343,9 @@ class EnvironmentService:
             raise EnvironmentServiceError(
                 code="ENVIRONMENT_NOT_FOUND",
                 message=f"Environment '{env_name}' not found for project '{project_name}'",
-                suggestion=f"Run 'hostkit environment list {project_name}' to see available environments",
+                suggestion=(
+                    f"Run 'hostkit environment list {project_name}' to see available environments"
+                ),
             )
 
         if not force:
@@ -394,7 +404,9 @@ class EnvironmentService:
             raise EnvironmentServiceError(
                 code="SOURCE_ENV_NOT_FOUND",
                 message=f"Source environment '{source_env}' not found",
-                suggestion=f"Run 'hostkit environment list {project_name}' to see available environments",
+                suggestion=(
+                    f"Run 'hostkit environment list {project_name}' to see available environments"
+                ),
             )
 
         # Validate target environment
@@ -403,7 +415,9 @@ class EnvironmentService:
             raise EnvironmentServiceError(
                 code="TARGET_ENV_NOT_FOUND",
                 message=f"Target environment '{target_env}' not found",
-                suggestion=f"Run 'hostkit environment list {project_name}' to see available environments",
+                suggestion=(
+                    f"Run 'hostkit environment list {project_name}' to see available environments"
+                ),
             )
 
         if dry_run:
@@ -503,8 +517,10 @@ class EnvironmentService:
                 "useradd",
                 "--system",
                 "--create-home",
-                "--home-dir", f"/home/{name}",
-                "--shell", "/bin/bash",
+                "--home-dir",
+                f"/home/{name}",
+                "--shell",
+                "/bin/bash",
                 name,
             ],
             check=True,
@@ -580,7 +596,6 @@ HOST=127.0.0.1
         db_service = DatabaseService()
 
         # Use environment user as database name base
-        db_name = f"{project_name}_{env_name}_db"
 
         # Create database with environment user as owner
         credentials = db_service.create_database(f"{project_name}_{env_name}")
@@ -607,8 +622,8 @@ HOST=127.0.0.1
     def _create_systemd_service(self, linux_user: str, runtime: str, port: int) -> None:
         """Create systemd service for environment."""
         from hostkit.services.project_service import (
-            SYSTEMD_TEMPLATE,
             DEFAULT_START_COMMANDS,
+            SYSTEMD_TEMPLATE,
         )
 
         start_command = DEFAULT_START_COMMANDS.get(runtime, DEFAULT_START_COMMANDS["python"])
@@ -705,6 +720,7 @@ server {
     def _remove_log_directory(self, name: str) -> None:
         """Remove log directory."""
         import shutil
+
         log_dir = Path(f"/var/log/projects/{name}")
         if log_dir.exists():
             shutil.rmtree(log_dir)
@@ -774,7 +790,9 @@ server {
         if source_app.exists():
             subprocess.run(
                 [
-                    "rsync", "-a", "--delete",
+                    "rsync",
+                    "-a",
+                    "--delete",
                     f"{source_app}/",
                     f"{target_app}/",
                 ],
@@ -790,7 +808,9 @@ server {
             if source_dir.exists():
                 subprocess.run(
                     [
-                        "rsync", "-a", "--delete",
+                        "rsync",
+                        "-a",
+                        "--delete",
                         f"{source_dir}/",
                         f"{target_dir}/",
                     ],
@@ -811,9 +831,12 @@ server {
         # pg_dump | psql pipeline
         pg_dump_cmd = [
             "pg_dump",
-            "-h", "localhost",
-            "-U", admin_user,
-            "-d", source_db,
+            "-h",
+            "localhost",
+            "-U",
+            admin_user,
+            "-d",
+            source_db,
             "--no-owner",
             "--no-acl",
             "--clean",
@@ -821,9 +844,12 @@ server {
 
         psql_cmd = [
             "psql",
-            "-h", "localhost",
-            "-U", admin_user,
-            "-d", target_db,
+            "-h",
+            "localhost",
+            "-U",
+            admin_user,
+            "-d",
+            target_db,
             "-q",
         ]
 
@@ -845,7 +871,9 @@ server {
         pg_dump.stdout.close()
         psql.communicate()
 
-    def _cleanup_environment_resources(self, linux_user: str, project_name: str, env_name: str) -> None:
+    def _cleanup_environment_resources(
+        self, linux_user: str, project_name: str, env_name: str
+    ) -> None:
         """Clean up all resources for an environment."""
         # Stop service
         self._stop_service(linux_user)

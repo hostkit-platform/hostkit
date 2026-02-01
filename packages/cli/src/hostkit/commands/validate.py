@@ -1,6 +1,5 @@
 """Pre-deployment validation command for HostKit projects."""
 
-import os
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -66,13 +65,15 @@ def _check_entrypoint(project_name: str, runtime: str, home: Path) -> list[Valid
     app_path = home / "app"
 
     if not app_path.exists():
-        issues.append(ValidationIssue(
-            category="entrypoint",
-            severity="error",
-            message="App directory not found",
-            suggestion="Deploy code first with 'hostkit deploy'",
-            details={"expected": str(app_path)},
-        ))
+        issues.append(
+            ValidationIssue(
+                category="entrypoint",
+                severity="error",
+                message="App directory not found",
+                suggestion="Deploy code first with 'hostkit deploy'",
+                details={"expected": str(app_path)},
+            )
+        )
         return issues
 
     # Check based on runtime
@@ -83,13 +84,15 @@ def _check_entrypoint(project_name: str, runtime: str, home: Path) -> list[Valid
         main_py = app_path / "main.py"
 
         if not (main_file.exists() or (init_file.exists()) or main_py.exists()):
-            issues.append(ValidationIssue(
-                category="entrypoint",
-                severity="error",
-                message="Python entrypoint not found",
-                suggestion="Create app/__main__.py, app/__init__.py, or app/main.py",
-                details={"checked": ["app/__main__.py", "app/__init__.py", "app/main.py"]},
-            ))
+            issues.append(
+                ValidationIssue(
+                    category="entrypoint",
+                    severity="error",
+                    message="Python entrypoint not found",
+                    suggestion="Create app/__main__.py, app/__init__.py, or app/main.py",
+                    details={"checked": ["app/__main__.py", "app/__init__.py", "app/main.py"]},
+                )
+            )
 
     elif runtime == "node":
         # Node: check for app/index.js or package.json with main
@@ -97,13 +100,15 @@ def _check_entrypoint(project_name: str, runtime: str, home: Path) -> list[Valid
         package_json = app_path / "package.json"
 
         if not index_js.exists() and not package_json.exists():
-            issues.append(ValidationIssue(
-                category="entrypoint",
-                severity="error",
-                message="Node entrypoint not found",
-                suggestion="Create app/index.js or package.json with 'main' field",
-                details={"checked": ["app/index.js", "app/package.json"]},
-            ))
+            issues.append(
+                ValidationIssue(
+                    category="entrypoint",
+                    severity="error",
+                    message="Node entrypoint not found",
+                    suggestion="Create app/index.js or package.json with 'main' field",
+                    details={"checked": ["app/index.js", "app/package.json"]},
+                )
+            )
 
     elif runtime == "nextjs":
         # Next.js: check for package.json OR server.js (standalone)
@@ -115,26 +120,30 @@ def _check_entrypoint(project_name: str, runtime: str, home: Path) -> list[Valid
             # This is a standalone deployment - valid entrypoint
             pass
         elif not package_json.exists():
-            issues.append(ValidationIssue(
-                category="entrypoint",
-                severity="error",
-                message="Next.js entrypoint not found",
-                suggestion="Ensure package.json (standard) or server.js (standalone) exists",
-                details={"checked": ["app/package.json", "app/server.js"]},
-            ))
+            issues.append(
+                ValidationIssue(
+                    category="entrypoint",
+                    severity="error",
+                    message="Next.js entrypoint not found",
+                    suggestion="Ensure package.json (standard) or server.js (standalone) exists",
+                    details={"checked": ["app/package.json", "app/server.js"]},
+                )
+            )
 
     elif runtime == "static":
         # Static: check for index.html
         index_html = app_path / "index.html"
 
         if not index_html.exists():
-            issues.append(ValidationIssue(
-                category="entrypoint",
-                severity="warning",
-                message="index.html not found (may be OK for SPA)",
-                suggestion="Ensure index.html exists or nginx is configured for SPA",
-                details={"checked": ["app/index.html"]},
-            ))
+            issues.append(
+                ValidationIssue(
+                    category="entrypoint",
+                    severity="warning",
+                    message="index.html not found (may be OK for SPA)",
+                    suggestion="Ensure index.html exists or nginx is configured for SPA",
+                    details={"checked": ["app/index.html"]},
+                )
+            )
 
     return issues
 
@@ -151,23 +160,29 @@ def _check_dependencies(project_name: str, runtime: str, home: Path) -> list[Val
 
         if requirements.exists():
             if not venv.exists():
-                issues.append(ValidationIssue(
-                    category="dependencies",
-                    severity="error",
-                    message="Virtual environment not found",
-                    suggestion="Run 'hostkit deploy --install' to create venv and install dependencies",
-                    details={"expected": str(venv)},
-                ))
+                issues.append(
+                    ValidationIssue(
+                        category="dependencies",
+                        severity="error",
+                        message="Virtual environment not found",
+                        suggestion=(
+                            "Run 'hostkit deploy --install' to create venv and install dependencies"
+                        ),
+                        details={"expected": str(venv)},
+                    )
+                )
             else:
                 # Check if requirements are installed
                 site_packages = list(venv.glob("lib/python*/site-packages"))
                 if not site_packages:
-                    issues.append(ValidationIssue(
-                        category="dependencies",
-                        severity="error",
-                        message="Site-packages not found in venv",
-                        suggestion="Run 'hostkit deploy --install' to reinstall dependencies",
-                    ))
+                    issues.append(
+                        ValidationIssue(
+                            category="dependencies",
+                            severity="error",
+                            message="Site-packages not found in venv",
+                            suggestion="Run 'hostkit deploy --install' to reinstall dependencies",
+                        )
+                    )
 
     elif runtime in ("node", "nextjs"):
         # Check for package.json and node_modules
@@ -182,41 +197,49 @@ def _check_dependencies(project_name: str, runtime: str, home: Path) -> list[Val
             if not node_modules.exists():
                 if is_standalone:
                     # Standalone-specific error message
-                    issues.append(ValidationIssue(
-                        category="dependencies",
-                        severity="error",
-                        message="Standalone node_modules not found",
-                        suggestion=(
-                            "Next.js standalone builds must include bundled node_modules. "
-                            "Ensure the standalone output includes node_modules when deploying."
-                        ),
-                        details={"expected": str(node_modules), "build_type": "standalone"},
-                    ))
+                    issues.append(
+                        ValidationIssue(
+                            category="dependencies",
+                            severity="error",
+                            message="Standalone node_modules not found",
+                            suggestion=(
+                                "Next.js standalone builds must include bundled node_modules. "
+                                "Ensure the standalone output includes node_modules when deploying."
+                            ),
+                            details={"expected": str(node_modules), "build_type": "standalone"},
+                        )
+                    )
                 else:
-                    issues.append(ValidationIssue(
-                        category="dependencies",
-                        severity="error",
-                        message="node_modules not found",
-                        suggestion="Run 'hostkit deploy --install' to install npm dependencies",
-                        details={"expected": str(node_modules)},
-                    ))
+                    issues.append(
+                        ValidationIssue(
+                            category="dependencies",
+                            severity="error",
+                            message="node_modules not found",
+                            suggestion="Run 'hostkit deploy --install' to install npm dependencies",
+                            details={"expected": str(node_modules)},
+                        )
+                    )
 
     return issues
 
 
-def _check_env_vars(project_name: str, runtime: str, home: Path, services: list[str]) -> list[ValidationIssue]:
+def _check_env_vars(
+    project_name: str, runtime: str, home: Path, services: list[str]
+) -> list[ValidationIssue]:
     """Check that required environment variables are set."""
     issues = []
     env_file = home / ".env"
 
     if not env_file.exists():
-        issues.append(ValidationIssue(
-            category="env",
-            severity="error",
-            message=".env file not found",
-            suggestion="Create .env file with required variables",
-            details={"expected": str(env_file)},
-        ))
+        issues.append(
+            ValidationIssue(
+                category="env",
+                severity="error",
+                message=".env file not found",
+                suggestion="Create .env file with required variables",
+                details={"expected": str(env_file)},
+            )
+        )
         return issues
 
     # Parse .env file
@@ -229,12 +252,14 @@ def _check_env_vars(project_name: str, runtime: str, home: Path, services: list[
                     key, _, value = line.partition("=")
                     env_vars[key.strip()] = value.strip()
     except PermissionError:
-        issues.append(ValidationIssue(
-            category="env",
-            severity="warning",
-            message="Cannot read .env file (permission denied)",
-            suggestion="Check file permissions",
-        ))
+        issues.append(
+            ValidationIssue(
+                category="env",
+                severity="warning",
+                message="Cannot read .env file (permission denied)",
+                suggestion="Check file permissions",
+            )
+        )
         return issues
 
     # Required for all projects
@@ -270,13 +295,15 @@ def _check_env_vars(project_name: str, runtime: str, home: Path, services: list[
             missing_required.append(var)
 
     if missing_required:
-        issues.append(ValidationIssue(
-            category="env",
-            severity="error",
-            message=f"Missing required environment variables",
-            suggestion=f"Set these in .env: {', '.join(missing_required)}",
-            details={"missing": missing_required},
-        ))
+        issues.append(
+            ValidationIssue(
+                category="env",
+                severity="error",
+                message="Missing required environment variables",
+                suggestion=f"Set these in .env: {', '.join(missing_required)}",
+                details={"missing": missing_required},
+            )
+        )
 
     # Check recommended vars (warning level)
     missing_recommended = []
@@ -285,24 +312,28 @@ def _check_env_vars(project_name: str, runtime: str, home: Path, services: list[
             missing_recommended.append(var)
 
     if missing_recommended:
-        issues.append(ValidationIssue(
-            category="env",
-            severity="warning",
-            message=f"Missing recommended environment variables for enabled services",
-            suggestion=f"Consider setting in .env: {', '.join(missing_recommended)}",
-            details={"missing": missing_recommended},
-        ))
+        issues.append(
+            ValidationIssue(
+                category="env",
+                severity="warning",
+                message="Missing recommended environment variables for enabled services",
+                suggestion=f"Consider setting in .env: {', '.join(missing_recommended)}",
+                details={"missing": missing_recommended},
+            )
+        )
 
     # Check for common issues
     if "DATABASE_URL" in env_vars:
         db_url = env_vars["DATABASE_URL"]
         if "localhost" in db_url and "127.0.0.1" not in db_url:
-            issues.append(ValidationIssue(
-                category="env",
-                severity="warning",
-                message="DATABASE_URL uses 'localhost' instead of '127.0.0.1'",
-                suggestion="Use 127.0.0.1 for reliability",
-            ))
+            issues.append(
+                ValidationIssue(
+                    category="env",
+                    severity="warning",
+                    message="DATABASE_URL uses 'localhost' instead of '127.0.0.1'",
+                    suggestion="Use 127.0.0.1 for reliability",
+                )
+            )
 
     return issues
 
@@ -372,21 +403,25 @@ def _check_database(project_name: str) -> list[ValidationIssue]:
 
         if not connected:
             if "does not exist" in error_msg:
-                issues.append(ValidationIssue(
-                    category="database",
-                    severity="warning",
-                    message="Database configured but does not exist yet",
-                    suggestion="Run 'hostkit db create' to create the database",
-                ))
+                issues.append(
+                    ValidationIssue(
+                        category="database",
+                        severity="warning",
+                        message="Database configured but does not exist yet",
+                        suggestion="Run 'hostkit db create' to create the database",
+                    )
+                )
             else:
                 # Just a warning - the app might handle its own connections
-                issues.append(ValidationIssue(
-                    category="database",
-                    severity="warning",
-                    message="Could not verify database connection",
-                    suggestion="Verify DATABASE_URL is correct and PostgreSQL is running",
-                    details={"error": error_msg[:200]} if error_msg else None,
-                ))
+                issues.append(
+                    ValidationIssue(
+                        category="database",
+                        severity="warning",
+                        message="Could not verify database connection",
+                        suggestion="Verify DATABASE_URL is correct and PostgreSQL is running",
+                        details={"error": error_msg[:200]} if error_msg else None,
+                    )
+                )
     except ImportError:
         # psycopg2 not installed, skip database checks
         pass
@@ -424,15 +459,17 @@ def _check_port(project_name: str, port: int) -> list[ValidationIssue]:
 
         output = result.stdout.strip()
         # If there's any output beyond the header, the port is in use
-        lines = [l for l in output.split('\n') if l and not l.startswith('State')]
+        lines = [line for line in output.split("\n") if line and not line.startswith("State")]
         if lines:
-            issues.append(ValidationIssue(
-                category="port",
-                severity="error",
-                message=f"Port {port} is in use by another process",
-                suggestion="Check for conflicting services or change the project port",
-                details={"port": port, "process": lines[0][:200]},
-            ))
+            issues.append(
+                ValidationIssue(
+                    category="port",
+                    severity="error",
+                    message=f"Port {port} is in use by another process",
+                    suggestion="Check for conflicting services or change the project port",
+                    details={"port": port, "process": lines[0][:200]},
+                )
+            )
     except (subprocess.SubprocessError, FileNotFoundError):
         # ss not available, skip check
         pass
@@ -470,13 +507,19 @@ def _check_services(project_name: str, home: Path) -> tuple[list[str], list[Vali
                 )
                 status = result.stdout.strip()
                 if status not in ("active", "activating"):
-                    issues.append(ValidationIssue(
-                        category="services",
-                        severity="warning",
-                        message=f"{service.capitalize()} service is not running",
-                        suggestion=f"Start with 'hostkit service start {project_name} --service {service}'",
-                        details={"service": service, "status": status},
-                    ))
+                    issues.append(
+                        ValidationIssue(
+                            category="services",
+                            severity="warning",
+                            message=f"{service.capitalize()} service is not running",
+                            suggestion=(
+                                f"Start with 'hostkit service start"
+                                f" {project_name}"
+                                f" --service {service}'"
+                            ),
+                            details={"service": service, "status": status},
+                        )
+                    )
             except (subprocess.SubprocessError, FileNotFoundError):
                 pass
 
@@ -490,12 +533,14 @@ def validate_project(project_name: str) -> ValidationResult:
 
     if not project:
         result = ValidationResult(project=project_name, valid=False)
-        result.issues.append(ValidationIssue(
-            category="project",
-            severity="error",
-            message=f"Project '{project_name}' does not exist",
-            suggestion="Run 'hostkit project list' to see available projects",
-        ))
+        result.issues.append(
+            ValidationIssue(
+                category="project",
+                severity="error",
+                message=f"Project '{project_name}' does not exist",
+                suggestion="Run 'hostkit project list' to see available projects",
+            )
+        )
         return result
 
     runtime = project.get("runtime", "python")
@@ -529,11 +574,13 @@ def validate_project(project_name: str) -> ValidationResult:
             if not has_errors:
                 result.checks_passed.append(check_name)
         except Exception as e:
-            result.issues.append(ValidationIssue(
-                category=check_name,
-                severity="warning",
-                message=f"Check failed unexpectedly: {str(e)[:100]}",
-            ))
+            result.issues.append(
+                ValidationIssue(
+                    category=check_name,
+                    severity="warning",
+                    message=f"Check failed unexpectedly: {str(e)[:100]}",
+                )
+            )
 
     # Determine overall validity (no errors)
     result.valid = not any(i.severity == "error" for i in result.issues)
@@ -553,7 +600,9 @@ def _format_severity(severity: str) -> str:
         "warning": "[!]",
         "info": "[i]",
     }
-    return click.style(f"{icons.get(severity, '[?]')} {severity.upper()}", fg=colors.get(severity, "white"))
+    return click.style(
+        f"{icons.get(severity, '[?]')} {severity.upper()}", fg=colors.get(severity, "white")
+    )
 
 
 def _print_validation(result: ValidationResult) -> None:

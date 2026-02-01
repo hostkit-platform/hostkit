@@ -61,9 +61,7 @@ def capabilities(
         return
 
     # Full capabilities mode
-    _show_full_capabilities(
-        formatter, show_commands, show_services, show_runtimes
-    )
+    _show_full_capabilities(formatter, show_commands, show_services, show_runtimes)
 
 
 def _show_full_capabilities(
@@ -93,12 +91,19 @@ def _show_full_capabilities(
             "pattern": "{project}.hostkit.dev",
             "ssl": "automatic (wildcard cert)",
             "dns": "automatic (wildcard A record)",
-            "note": "Every new project automatically gets a working subdomain with SSL - no setup required",
+            "note": (
+                "Every new project automatically gets a working"
+                " subdomain with SSL - no setup required"
+            ),
         },
         "auth_callbacks": {
             "pattern": "https://{project}.hostkit.dev/auth/oauth/{provider}/callback",
             "providers": ["google", "apple"],
-            "note": "Auth always uses hostkit.dev subdomain for OAuth callbacks - predictable URLs for provider console setup",
+            "note": (
+                "Auth always uses hostkit.dev subdomain for OAuth"
+                " callbacks - predictable URLs for provider"
+                " console setup"
+            ),
         },
     }
 
@@ -217,7 +222,11 @@ def _get_project_services(project_name: str, project: dict[str, Any]) -> dict[st
         if google_client_id:
             oauth_providers["google"] = {
                 "configured": True,
-                "client_id": f"{google_client_id[:15]}..." if len(google_client_id) > 15 else google_client_id,
+                "client_id": (
+                    f"{google_client_id[:15]}..."
+                    if len(google_client_id) > 15
+                    else google_client_id
+                ),
             }
         else:
             oauth_providers["google"] = {"configured": False}
@@ -226,7 +235,9 @@ def _get_project_services(project_name: str, project: dict[str, Any]) -> dict[st
         if apple_client_id:
             oauth_providers["apple"] = {
                 "configured": True,
-                "client_id": f"{apple_client_id[:15]}..." if len(apple_client_id) > 15 else apple_client_id,
+                "client_id": (
+                    f"{apple_client_id[:15]}..." if len(apple_client_id) > 15 else apple_client_id
+                ),
             }
         else:
             oauth_providers["apple"] = {"configured": False}
@@ -248,13 +259,23 @@ def _get_project_services(project_name: str, project: dict[str, Any]) -> dict[st
             "native_oauth": {
                 "google": {
                     "endpoint": "POST /auth/oauth/google/verify-token",
-                    "params": ["id_token (required)", "ios_client_id (required for iOS)", "access_token (optional, for at_hash validation)"],
+                    "params": [
+                        "id_token (required)",
+                        "ios_client_id (required for iOS)",
+                        "access_token (optional, for at_hash validation)",
+                    ],
                 },
                 "apple": {
                     "endpoint": "POST /auth/oauth/apple/verify-token",
-                    "params": ["id_token (required)", "bundle_id (optional, defaults to APPLE_BUNDLE_ID)"],
+                    "params": [
+                        "id_token (required)",
+                        "bundle_id (optional, defaults to APPLE_BUNDLE_ID)",
+                    ],
                 },
-                "notes": "iOS apps must use singleton AppState pattern to prevent OAuth scene fragmentation",
+                "notes": (
+                    "iOS apps must use singleton AppState pattern"
+                    " to prevent OAuth scene fragmentation"
+                ),
             },
         }
     else:
@@ -306,6 +327,7 @@ def _get_project_services(project_name: str, project: dict[str, Any]) -> dict[st
     # Vector is enabled if project has a vector_projects record
     try:
         import sqlite3
+
         from hostkit.config import get_config
 
         config = get_config()
@@ -314,8 +336,7 @@ def _get_project_services(project_name: str, project: dict[str, Any]) -> dict[st
         if vector_db_path.exists():
             conn = sqlite3.connect(vector_db_path)
             cursor = conn.execute(
-                "SELECT id FROM vector_projects WHERE project_name = ?",
-                (project_name,)
+                "SELECT id FROM vector_projects WHERE project_name = ?", (project_name,)
             )
             row = cursor.fetchone()
             conn.close()

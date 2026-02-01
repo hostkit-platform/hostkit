@@ -1,6 +1,5 @@
 """Next.js standalone deployment handler for HostKit."""
 
-import shutil
 import subprocess
 from pathlib import Path
 
@@ -33,9 +32,7 @@ class NextJSHandler:
     def __init__(self):
         self.build_detector = BuildDetector()
 
-    def deploy_standalone(
-        self, source_path: Path, release_path: Path, project: str
-    ) -> int:
+    def deploy_standalone(self, source_path: Path, release_path: Path, project: str) -> int:
         """
         Deploy Next.js standalone build to release directory.
 

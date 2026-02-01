@@ -28,7 +28,8 @@ def operator(ctx: click.Context) -> None:
 
 @operator.command("setup")
 @click.option(
-    "--user", "-u",
+    "--user",
+    "-u",
     default=None,
     help="Operator username (default: ai-operator)",
 )
@@ -80,17 +81,20 @@ def setup(ctx: click.Context, user: str | None) -> None:
 @operator.command("add-key")
 @click.argument("key", required=False)
 @click.option(
-    "--user", "-u",
+    "--user",
+    "-u",
     default=None,
     help="Operator username (default: ai-operator)",
 )
 @click.option(
-    "--github", "-g",
+    "--github",
+    "-g",
     default=None,
     help="Fetch SSH keys from GitHub username",
 )
 @click.option(
-    "--file", "-f",
+    "--file",
+    "-f",
     "file_path",
     default=None,
     type=click.Path(exists=True),
@@ -140,7 +144,8 @@ def add_key(
 
 @operator.command("test")
 @click.option(
-    "--user", "-u",
+    "--user",
+    "-u",
     default=None,
     help="Operator username (default: ai-operator)",
 )
@@ -199,12 +204,14 @@ def test(ctx: click.Context, user: str | None) -> None:
 
 @operator.command("revoke")
 @click.option(
-    "--user", "-u",
+    "--user",
+    "-u",
     default=None,
     help="Operator username (default: ai-operator)",
 )
 @click.option(
-    "--force", "-f",
+    "--force",
+    "-f",
     is_flag=True,
     help="Skip confirmation",
 )
@@ -293,14 +300,16 @@ def list_operators(ctx: click.Context) -> None:
 @operator.command("set-project-key")
 @click.argument("key", required=False)
 @click.option(
-    "--file", "-f",
+    "--file",
+    "-f",
     "file_path",
     default=None,
     type=click.Path(exists=True),
     help="Read SSH key from file",
 )
 @click.option(
-    "--github", "-g",
+    "--github",
+    "-g",
     default=None,
     help="Fetch SSH keys from GitHub username",
 )
@@ -359,6 +368,7 @@ def set_project_key(
 
     if github:
         import requests
+
         url = f"https://github.com/{github}.keys"
         resp = requests.get(url, timeout=10)
         if resp.status_code == 404:
@@ -383,6 +393,7 @@ def set_project_key(
 
     # Validate keys
     import subprocess
+
     valid_keys = []
     for k in keys_to_add:
         result = subprocess.run(
@@ -439,7 +450,9 @@ def show_project_keys(ctx: click.Context) -> None:
         if not keys:
             click.echo("No operator project keys configured.")
             click.echo()
-            click.echo("Set one with: hostkit operator set-project-key --file ~/.ssh/id_ed25519.pub")
+            click.echo(
+                "Set one with: hostkit operator set-project-key --file ~/.ssh/id_ed25519.pub"
+            )
             return
 
         click.echo(f"Operator project keys ({len(keys)}):")
@@ -447,6 +460,7 @@ def show_project_keys(ctx: click.Context) -> None:
         for i, k in enumerate(keys, 1):
             # Get fingerprint for display
             import subprocess
+
             result = subprocess.run(
                 ["ssh-keygen", "-lf", "-"],
                 input=k.encode(),

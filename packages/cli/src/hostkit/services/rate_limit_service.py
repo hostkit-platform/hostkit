@@ -113,7 +113,9 @@ class RateLimitService:
             updated = self.db.create_rate_limit_config(
                 project_name,
                 max_deploys=max_deploys if max_deploys is not None else defaults.max_deploys,
-                window_minutes=window_minutes if window_minutes is not None else defaults.window_minutes,
+                window_minutes=window_minutes
+                if window_minutes is not None
+                else defaults.window_minutes,
                 failure_cooldown_minutes=(
                     failure_cooldown_minutes
                     if failure_cooldown_minutes is not None
@@ -126,7 +128,9 @@ class RateLimitService:
                 ),
             )
 
-        return RateLimitConfig.from_dict(updated) if updated else RateLimitConfig.default(project_name)
+        return (
+            RateLimitConfig.from_dict(updated) if updated else RateLimitConfig.default(project_name)
+        )
 
     def reset_config(self, project_name: str) -> bool:
         """Reset rate limit configuration to defaults (deletes custom config)."""
@@ -280,7 +284,9 @@ class RateLimitService:
                 dt = datetime.utcnow() - timedelta(hours=hours)
                 return dt.isoformat()
             except ValueError:
-                raise ValueError(f"Invalid duration format: {since}. Use formats like 1h, 24h, 7d, 30m")
+                raise ValueError(
+                    f"Invalid duration format: {since}. Use formats like 1h, 24h, 7d, 30m"
+                )
 
         value = int(match.group(1))
         unit = match.group(2)

@@ -27,12 +27,8 @@ class HostKitConfig:
     postgres_port: int = 5432
     redis_host: str = "localhost"
     redis_port: int = 6379
-    nginx_sites_available: Path = field(
-        default_factory=lambda: Path("/etc/nginx/sites-available")
-    )
-    nginx_sites_enabled: Path = field(
-        default_factory=lambda: Path("/etc/nginx/sites-enabled")
-    )
+    nginx_sites_available: Path = field(default_factory=lambda: Path("/etc/nginx/sites-available"))
+    nginx_sites_enabled: Path = field(default_factory=lambda: Path("/etc/nginx/sites-enabled"))
 
     # Project defaults
     default_runtime: str = "python"

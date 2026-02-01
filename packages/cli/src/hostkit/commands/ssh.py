@@ -16,9 +16,7 @@ def ssh():
 @click.argument("project")
 @click.argument("public_key", required=False)
 @click.option("--github", "github_user", help="Fetch keys from GitHub username")
-@click.option(
-    "--file", "key_file", type=click.Path(exists=True), help="Read key from file"
-)
+@click.option("--file", "key_file", type=click.Path(exists=True), help="Read key from file")
 @project_access("project")
 def add_key(
     project: str,
@@ -47,9 +45,7 @@ def add_key(
     elif public_key:
         keys_to_add = [public_key]
     else:
-        raise click.ClickException(
-            "Must provide a public key, --github username, or --file path"
-        )
+        raise click.ClickException("Must provide a public key, --github username, or --file path")
 
     added = 0
     for key in keys_to_add:
@@ -212,9 +208,7 @@ def status(project: str | None):
     if project:
         # Check access for specific project
         if not ctx.is_root and not (ctx.is_project_user and ctx.project == project):
-            raise click.ClickException(
-                f"Access denied: must be root or user '{project}'"
-            )
+            raise click.ClickException(f"Access denied: must be root or user '{project}'")
 
         try:
             s = ssh_service.get_ssh_status(project)

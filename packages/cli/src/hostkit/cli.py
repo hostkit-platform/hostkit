@@ -27,58 +27,60 @@ def cli(ctx: click.Context, output_json: bool) -> None:
 
 
 # Import and register commands
-from hostkit.commands import status  # noqa: E402
-from hostkit.commands import project  # noqa: E402
-from hostkit.commands import db  # noqa: E402
-from hostkit.commands import redis  # noqa: E402
-from hostkit.commands import service  # noqa: E402
-from hostkit.commands import nginx  # noqa: E402
-from hostkit.commands import ssl  # noqa: E402
-from hostkit.commands import dns  # noqa: E402
-from hostkit.commands import mail  # noqa: E402
-from hostkit.commands import storage  # noqa: E402
-from hostkit.commands import log  # noqa: E402
-from hostkit.commands import backup  # noqa: E402
-from hostkit.commands import auth  # noqa: E402
-from hostkit.commands import ssh  # noqa: E402
-from hostkit.commands import env  # noqa: E402
-from hostkit.commands import operator  # noqa: E402
-from hostkit.commands import secrets  # noqa: E402
-from hostkit.commands import cron  # noqa: E402
-from hostkit.commands import worker  # noqa: E402
-from hostkit.commands import vector  # noqa: E402
-from hostkit.commands import claude  # noqa: E402
-from hostkit.commands import checkpoint  # noqa: E402
-from hostkit.commands import alert  # noqa: E402
+from hostkit.commands import (  # noqa: E402
+    alert,
+    auth,  # noqa: E402
+    autopause,  # noqa: E402
+    backup,  # noqa: E402
+    booking,
+    chatbot,  # noqa: E402
+    checkpoint,  # noqa: E402
+    claude,  # noqa: E402
+    cron,  # noqa: E402
+    db,  # noqa: E402
+    dns,  # noqa: E402
+    docs,  # noqa: E402
+    env,  # noqa: E402
+    image,  # noqa: E402
+    limits,  # noqa: E402
+    log,  # noqa: E402
+    mail,  # noqa: E402
+    nginx,  # noqa: E402
+    operator,  # noqa: E402
+    payments,  # noqa: E402
+    permissions,  # noqa: E402
+    project,  # noqa: E402
+    query,  # noqa: E402
+    r2,  # noqa: E402
+    ratelimit,  # noqa: E402
+    redis,  # noqa: E402
+    secrets,  # noqa: E402
+    service,  # noqa: E402
+    sms,  # noqa: E402
+    ssh,  # noqa: E402
+    ssl,  # noqa: E402
+    status,  # noqa: E402
+    storage,  # noqa: E402
+    vector,  # noqa: E402
+    voice,  # noqa: E402
+    worker,  # noqa: E402
+)
+from hostkit.commands.capabilities import capabilities  # noqa: E402
 from hostkit.commands.deploy import deploy  # noqa: E402
-from hostkit.commands.migrate import migrate  # noqa: E402
-from hostkit.commands.health import health  # noqa: E402
-from hostkit.commands.rollback import rollback  # noqa: E402
-from hostkit.commands.provision import provision  # noqa: E402
-from hostkit.commands import ratelimit  # noqa: E402
 from hostkit.commands.deploys import deploys  # noqa: E402
 from hostkit.commands.diagnose import diagnose  # noqa: E402
-from hostkit.commands import autopause  # noqa: E402
-from hostkit.commands.resume import resume  # noqa: E402
-from hostkit.commands.sandbox import sandbox  # noqa: E402
-from hostkit.commands import limits  # noqa: E402
-from hostkit.commands.git import git  # noqa: E402
 from hostkit.commands.environment import environment  # noqa: E402
 from hostkit.commands.events import events  # noqa: E402
-from hostkit.commands.metrics import metrics  # noqa: E402
-from hostkit.commands.capabilities import capabilities  # noqa: E402
-from hostkit.commands import image  # noqa: E402
-from hostkit.commands import payments  # noqa: E402
-from hostkit.commands import sms  # noqa: E402
-from hostkit.commands import voice  # noqa: E402
-from hostkit.commands import booking
-from hostkit.commands import r2  # noqa: E402
-from hostkit.commands import chatbot  # noqa: E402
-from hostkit.commands import docs  # noqa: E402
-from hostkit.commands import query  # noqa: E402
-from hostkit.commands import permissions  # noqa: E402
-from hostkit.commands.validate import validate
 from hostkit.commands.exec import exec_cmd  # noqa: E402
+from hostkit.commands.git import git  # noqa: E402
+from hostkit.commands.health import health  # noqa: E402
+from hostkit.commands.metrics import metrics  # noqa: E402
+from hostkit.commands.migrate import migrate  # noqa: E402
+from hostkit.commands.provision import provision  # noqa: E402
+from hostkit.commands.resume import resume  # noqa: E402
+from hostkit.commands.rollback import rollback  # noqa: E402
+from hostkit.commands.sandbox import sandbox  # noqa: E402
+from hostkit.commands.validate import validate  # noqa: E402
 
 cli.add_command(status.status)
 cli.add_command(project.project)

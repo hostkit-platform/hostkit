@@ -1,7 +1,6 @@
 """DNS management for HostKit using Cloudflare API and nip.io."""
 
 import json
-import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -205,6 +204,7 @@ class DNSService:
             try:
                 cache_data = json.loads(self.IP_CACHE_PATH.read_text())
                 import time
+
                 if time.time() - cache_data.get("timestamp", 0) < 3600:
                     self._vps_ip = cache_data["ip"]
                     return self._vps_ip
@@ -218,10 +218,15 @@ class DNSService:
         # Cache the result
         self.IP_CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
         import time
-        self.IP_CACHE_PATH.write_text(json.dumps({
-            "ip": ip,
-            "timestamp": time.time(),
-        }))
+
+        self.IP_CACHE_PATH.write_text(
+            json.dumps(
+                {
+                    "ip": ip,
+                    "timestamp": time.time(),
+                }
+            )
+        )
 
         return ip
 
@@ -319,16 +324,18 @@ class DNSService:
 
             records = []
             for rec in result.get("result", []):
-                records.append(DNSRecord(
-                    id=rec["id"],
-                    name=rec["name"],
-                    type=rec["type"],
-                    content=rec["content"],
-                    ttl=rec["ttl"],
-                    proxied=rec.get("proxied", False),
-                    zone_id=zone_id,
-                    zone_name=zone_name,
-                ))
+                records.append(
+                    DNSRecord(
+                        id=rec["id"],
+                        name=rec["name"],
+                        type=rec["type"],
+                        content=rec["content"],
+                        ttl=rec["ttl"],
+                        proxied=rec.get("proxied", False),
+                        zone_id=zone_id,
+                        zone_name=zone_name,
+                    )
+                )
 
             return records
 
@@ -388,8 +395,13 @@ class DNSService:
         if existing:
             raise DNSError(
                 code="RECORD_EXISTS",
-                message=f"{record_type} record '{full_name}' already exists (points to {existing.content})",
-                suggestion=f"Use 'hostkit dns remove {full_name}' first or update the existing record",
+                message=(
+                    f"{record_type} record '{full_name}' already exists"
+                    f" (points to {existing.content})"
+                ),
+                suggestion=(
+                    f"Use 'hostkit dns remove {full_name}' first or update the existing record"
+                ),
             )
 
         # Create the record
@@ -498,8 +510,8 @@ class DNSService:
         dev_domain = self.get_dev_domain(project_name)
 
         # Import nginx service to add the domain
-        from hostkit.services.nginx_service import NginxService, NginxError
         from hostkit.database import get_db
+        from hostkit.services.nginx_service import NginxError, NginxService
 
         db = get_db()
 
@@ -565,6 +577,7 @@ class DNSService:
 
         # Add to Nginx
         from hostkit.services.nginx_service import NginxService
+
         nginx = NginxService()
         nginx.add_domain(project_name, full_domain)
 

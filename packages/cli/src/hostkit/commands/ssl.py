@@ -3,7 +3,7 @@
 import click
 
 from hostkit.output import OutputFormatter
-from hostkit.services.ssl_service import SSLService, SSLError
+from hostkit.services.ssl_service import SSLError, SSLService
 
 
 @click.group()
@@ -49,13 +49,15 @@ def ssl_list(ctx: click.Context) -> None:
             else:
                 status = "valid"
 
-            data.append({
-                "domain": cert.domain,
-                "expires": cert.valid_until,
-                "days_remaining": cert.days_remaining,
-                "status": status,
-                "alt_names": len(cert.subject_alt_names),
-            })
+            data.append(
+                {
+                    "domain": cert.domain,
+                    "expires": cert.valid_until,
+                    "days_remaining": cert.days_remaining,
+                    "status": status,
+                    "alt_names": len(cert.subject_alt_names),
+                }
+            )
 
         formatter.table(
             data=data,

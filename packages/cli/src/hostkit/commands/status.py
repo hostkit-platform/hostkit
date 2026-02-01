@@ -1,14 +1,21 @@
 """Status command for HostKit CLI."""
 
+from __future__ import annotations
+
 import subprocess
-import time
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import click
 import psutil
 
 from hostkit.database import get_db
 from hostkit.output import OutputFormatter, format_bytes, format_uptime
+
+if TYPE_CHECKING:
+    from hostkit.services.resource_service import (
+        ProjectResources,
+        ResourceService,
+    )
 
 
 def get_system_info() -> dict[str, Any]:
@@ -299,6 +306,7 @@ def _get_project_log_stats(project_name: str) -> dict[str, Any]:
     """Get log statistics for a project."""
     try:
         from hostkit.services.log_service import LogService
+
         log_service = LogService()
         stats = log_service.get_log_stats(project_name)
         return {
@@ -409,12 +417,11 @@ def _show_project_resources(
 
 def _watch_project_resources(
     formatter: OutputFormatter,
-    service: "ResourceService",
+    service: ResourceService,
     project_name: str,
     interval: int,
 ) -> None:
     """Continuously monitor and display resource metrics."""
-    from hostkit.services.resource_service import ResourceService
 
     import click
 
@@ -430,9 +437,8 @@ def _watch_project_resources(
         click.echo("\nMonitoring stopped.")
 
 
-def _display_resources(formatter: OutputFormatter, resources: "ProjectResources") -> None:
+def _display_resources(formatter: OutputFormatter, resources: ProjectResources) -> None:
     """Display resource metrics in appropriate format."""
-    from hostkit.services.resource_service import ProjectResources
 
     if formatter.json_mode:
         formatter.success(resources.to_dict(), f"Resources for {resources.project}")
@@ -447,10 +453,18 @@ def _display_resources(formatter: OutputFormatter, resources: "ProjectResources"
         "status": process_status,
         "pid": resources.main_pid or "N/A",
         "process_count": resources.process_count,
-        "cpu_percent": f"{resources.cpu_percent:.1f}%" if resources.cpu_percent is not None else "N/A",
-        "memory_rss": format_bytes(resources.memory_rss_bytes) if resources.memory_rss_bytes else "N/A",
-        "memory_vms": format_bytes(resources.memory_vms_bytes) if resources.memory_vms_bytes else "N/A",
-        "memory_percent": f"{resources.memory_percent:.1f}%" if resources.memory_percent is not None else "N/A",
+        "cpu_percent": f"{resources.cpu_percent:.1f}%"
+        if resources.cpu_percent is not None
+        else "N/A",
+        "memory_rss": format_bytes(resources.memory_rss_bytes)
+        if resources.memory_rss_bytes
+        else "N/A",
+        "memory_vms": format_bytes(resources.memory_vms_bytes)
+        if resources.memory_vms_bytes
+        else "N/A",
+        "memory_percent": f"{resources.memory_percent:.1f}%"
+        if resources.memory_percent is not None
+        else "N/A",
     }
 
     # Disk section
@@ -465,8 +479,12 @@ def _display_resources(formatter: OutputFormatter, resources: "ProjectResources"
     if resources.database_name:
         sections["database"] = {
             "name": resources.database_name,
-            "size": format_bytes(resources.database_size_bytes) if resources.database_size_bytes else "N/A",
-            "connections": resources.database_connections if resources.database_connections is not None else "N/A",
+            "size": format_bytes(resources.database_size_bytes)
+            if resources.database_size_bytes
+            else "N/A",
+            "connections": resources.database_connections
+            if resources.database_connections is not None
+            else "N/A",
         }
 
     # Alerts section (if any)
@@ -488,4 +506,6 @@ def _display_resources(formatter: OutputFormatter, resources: "ProjectResources"
         "timestamp": resources.timestamp,
     }
 
-    formatter.status_panel(f"Resources: {resources.project}", sections, message=f"Resources for {resources.project}")
+    formatter.status_panel(
+        f"Resources: {resources.project}", sections, message=f"Resources for {resources.project}"
+    )

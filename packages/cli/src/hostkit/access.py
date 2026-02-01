@@ -17,9 +17,10 @@ Commands are categorized as:
 import functools
 import os
 import pwd
+from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
-from typing import Callable, TypeVar
+from typing import TypeVar
 
 import click
 
@@ -28,6 +29,7 @@ from hostkit.database import get_db
 
 class AccessLevel(Enum):
     """Access levels for HostKit operations."""
+
     ROOT = "root"
     OPERATOR = "operator"  # AI agent with controlled sudo access
     PROJECT_USER = "project_user"
@@ -36,15 +38,17 @@ class AccessLevel(Enum):
 
 class CommandScope(Enum):
     """Scope of commands - determines who can run them."""
-    ROOT_ONLY = "root_only"          # Only root can run
+
+    ROOT_ONLY = "root_only"  # Only root can run
     PROJECT_SCOPED = "project_scoped"  # Project user can run for own project
-    PROJECT_READ = "project_read"     # Read-only for own project
-    GLOBAL_READ = "global_read"       # Any user can read (system status)
+    PROJECT_READ = "project_read"  # Read-only for own project
+    GLOBAL_READ = "global_read"  # Any user can read (system status)
 
 
 @dataclass
 class AccessContext:
     """Current user's access context."""
+
     level: AccessLevel
     username: str
     uid: int
@@ -265,6 +269,7 @@ F = TypeVar("F", bound=Callable)
 
 def root_only(func: F) -> F:
     """Decorator: Command requires root access."""
+
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         try:
@@ -282,11 +287,13 @@ def root_only(func: F) -> F:
             else:
                 raise click.ClickException(f"{e.message}. {e.suggestion or ''}")
         return func(*args, **kwargs)
+
     return wrapper  # type: ignore
 
 
 def operator_or_root(func: F) -> F:
     """Decorator: Command requires root or operator access."""
+
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         try:
@@ -304,6 +311,7 @@ def operator_or_root(func: F) -> F:
             else:
                 raise click.ClickException(f"{e.message}. {e.suggestion or ''}")
         return func(*args, **kwargs)
+
     return wrapper  # type: ignore
 
 
@@ -317,6 +325,7 @@ def project_owner(project_arg: str = "project") -> Callable[[F], F]:
     Args:
         project_arg: Name of the argument containing the project name (default: "project")
     """
+
     def decorator(func: F) -> F:
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
@@ -324,6 +333,7 @@ def project_owner(project_arg: str = "project") -> Callable[[F], F]:
             project_name = kwargs.get(project_arg)
             if project_name is None:
                 import inspect
+
                 sig = inspect.signature(func)
                 params = list(sig.parameters.keys())
                 if project_arg in params:
@@ -332,7 +342,9 @@ def project_owner(project_arg: str = "project") -> Callable[[F], F]:
                         project_name = args[idx]
 
             if project_name is None:
-                raise click.ClickException(f"Could not determine project name from '{project_arg}' argument")
+                raise click.ClickException(
+                    f"Could not determine project name from '{project_arg}' argument"
+                )
 
             try:
                 require_project_owner(project_name)
@@ -348,7 +360,9 @@ def project_owner(project_arg: str = "project") -> Callable[[F], F]:
                 else:
                     raise click.ClickException(f"{e.message}. {e.suggestion or ''}")
             return func(*args, **kwargs)
+
         return wrapper  # type: ignore
+
     return decorator
 
 
@@ -365,6 +379,7 @@ def project_access(project_arg: str = "project") -> Callable[[F], F]:
         @project_access("name")  # Uses 'name' argument
         def my_command(name: str): ...
     """
+
     def decorator(func: F) -> F:
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
@@ -373,6 +388,7 @@ def project_access(project_arg: str = "project") -> Callable[[F], F]:
             if project_name is None:
                 # Try to get from positional args based on function signature
                 import inspect
+
                 sig = inspect.signature(func)
                 params = list(sig.parameters.keys())
                 if project_arg in params:
@@ -381,7 +397,9 @@ def project_access(project_arg: str = "project") -> Callable[[F], F]:
                         project_name = args[idx]
 
             if project_name is None:
-                raise click.ClickException(f"Could not determine project name from '{project_arg}' argument")
+                raise click.ClickException(
+                    f"Could not determine project name from '{project_arg}' argument"
+                )
 
             try:
                 require_project_access(project_name)
@@ -397,18 +415,22 @@ def project_access(project_arg: str = "project") -> Callable[[F], F]:
                 else:
                     raise click.ClickException(f"{e.message}. {e.suggestion or ''}")
             return func(*args, **kwargs)
+
         return wrapper  # type: ignore
+
     return decorator
 
 
 def project_write(project_arg: str = "project") -> Callable[[F], F]:
     """Decorator factory: Command requires write access to the specified project."""
+
     def decorator(func: F) -> F:
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             project_name = kwargs.get(project_arg)
             if project_name is None:
                 import inspect
+
                 sig = inspect.signature(func)
                 params = list(sig.parameters.keys())
                 if project_arg in params:
@@ -417,7 +439,9 @@ def project_write(project_arg: str = "project") -> Callable[[F], F]:
                         project_name = args[idx]
 
             if project_name is None:
-                raise click.ClickException(f"Could not determine project name from '{project_arg}' argument")
+                raise click.ClickException(
+                    f"Could not determine project name from '{project_arg}' argument"
+                )
 
             try:
                 require_project_write(project_name)
@@ -433,7 +457,9 @@ def project_write(project_arg: str = "project") -> Callable[[F], F]:
                 else:
                     raise click.ClickException(f"{e.message}. {e.suggestion or ''}")
             return func(*args, **kwargs)
+
         return wrapper  # type: ignore
+
     return decorator
 
 
@@ -521,7 +547,6 @@ COMMAND_SCOPES: dict[str, CommandScope] = {
     "db backup": CommandScope.PROJECT_SCOPED,
     "backup create": CommandScope.PROJECT_SCOPED,
     "log clear": CommandScope.PROJECT_SCOPED,
-
     # Project-scoped read commands (project user can read own project)
     "project info": CommandScope.PROJECT_READ,
     "service status": CommandScope.PROJECT_READ,
@@ -538,13 +563,11 @@ COMMAND_SCOPES: dict[str, CommandScope] = {
     "db info": CommandScope.PROJECT_READ,
     "backup list": CommandScope.PROJECT_READ,
     "storage credentials": CommandScope.PROJECT_READ,
-
     # Global read commands (any user can run)
     "status": CommandScope.GLOBAL_READ,
     "project list": CommandScope.GLOBAL_READ,
     "service list": CommandScope.GLOBAL_READ,
     "db list": CommandScope.GLOBAL_READ,
-
     # SSH management commands
     "ssh add-key": CommandScope.PROJECT_SCOPED,
     "ssh remove-key": CommandScope.PROJECT_SCOPED,
@@ -554,45 +577,34 @@ COMMAND_SCOPES: dict[str, CommandScope] = {
     "ssh enable": CommandScope.ROOT_ONLY,
     "ssh disable": CommandScope.ROOT_ONLY,
     "ssh status": CommandScope.PROJECT_READ,
-
     # Deploy command - project users can deploy their own project
     "deploy": CommandScope.PROJECT_SCOPED,
-
     # Rollback command - project users can rollback their own project
     "rollback": CommandScope.PROJECT_SCOPED,
-
     # Health command - project users can check their own project health
     "health": CommandScope.PROJECT_READ,
-
     # Exec command - run arbitrary commands in project context
     "exec": CommandScope.PROJECT_SCOPED,
-
     # Migrate command - project users can run migrations on their own project
     "migrate": CommandScope.PROJECT_SCOPED,
-
     # Backup restore - project users can restore their own backups
     "backup restore": CommandScope.PROJECT_SCOPED,
-
     # R2 cloud backup commands (project-scoped)
     "backup r2 sync": CommandScope.PROJECT_SCOPED,
     "backup r2 list": CommandScope.PROJECT_READ,
     "backup r2 rotate": CommandScope.PROJECT_SCOPED,
     "backup r2 download": CommandScope.PROJECT_SCOPED,
     "backup r2 status": CommandScope.GLOBAL_READ,
-
     # Env command - project users can manage their own env vars
     "env": CommandScope.PROJECT_SCOPED,
     "env set": CommandScope.PROJECT_SCOPED,
     "env unset": CommandScope.PROJECT_SCOPED,
     "env import": CommandScope.PROJECT_SCOPED,
     "env sync": CommandScope.PROJECT_SCOPED,
-
     # Secrets portal - project users can generate magic links for their own project
     "secrets portal": CommandScope.PROJECT_SCOPED,
-
     # Provision command (operators and root)
     "provision": CommandScope.ROOT_ONLY,
-
     # Cron job commands (project-scoped)
     "cron add": CommandScope.PROJECT_SCOPED,
     "cron remove": CommandScope.PROJECT_SCOPED,
@@ -602,7 +614,6 @@ COMMAND_SCOPES: dict[str, CommandScope] = {
     "cron enable": CommandScope.PROJECT_SCOPED,
     "cron disable": CommandScope.PROJECT_SCOPED,
     "cron info": CommandScope.PROJECT_READ,
-
     # Worker commands (project-scoped)
     "worker add": CommandScope.PROJECT_SCOPED,
     "worker remove": CommandScope.PROJECT_SCOPED,
@@ -617,14 +628,12 @@ COMMAND_SCOPES: dict[str, CommandScope] = {
     "worker beat disable": CommandScope.PROJECT_SCOPED,
     "worker beat status": CommandScope.PROJECT_READ,
     "worker beat logs": CommandScope.PROJECT_READ,
-
     # Operator management commands (root only)
     "operator setup": CommandScope.ROOT_ONLY,
     "operator add-key": CommandScope.ROOT_ONLY,
     "operator test": CommandScope.ROOT_ONLY,
     "operator revoke": CommandScope.ROOT_ONLY,
     "operator list": CommandScope.ROOT_ONLY,
-
     # Vector service commands
     "vector setup": CommandScope.ROOT_ONLY,
     "vector status": CommandScope.GLOBAL_READ,
@@ -640,7 +649,6 @@ COMMAND_SCOPES: dict[str, CommandScope] = {
     "vector jobs": CommandScope.PROJECT_READ,
     "vector job": CommandScope.PROJECT_READ,
     "vector usage": CommandScope.PROJECT_READ,
-
     # Image generation commands
     "image generate": CommandScope.PROJECT_SCOPED,
     "image models": CommandScope.GLOBAL_READ,
@@ -658,7 +666,6 @@ COMMAND_SCOPES: dict[str, CommandScope] = {
     "r2 presign": CommandScope.PROJECT_READ,
     "r2 usage": CommandScope.GLOBAL_READ,
     "r2 credentials": CommandScope.PROJECT_READ,
-
     # Permissions management (root only - system-level)
     "permissions gaps": CommandScope.ROOT_ONLY,
     "permissions show": CommandScope.ROOT_ONLY,
@@ -702,7 +709,7 @@ def extract_project_from_service_name(name: str) -> str | None:
         # Check for known suffixes
         for suffix in ["-auth", "-worker"]:
             if remainder.endswith(suffix):
-                return remainder[:-len(suffix)]
+                return remainder[: -len(suffix)]
 
         # No known suffix, the remainder is the project name
         return remainder
@@ -725,6 +732,7 @@ def service_access(name_arg: str = "name") -> Callable[[F], F]:
     Args:
         name_arg: Name of the argument containing the service/project name
     """
+
     def decorator(func: F) -> F:
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
@@ -732,6 +740,7 @@ def service_access(name_arg: str = "name") -> Callable[[F], F]:
             name = kwargs.get(name_arg)
             if name is None:
                 import inspect
+
                 sig = inspect.signature(func)
                 params = list(sig.parameters.keys())
                 if name_arg in params:
@@ -740,7 +749,9 @@ def service_access(name_arg: str = "name") -> Callable[[F], F]:
                         name = args[idx]
 
             if name is None:
-                raise click.ClickException(f"Could not determine service name from '{name_arg}' argument")
+                raise click.ClickException(
+                    f"Could not determine service name from '{name_arg}' argument"
+                )
 
             # Extract project name from service name
             project_name = extract_project_from_service_name(name)
@@ -758,7 +769,9 @@ def service_access(name_arg: str = "name") -> Callable[[F], F]:
                         )
                         raise SystemExit(1)
                     else:
-                        raise click.ClickException(f"Cannot determine project for '{name}'. {e.message}")
+                        raise click.ClickException(
+                            f"Cannot determine project for '{name}'. {e.message}"
+                        )
             else:
                 try:
                     require_project_access(project_name)
@@ -774,5 +787,7 @@ def service_access(name_arg: str = "name") -> Callable[[F], F]:
                     else:
                         raise click.ClickException(f"{e.message}. {e.suggestion or ''}")
             return func(*args, **kwargs)
+
         return wrapper  # type: ignore
+
     return decorator

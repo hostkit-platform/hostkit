@@ -65,9 +65,7 @@ def list_env(ctx: click.Context, project: str, show_secrets: bool):
     click.echo(f"\nTotal: {len(variables)} variable(s)")
     if not show_secrets:
         click.echo(
-            click.style(
-                "\nSecrets are redacted. Use --show-secrets to reveal.", fg="yellow"
-            )
+            click.style("\nSecrets are redacted. Use --show-secrets to reveal.", fg="yellow")
         )
 
 
@@ -147,9 +145,7 @@ def set_env(ctx: click.Context, project: str, key_value: str, restart: bool):
                 message="Invalid format. Use KEY=VALUE",
                 suggestion="Example: hostkit env set myapp DEBUG=true",
             )
-        raise click.ClickException(
-            "Invalid format. Use KEY=VALUE (e.g., DEBUG=true)"
-        )
+        raise click.ClickException("Invalid format. Use KEY=VALUE (e.g., DEBUG=true)")
 
     key, _, value = key_value.partition("=")
     service = EnvService()
@@ -167,6 +163,7 @@ def set_env(ctx: click.Context, project: str, key_value: str, restart: bool):
     restarted = False
     if restart:
         import subprocess
+
         try:
             subprocess.run(
                 ["systemctl", "restart", f"hostkit-{project}"],
@@ -232,6 +229,7 @@ def unset_env(ctx: click.Context, project: str, key: str, restart: bool):
     restarted = False
     if restart:
         import subprocess
+
         try:
             subprocess.run(
                 ["systemctl", "restart", f"hostkit-{project}"],
@@ -312,9 +310,7 @@ def import_env(ctx: click.Context, project: str, file_path: str, force: bool):
             formatter.error(code=e.code, message=e.message, suggestion=e.suggestion)
         raise click.ClickException(e.message)
 
-    click.echo(
-        f"Imported {result['variables_count']} variable(s) from {result['source']}"
-    )
+    click.echo(f"Imported {result['variables_count']} variable(s) from {result['source']}")
     click.echo(
         click.style(
             "\nRestart the service to apply changes: hostkit service restart " + project,
@@ -359,8 +355,7 @@ def sync_env(ctx: click.Context, project: str, file_path: str):
     if result["added_count"] > 0:
         click.echo(
             click.style(
-                "\nRestart the service to apply changes: hostkit service restart "
-                + project,
+                "\nRestart the service to apply changes: hostkit service restart " + project,
                 fg="yellow",
             )
         )

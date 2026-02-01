@@ -11,7 +11,6 @@ from typing import NamedTuple
 
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
-
 # Constants
 MASTER_KEY_PATH = Path("/etc/hostkit/master.key")
 MASTER_KEY_LENGTH = 32  # 256 bits
@@ -126,7 +125,9 @@ class CryptoService:
             raise CryptoServiceError(
                 code="MASTER_KEY_EXISTS",
                 message=f"Master key already exists at {self.master_key_path}",
-                suggestion="Use --force to regenerate (WARNING: existing secrets will be unreadable)",
+                suggestion=(
+                    "Use --force to regenerate (WARNING: existing secrets will be unreadable)"
+                ),
             )
 
         # Ensure parent directory exists

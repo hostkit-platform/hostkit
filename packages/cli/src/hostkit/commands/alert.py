@@ -7,9 +7,9 @@ from hostkit.output import OutputFormatter
 from hostkit.services.alert_service import (
     AlertService,
     AlertServiceError,
-    WebhookConfig,
     EmailConfig,
     SlackConfig,
+    WebhookConfig,
 )
 
 
@@ -171,7 +171,7 @@ def add_channel(
                 click.echo(f"  From:     {config.from_address}")
             elif isinstance(config, SlackConfig):
                 click.echo(f"  Webhook:  {config.webhook_url[:40]}...")
-            click.echo(f"  Enabled:  Yes")
+            click.echo("  Enabled:  Yes")
             click.echo("")
             click.echo("Test with: hostkit alert channel test " + project + " " + name)
 
@@ -230,7 +230,9 @@ def list_channels(ctx: click.Context, project: str) -> None:
         else:
             if not channels:
                 click.echo(f"No alert channels configured for {project}.")
-                click.echo("\nAdd one with: hostkit alert channel add " + project + " webhook --url <url>")
+                click.echo(
+                    "\nAdd one with: hostkit alert channel add " + project + " webhook --url <url>"
+                )
                 return
 
             click.echo(f"\nAlert channels for {project} ({len(channels)} total):\n")
@@ -334,9 +336,21 @@ def test_channel(ctx: click.Context, project: str, name: str) -> None:
             formatter.success(data=result, message="Test complete")
         else:
             if result["success"]:
-                click.echo(click.style("\nTest notification sent successfully", fg="green", bold=True))
+                click.echo(
+                    click.style(
+                        "\nTest notification sent successfully",
+                        fg="green",
+                        bold=True,
+                    )
+                )
             else:
-                click.echo(click.style(f"\nTest notification failed: {result['error']}", fg="red", bold=True))
+                click.echo(
+                    click.style(
+                        f"\nTest notification failed: {result['error']}",
+                        fg="red",
+                        bold=True,
+                    )
+                )
 
     except AlertServiceError as e:
         formatter.error(code=e.code, message=e.message, suggestion=e.suggestion)
@@ -359,7 +373,7 @@ def enable_channel(ctx: click.Context, project: str, name: str) -> None:
 
     try:
         service = AlertService()
-        channel = service.enable_channel(project, name)
+        service.enable_channel(project, name)
 
         if formatter.json_mode:
             formatter.success(
@@ -392,7 +406,7 @@ def disable_channel(ctx: click.Context, project: str, name: str) -> None:
 
     try:
         service = AlertService()
-        channel = service.disable_channel(project, name)
+        service.disable_channel(project, name)
 
         if formatter.json_mode:
             formatter.success(
@@ -450,7 +464,9 @@ def alert_history(ctx: click.Context, project: str, limit: int, event_type: str 
             click.echo(f"\nAlert history for {project} ({len(history)} entries):\n")
 
             # Header
-            click.echo(f"{'ID':<6} {'Event':<12} {'Status':<10} {'Channel':<15} {'Sent':<6} {'Time'}")
+            click.echo(
+                f"{'ID':<6} {'Event':<12} {'Status':<10} {'Channel':<15} {'Sent':<6} {'Time'}"
+            )
             click.echo("-" * 80)
 
             for h in history:
@@ -472,7 +488,10 @@ def alert_history(ctx: click.Context, project: str, limit: int, event_type: str 
                 else:
                     sent_style = click.style(sent, fg="red")
 
-                click.echo(f"{h['id']:<6} {event:<12} {status_style:<19} {channel:<15} {sent_style:<15} {created}")
+                click.echo(
+                    f"{h['id']:<6} {event:<12} {status_style:<19}"
+                    f" {channel:<15} {sent_style:<15} {created}"
+                )
 
                 if h["error"]:
                     click.echo(f"       Error: {h['error']}")
@@ -486,7 +505,12 @@ def alert_history(ctx: click.Context, project: str, limit: int, event_type: str 
 
 @alert.command("mute")
 @click.argument("project")
-@click.option("--duration", "-d", default="1h", help="Mute duration (e.g., 30m, 1h, 2d). Default: 1h")
+@click.option(
+    "--duration",
+    "-d",
+    default="1h",
+    help="Mute duration (e.g., 30m, 1h, 2d). Default: 1h",
+)
 @click.option("--channel", "-c", default=None, help="Mute specific channel only")
 @click.pass_context
 @project_owner("project")
@@ -537,8 +561,7 @@ def mute_alerts(ctx: click.Context, project: str, duration: str, channel: str | 
                 data={
                     "project": project,
                     "muted_channels": [
-                        {"name": ch.name, "muted_until": ch.muted_until}
-                        for ch in channels
+                        {"name": ch.name, "muted_until": ch.muted_until} for ch in channels
                     ],
                     "duration_minutes": duration_minutes,
                 },
@@ -549,7 +572,13 @@ def mute_alerts(ctx: click.Context, project: str, duration: str, channel: str | 
                 click.echo(f"No channels to mute for {project}.")
                 return
 
-            click.echo(click.style(f"\nMuted {len(channels)} channel(s) for {duration}", fg="yellow", bold=True))
+            click.echo(
+                click.style(
+                    f"\nMuted {len(channels)} channel(s) for {duration}",
+                    fg="yellow",
+                    bold=True,
+                )
+            )
             for ch in channels:
                 click.echo(f"  - {ch.name} (until {ch.muted_until})")
             click.echo("")

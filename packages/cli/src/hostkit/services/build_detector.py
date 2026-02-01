@@ -97,9 +97,7 @@ class BuildDetector:
             return DetectionResult(build_type=BuildType.NODE)
 
         # Check for Python
-        if (source_path / "requirements.txt").exists() or (
-            source_path / "pyproject.toml"
-        ).exists():
+        if (source_path / "requirements.txt").exists() or (source_path / "pyproject.toml").exists():
             return DetectionResult(build_type=BuildType.PYTHON)
 
         # Check for static site

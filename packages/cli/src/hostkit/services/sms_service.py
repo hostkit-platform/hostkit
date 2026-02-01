@@ -19,16 +19,26 @@ from hostkit.config import get_config
 from hostkit.database import get_db
 from hostkit.registry import CapabilitiesRegistry, ServiceMeta
 
-
 # Register SMS service with capabilities registry
-CapabilitiesRegistry.register_service(ServiceMeta(
-    name="sms",
-    description="Transactional and conversational SMS via Twilio (templates, consent tracking, AI)",
-    provision_flag="--with-sms",
-    enable_command="hostkit sms enable {project}",
-    env_vars_provided=["SMS_URL", "SMS_WEBHOOK_SECRET", "TWILIO_PHONE_NUMBER"],
-    related_commands=["sms enable", "sms disable", "sms status", "sms send", "sms template", "sms logs"],
-))
+CapabilitiesRegistry.register_service(
+    ServiceMeta(
+        name="sms",
+        description=(
+            "Transactional and conversational SMS via Twilio (templates, consent tracking, AI)"
+        ),
+        provision_flag="--with-sms",
+        enable_command="hostkit sms enable {project}",
+        env_vars_provided=["SMS_URL", "SMS_WEBHOOK_SECRET", "TWILIO_PHONE_NUMBER"],
+        related_commands=[
+            "sms enable",
+            "sms disable",
+            "sms status",
+            "sms send",
+            "sms template",
+            "sms logs",
+        ],
+    )
+)
 
 
 @dataclass
@@ -95,6 +105,7 @@ class SMSService:
 
         try:
             import configparser
+
             config = configparser.ConfigParser()
             config.read(twilio_ini_path)
             account_sid = config.get("twilio", "account_sid", fallback="")
@@ -177,9 +188,7 @@ class SMSService:
         conn = self._get_admin_connection()
         try:
             with conn.cursor() as cur:
-                cur.execute(
-                    "SELECT 1 FROM pg_database WHERE datname = %s", [db_name]
-                )
+                cur.execute("SELECT 1 FROM pg_database WHERE datname = %s", [db_name])
                 return cur.fetchone() is not None
         finally:
             conn.close()
@@ -202,7 +211,9 @@ class SMSService:
             raise SMSServiceError(
                 code="SMS_DATABASE_EXISTS",
                 message=f"SMS database '{db_name}' already exists",
-                suggestion="Disable SMS first with 'hostkit sms disable' or use a different project",
+                suggestion=(
+                    "Disable SMS first with 'hostkit sms disable' or use a different project"
+                ),
             )
 
         password = generate_secure_password()
@@ -249,7 +260,9 @@ class SMSService:
         schema_path = Path("/var/lib/hostkit/templates/sms/schema.sql")
         if not schema_path.exists():
             # Try dev path
-            schema_path = Path(__file__).parent.parent.parent.parent / "templates" / "sms" / "schema.sql"
+            schema_path = (
+                Path(__file__).parent.parent.parent.parent / "templates" / "sms" / "schema.sql"
+            )
 
         if not schema_path.exists():
             raise SMSServiceError(
@@ -298,7 +311,11 @@ class SMSService:
         return "+15551234567"  # TODO: Get from voice service or require --phone-number
 
     def _deploy_sms_service(
-        self, project: str, credentials: SMSDatabaseCredentials, phone_number: str, webhook_secret: str
+        self,
+        project: str,
+        credentials: SMSDatabaseCredentials,
+        phone_number: str,
+        webhook_secret: str,
     ) -> None:
         """Deploy the FastAPI SMS service for a project.
 
@@ -310,6 +327,7 @@ class SMSService:
         5. Create log files
         """
         import shutil
+
         from jinja2 import Template
 
         sms_dir = self._sms_dir(project)
@@ -373,9 +391,10 @@ class SMSService:
                 timeout=60,
             )
         except subprocess.CalledProcessError as e:
+            stderr = e.stderr.decode() if e.stderr else "unknown error"
             raise SMSServiceError(
                 code="VENV_CREATE_FAILED",
-                message=f"Failed to create virtual environment: {e.stderr.decode() if e.stderr else 'unknown error'}",
+                message=f"Failed to create virtual environment: {stderr}",
                 suggestion="Ensure python3-venv is installed",
             )
 
@@ -390,16 +409,19 @@ class SMSService:
                 timeout=300,  # 5 minutes for pip install
             )
         except subprocess.CalledProcessError as e:
+            stderr = e.stderr.decode() if e.stderr else "unknown error"
             raise SMSServiceError(
                 code="PIP_INSTALL_FAILED",
-                message=f"Failed to install dependencies: {e.stderr.decode() if e.stderr else 'unknown error'}",
+                message=f"Failed to install dependencies: {stderr}",
                 suggestion="Check requirements.txt and network connectivity",
             )
 
         # Step 4: Generate systemd service file
         service_template_path = Path("/var/lib/hostkit/templates/sms.service.j2")
         if not service_template_path.exists():
-            service_template_path = Path(__file__).parent.parent.parent.parent / "templates" / "sms.service.j2"
+            service_template_path = (
+                Path(__file__).parent.parent.parent.parent / "templates" / "sms.service.j2"
+            )
 
         if not service_template_path.exists():
             raise SMSServiceError(
@@ -486,9 +508,10 @@ class SMSService:
                 timeout=30,
             )
         except subprocess.CalledProcessError as e:
+            stderr = e.stderr.decode() if e.stderr else "unknown error"
             raise SMSServiceError(
                 code="SERVICE_START_FAILED",
-                message=f"Failed to start SMS service: {e.stderr.decode() if e.stderr else 'unknown error'}",
+                message=f"Failed to start SMS service: {stderr}",
                 suggestion=f"Check logs: journalctl -u {service_name}.service",
             )
 
@@ -538,14 +561,10 @@ class SMSService:
                 )
 
                 # Drop database
-                cur.execute(
-                    sql.SQL("DROP DATABASE IF EXISTS {}").format(sql.Identifier(db_name))
-                )
+                cur.execute(sql.SQL("DROP DATABASE IF EXISTS {}").format(sql.Identifier(db_name)))
 
                 # Drop role
-                cur.execute(
-                    sql.SQL("DROP ROLE IF EXISTS {}").format(sql.Identifier(role_name))
-                )
+                cur.execute(sql.SQL("DROP ROLE IF EXISTS {}").format(sql.Identifier(role_name)))
 
         finally:
             conn.close()
@@ -625,6 +644,7 @@ class SMSService:
 
             # Step 6: Regenerate nginx port mappings for wildcard routing
             from hostkit.services.project_service import ProjectService
+
             ProjectService()._regenerate_nginx_port_mappings()
 
             return {
@@ -652,6 +672,7 @@ class SMSService:
                 pass
             try:
                 import shutil
+
                 sms_dir = self._sms_dir(project)
                 if sms_dir.exists():
                     shutil.rmtree(sms_dir)
@@ -722,6 +743,7 @@ class SMSService:
 
         # Step 5: Remove SMS directory
         import shutil
+
         sms_dir = self._sms_dir(project)
         if sms_dir.exists():
             shutil.rmtree(sms_dir)
@@ -815,7 +837,13 @@ class SMSService:
     def get_template(self, project: str, name: str) -> dict[str, Any]:
         """Get a specific template."""
         # TODO: Query SMS database
-        return {"name": name, "body": "Template body", "category": "transactional", "include_opt_out": True, "times_sent": 0}
+        return {
+            "name": name,
+            "body": "Template body",
+            "category": "transactional",
+            "include_opt_out": True,
+            "times_sent": 0,
+        }
 
     def update_template(
         self, project: str, name: str, body: str | None = None, category: str | None = None

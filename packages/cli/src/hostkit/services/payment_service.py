@@ -17,16 +17,22 @@ from hostkit.config import get_config
 from hostkit.database import get_db
 from hostkit.registry import CapabilitiesRegistry, ServiceMeta
 
-
 # Register payment service with capabilities registry
-CapabilitiesRegistry.register_service(ServiceMeta(
-    name="payments",
-    description="Stripe Connect payment processing (one-time, subscriptions, refunds)",
-    provision_flag="--with-payments",
-    enable_command="hostkit payments enable {project}",
-    env_vars_provided=["PAYMENT_URL", "STRIPE_ACCOUNT_ID"],
-    related_commands=["payments enable", "payments disable", "payments status", "payments logs"],
-))
+CapabilitiesRegistry.register_service(
+    ServiceMeta(
+        name="payments",
+        description="Stripe Connect payment processing (one-time, subscriptions, refunds)",
+        provision_flag="--with-payments",
+        enable_command="hostkit payments enable {project}",
+        env_vars_provided=["PAYMENT_URL", "STRIPE_ACCOUNT_ID"],
+        related_commands=[
+            "payments enable",
+            "payments disable",
+            "payments status",
+            "payments logs",
+        ],
+    )
+)
 
 
 @dataclass
@@ -88,6 +94,7 @@ class PaymentService:
 
         try:
             import configparser
+
             config = configparser.ConfigParser()
             config.read(stripe_ini_path)
             return config.get("stripe", "secret_key", fallback="")
@@ -168,9 +175,7 @@ class PaymentService:
         conn = self._get_admin_connection()
         try:
             with conn.cursor() as cur:
-                cur.execute(
-                    "SELECT 1 FROM pg_database WHERE datname = %s", [db_name]
-                )
+                cur.execute("SELECT 1 FROM pg_database WHERE datname = %s", [db_name])
                 return cur.fetchone() is not None
         finally:
             conn.close()
@@ -193,7 +198,11 @@ class PaymentService:
             raise PaymentServiceError(
                 code="PAYMENT_DATABASE_EXISTS",
                 message=f"Payment database '{db_name}' already exists",
-                suggestion="Disable payments first with 'hostkit payments disable' or use a different project",
+                suggestion=(
+                    "Disable payments first with"
+                    " 'hostkit payments disable'"
+                    " or use a different project"
+                ),
             )
 
         password = generate_secure_password()
@@ -240,7 +249,9 @@ class PaymentService:
         schema_path = Path("/var/lib/hostkit/templates/payment/schema.sql")
         if not schema_path.exists():
             # Try dev path
-            schema_path = Path(__file__).parent.parent.parent.parent / "templates" / "payment" / "schema.sql"
+            schema_path = (
+                Path(__file__).parent.parent.parent.parent / "templates" / "payment" / "schema.sql"
+            )
 
         if not schema_path.exists():
             raise PaymentServiceError(
@@ -290,6 +301,7 @@ class PaymentService:
 
         try:
             import stripe
+
             stripe.api_key = self._stripe_secret_key
 
             # Create Express account
@@ -345,6 +357,7 @@ class PaymentService:
         5. Create log files
         """
         import shutil
+
         from jinja2 import Template
 
         payment_dir = self._payment_dir(project)
@@ -410,7 +423,10 @@ class PaymentService:
         except subprocess.CalledProcessError as e:
             raise PaymentServiceError(
                 code="VENV_CREATE_FAILED",
-                message=f"Failed to create virtual environment: {e.stderr.decode() if e.stderr else 'unknown error'}",
+                message=(
+                    "Failed to create virtual environment: "
+                    f"{e.stderr.decode() if e.stderr else 'unknown error'}"
+                ),
                 suggestion="Ensure python3-venv is installed",
             )
 
@@ -427,14 +443,19 @@ class PaymentService:
         except subprocess.CalledProcessError as e:
             raise PaymentServiceError(
                 code="PIP_INSTALL_FAILED",
-                message=f"Failed to install dependencies: {e.stderr.decode() if e.stderr else 'unknown error'}",
+                message=(
+                    "Failed to install dependencies: "
+                    f"{e.stderr.decode() if e.stderr else 'unknown error'}"
+                ),
                 suggestion="Check requirements.txt and network connectivity",
             )
 
         # Step 4: Generate systemd service file
         service_template_path = Path("/var/lib/hostkit/templates/payment.service.j2")
         if not service_template_path.exists():
-            service_template_path = Path(__file__).parent.parent.parent.parent / "templates" / "payment.service.j2"
+            service_template_path = (
+                Path(__file__).parent.parent.parent.parent / "templates" / "payment.service.j2"
+            )
 
         if not service_template_path.exists():
             raise PaymentServiceError(
@@ -507,7 +528,8 @@ class PaymentService:
 
         # Remove any existing STRIPE_ACCOUNT_ID or PAYMENTS_URL lines
         lines = [
-            line for line in existing.splitlines()
+            line
+            for line in existing.splitlines()
             if not line.startswith("STRIPE_ACCOUNT_ID=") and not line.startswith("PAYMENTS_URL=")
         ]
 
@@ -538,7 +560,8 @@ class PaymentService:
         # Read and filter out payment env vars
         existing = env_path.read_text()
         lines = [
-            line for line in existing.splitlines()
+            line
+            for line in existing.splitlines()
             if not line.startswith("STRIPE_ACCOUNT_ID=") and not line.startswith("PAYMENTS_URL=")
         ]
 
@@ -571,7 +594,10 @@ class PaymentService:
         except subprocess.CalledProcessError as e:
             raise PaymentServiceError(
                 code="SERVICE_START_FAILED",
-                message=f"Failed to start payment service: {e.stderr.decode() if e.stderr else 'unknown error'}",
+                message=(
+                    "Failed to start payment service: "
+                    f"{e.stderr.decode() if e.stderr else 'unknown error'}"
+                ),
                 suggestion=f"Check logs: journalctl -u {service_name}.service",
             )
 
@@ -621,14 +647,10 @@ class PaymentService:
                 )
 
                 # Drop database
-                cur.execute(
-                    sql.SQL("DROP DATABASE IF EXISTS {}").format(sql.Identifier(db_name))
-                )
+                cur.execute(sql.SQL("DROP DATABASE IF EXISTS {}").format(sql.Identifier(db_name)))
 
                 # Drop role
-                cur.execute(
-                    sql.SQL("DROP ROLE IF EXISTS {}").format(sql.Identifier(role_name))
-                )
+                cur.execute(sql.SQL("DROP ROLE IF EXISTS {}").format(sql.Identifier(role_name)))
 
         finally:
             conn.close()
@@ -690,6 +712,7 @@ class PaymentService:
 
             # Step 7: Regenerate nginx port mappings for wildcard routing
             from hostkit.services.project_service import ProjectService
+
             ProjectService()._regenerate_nginx_port_mappings()
 
             # Step 8: Add env vars to project .env
@@ -719,6 +742,7 @@ class PaymentService:
                 pass
             try:
                 import shutil
+
                 payment_dir = self._payment_dir(project)
                 if payment_dir.exists():
                     shutil.rmtree(payment_dir)
@@ -791,6 +815,7 @@ class PaymentService:
 
         # Step 5: Remove payment directory
         import shutil
+
         payment_dir = self._payment_dir(project)
         if payment_dir.exists():
             shutil.rmtree(payment_dir)
@@ -830,6 +855,7 @@ class PaymentService:
         stripe_account_id = None
         if config_path.exists():
             import re
+
             content = config_path.read_text()
             match = re.search(r'stripe_account_id:\s*str\s*=\s*"([^"]+)"', content)
             if match:
@@ -845,6 +871,7 @@ class PaymentService:
         if stripe_account_id and self._stripe_secret_key:
             try:
                 import stripe
+
                 stripe.api_key = self._stripe_secret_key
 
                 account = stripe.Account.retrieve(stripe_account_id)

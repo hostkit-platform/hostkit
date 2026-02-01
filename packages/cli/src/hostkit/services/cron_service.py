@@ -126,7 +126,11 @@ class CronService:
             raise CronError(
                 code="INVALID_TASK_NAME",
                 message=f"Invalid task name '{name}'",
-                suggestion="Task name must start with a letter and contain only lowercase letters, numbers, and hyphens",
+                suggestion=(
+                    "Task name must start with a letter and"
+                    " contain only lowercase letters,"
+                    " numbers, and hyphens"
+                ),
             )
         if len(name) > 50:
             raise CronError(
@@ -182,16 +186,25 @@ class CronService:
             raise CronError(
                 code="INVALID_CRON_EXPRESSION",
                 message=f"Invalid cron expression '{cron_expr}'",
-                suggestion="Expected 5 fields: minute hour day-of-month month day-of-week, or use @daily, @hourly, etc.",
+                suggestion=(
+                    "Expected 5 fields: minute hour day-of-month"
+                    " month day-of-week, or use"
+                    " @daily, @hourly, etc."
+                ),
             )
 
         minute, hour, dom, month, dow = parts
 
         # Convert day-of-week names to systemd format
         dow_map = {
-            "0": "Sun", "7": "Sun",
-            "1": "Mon", "2": "Tue", "3": "Wed",
-            "4": "Thu", "5": "Fri", "6": "Sat",
+            "0": "Sun",
+            "7": "Sun",
+            "1": "Mon",
+            "2": "Tue",
+            "3": "Wed",
+            "4": "Thu",
+            "5": "Fri",
+            "6": "Sat",
         }
 
         # Build day-of-week prefix if not wildcard
@@ -524,7 +537,7 @@ class CronService:
         Returns:
             Updated ScheduledTask
         """
-        task = self.get_task(project, name)
+        self.get_task(project, name)
 
         service_name = self._service_name(project, name)
 
@@ -556,7 +569,7 @@ class CronService:
         Returns:
             Updated ScheduledTask
         """
-        task = self.get_task(project, name)
+        self.get_task(project, name)
 
         service_name = self._service_name(project, name)
 
@@ -588,7 +601,7 @@ class CronService:
         Returns:
             Result dict with exit code and status
         """
-        task = self.get_task(project, name)
+        self.get_task(project, name)
 
         service_name = self._service_name(project, name)
 

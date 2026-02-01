@@ -1,6 +1,5 @@
 """Mail server management for HostKit using Postfix and Dovecot."""
 
-import os
 import secrets
 import subprocess
 from dataclasses import dataclass, field
@@ -12,16 +11,17 @@ import yaml
 from hostkit.config import get_config
 from hostkit.registry import CapabilitiesRegistry, ServiceMeta
 
-
 # Register mail service capabilities
-CapabilitiesRegistry.register_service(ServiceMeta(
-    name="mail",
-    description="Email sending via Postfix",
-    provision_flag=None,
-    enable_command="hostkit mail enable {project}",
-    env_vars_provided=["SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASS", "SMTP_FROM"],
-    related_commands=["mail enable", "mail disable", "mail add"],
-))
+CapabilitiesRegistry.register_service(
+    ServiceMeta(
+        name="mail",
+        description="Email sending via Postfix",
+        provision_flag=None,
+        enable_command="hostkit mail enable {project}",
+        env_vars_provided=["SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASS", "SMTP_FROM"],
+        related_commands=["mail enable", "mail disable", "mail add"],
+    )
+)
 
 
 @dataclass
@@ -200,10 +200,14 @@ class MailService:
                 subprocess.run(
                     [
                         "useradd",
-                        "-u", str(self.VMAIL_UID),
-                        "-g", "vmail",
-                        "-d", str(self.MAILDIR_BASE),
-                        "-s", "/usr/sbin/nologin",
+                        "-u",
+                        str(self.VMAIL_UID),
+                        "-g",
+                        "vmail",
+                        "-d",
+                        str(self.MAILDIR_BASE),
+                        "-s",
+                        "/usr/sbin/nologin",
                         "vmail",
                     ],
                     check=True,
@@ -292,6 +296,7 @@ class MailService:
             backup = self.POSTFIX_MAIN_CF.with_suffix(".cf.bak")
             if not backup.exists():
                 import shutil
+
                 shutil.copy(self.POSTFIX_MAIN_CF, backup)
 
         postfix_config = f"""# Postfix configuration for HostKit
@@ -299,7 +304,7 @@ class MailService:
 
 # Basic settings
 myhostname = {hostname}
-mydomain = {hostname.split('.', 1)[1] if '.' in hostname else hostname}
+mydomain = {hostname.split(".", 1)[1] if "." in hostname else hostname}
 myorigin = $mydomain
 mydestination = localhost
 mynetworks = 127.0.0.0/8 [::ffff:127.0.0.0]/104 [::1]/128
@@ -561,17 +566,20 @@ submission inet n       -       y       -       -       smtpd
         for domain_name, domain_data in mail_config.get("domains", {}).items():
             # Get mailboxes for this domain
             mailboxes = [
-                addr for addr, data in mail_config.get("mailboxes", {}).items()
+                addr
+                for addr, data in mail_config.get("mailboxes", {}).items()
                 if data.get("domain") == domain_name
             ]
 
-            domains.append(MailDomain(
-                name=domain_name,
-                dkim_enabled=domain_data.get("dkim_enabled", False),
-                dkim_selector=domain_data.get("dkim_selector", "default"),
-                created_at=domain_data.get("created_at", ""),
-                mailboxes=mailboxes,
-            ))
+            domains.append(
+                MailDomain(
+                    name=domain_name,
+                    dkim_enabled=domain_data.get("dkim_enabled", False),
+                    dkim_selector=domain_data.get("dkim_selector", "default"),
+                    created_at=domain_data.get("created_at", ""),
+                    mailboxes=mailboxes,
+                )
+            )
 
         return domains
 
@@ -597,6 +605,7 @@ submission inet n       -       y       -       -       smtpd
 
         # Save to config
         import datetime
+
         if "domains" not in mail_config:
             mail_config["domains"] = {}
 
@@ -635,10 +644,14 @@ submission inet n       -       y       -       -       smtpd
         subprocess.run(
             [
                 "opendkim-genkey",
-                "-b", "2048",
-                "-d", domain,
-                "-D", str(key_dir),
-                "-s", selector,
+                "-b",
+                "2048",
+                "-d",
+                domain,
+                "-D",
+                str(key_dir),
+                "-s",
+                selector,
                 "-v",
             ],
             check=True,
@@ -666,7 +679,8 @@ submission inet n       -       y       -       -       smtpd
             content = txt_record_path.read_text()
             # Extract just the key part from the TXT record format
             import re
-            match = re.search(r'p=([A-Za-z0-9+/=]+)', content)
+
+            match = re.search(r"p=([A-Za-z0-9+/=]+)", content)
             if match:
                 public_key = match.group(1)
 
@@ -687,7 +701,8 @@ submission inet n       -       y       -       -       smtpd
 
         # Check for mailboxes
         mailboxes = [
-            addr for addr, data in mail_config.get("mailboxes", {}).items()
+            addr
+            for addr, data in mail_config.get("mailboxes", {}).items()
             if data.get("domain") == domain
         ]
 
@@ -705,7 +720,7 @@ submission inet n       -       y       -       -       smtpd
         # Remove from virtual domains file
         if self.VIRTUAL_DOMAINS_FILE.exists():
             lines = self.VIRTUAL_DOMAINS_FILE.read_text().splitlines()
-            lines = [l for l in lines if not l.startswith(f"{domain} ")]
+            lines = [line for line in lines if not line.startswith(f"{domain} ")]
             self.VIRTUAL_DOMAINS_FILE.write_text("\n".join(lines) + "\n" if lines else "")
             subprocess.run(["postmap", str(self.VIRTUAL_DOMAINS_FILE)], check=False)
 
@@ -713,6 +728,7 @@ submission inet n       -       y       -       -       smtpd
         key_dir = self.DKIM_KEYS_DIR / domain
         if key_dir.exists():
             import shutil
+
             shutil.rmtree(key_dir)
 
         # Remove from config
@@ -742,14 +758,16 @@ submission inet n       -       y       -       -       smtpd
             if domain and data.get("domain") != domain:
                 continue
 
-            mailboxes.append(Mailbox(
-                address=address,
-                domain=data.get("domain", ""),
-                local_part=data.get("local_part", ""),
-                project=data.get("project", ""),
-                maildir=data.get("maildir", ""),
-                created_at=data.get("created_at", ""),
-            ))
+            mailboxes.append(
+                Mailbox(
+                    address=address,
+                    domain=data.get("domain", ""),
+                    local_part=data.get("local_part", ""),
+                    project=data.get("project", ""),
+                    maildir=data.get("maildir", ""),
+                    created_at=data.get("created_at", ""),
+                )
+            )
 
         return mailboxes
 
@@ -788,6 +806,7 @@ submission inet n       -       y       -       -       smtpd
 
         # Check project exists
         from hostkit.database import get_db
+
         db = get_db()
         proj = db.get_project(project)
         if not proj:
@@ -841,6 +860,7 @@ submission inet n       -       y       -       -       smtpd
 
         # Save to config
         import datetime
+
         if "mailboxes" not in mail_config:
             mail_config["mailboxes"] = {}
 
@@ -883,13 +903,13 @@ submission inet n       -       y       -       -       smtpd
         # Remove from Dovecot users
         if self.DOVECOT_USERS_FILE.exists():
             lines = self.DOVECOT_USERS_FILE.read_text().splitlines()
-            lines = [l for l in lines if not l.startswith(f"{address}:")]
+            lines = [line for line in lines if not line.startswith(f"{address}:")]
             self.DOVECOT_USERS_FILE.write_text("\n".join(lines) + "\n" if lines else "")
 
         # Remove from virtual mailbox maps
         if self.VIRTUAL_MAILBOX_FILE.exists():
             lines = self.VIRTUAL_MAILBOX_FILE.read_text().splitlines()
-            lines = [l for l in lines if not l.startswith(f"{address} ")]
+            lines = [line for line in lines if not line.startswith(f"{address} ")]
             self.VIRTUAL_MAILBOX_FILE.write_text("\n".join(lines) + "\n" if lines else "")
             subprocess.run(["postmap", str(self.VIRTUAL_MAILBOX_FILE)], check=False)
 
@@ -964,7 +984,11 @@ submission inet n       -       y       -       -       smtpd
                         "arrival_time": " ".join(parts[2:5]) if len(parts) > 4 else parts[2],
                         "sender": parts[-1] if len(parts) > 4 else "",
                         "recipients": [],
-                        "status": "active" if "*" in parts[0] else "deferred" if "!" in parts[0] else "queued",
+                        "status": "active"
+                        if "*" in parts[0]
+                        else "deferred"
+                        if "!" in parts[0]
+                        else "queued",
                     }
             elif current_entry and line.strip():
                 # Recipient lines are indented
@@ -980,7 +1004,9 @@ submission inet n       -       y       -       -       smtpd
         return {
             "count": len(entries),
             "entries": entries,
-            "total_size": sum(int(e.get("size", "0")) for e in entries if e.get("size", "").isdigit()),
+            "total_size": sum(
+                int(e.get("size", "0")) for e in entries if e.get("size", "").isdigit()
+            ),
         }
 
     def flush_queue(self, queue_id: str | None = None) -> dict[str, Any]:
@@ -995,14 +1021,14 @@ submission inet n       -       y       -       -       smtpd
         try:
             if queue_id:
                 # Flush specific message
-                result = subprocess.run(
+                subprocess.run(
                     ["postqueue", "-i", queue_id],
                     capture_output=True,
                     text=True,
                 )
             else:
                 # Flush entire queue
-                result = subprocess.run(
+                subprocess.run(
                     ["postqueue", "-f"],
                     capture_output=True,
                     text=True,
@@ -1064,7 +1090,7 @@ submission inet n       -       y       -       -       smtpd
             )
 
         try:
-            result = subprocess.run(
+            subprocess.run(
                 ["postsuper", "-d", "ALL"],
                 capture_output=True,
                 text=True,
@@ -1093,6 +1119,7 @@ submission inet n       -       y       -       -       smtpd
         """Generate DNS records required for mail."""
         # Get VPS IP
         from hostkit.services.dns_service import DNSService
+
         dns_service = DNSService()
         vps_ip = dns_service.get_vps_ip()
 
@@ -1201,6 +1228,7 @@ submission inet n       -       y       -       -       smtpd
     def _verify_project_exists(self, project: str) -> dict[str, Any]:
         """Verify a project exists and return its info."""
         from hostkit.database import get_db
+
         db = get_db()
         proj = db.get_project(project)
         if not proj:
@@ -1263,6 +1291,7 @@ submission inet n       -       y       -       -       smtpd
 
         # Save to config (subdomains inherit parent's DKIM)
         import datetime
+
         if "domains" not in mail_config:
             mail_config["domains"] = {}
 
@@ -1322,6 +1351,7 @@ submission inet n       -       y       -       -       smtpd
 
         # Save mailbox to config
         import datetime
+
         if "mailboxes" not in mail_config:
             mail_config["mailboxes"] = {}
 
@@ -1362,7 +1392,8 @@ submission inet n       -       y       -       -       smtpd
 
         # Get mailboxes for this domain
         mailboxes = [
-            addr for addr, data in mail_config.get("mailboxes", {}).items()
+            addr
+            for addr, data in mail_config.get("mailboxes", {}).items()
             if data.get("domain") == domain
         ]
 
@@ -1376,20 +1407,24 @@ submission inet n       -       y       -       -       smtpd
         # Remove mailboxes from Dovecot users
         if self.DOVECOT_USERS_FILE.exists():
             lines = self.DOVECOT_USERS_FILE.read_text().splitlines()
-            lines = [l for l in lines if not any(l.startswith(f"{addr}:") for addr in mailboxes)]
+            lines = [
+                line for line in lines if not any(line.startswith(f"{addr}:") for addr in mailboxes)
+            ]
             self.DOVECOT_USERS_FILE.write_text("\n".join(lines) + "\n" if lines else "")
 
         # Remove mailboxes from virtual mailbox maps
         if self.VIRTUAL_MAILBOX_FILE.exists():
             lines = self.VIRTUAL_MAILBOX_FILE.read_text().splitlines()
-            lines = [l for l in lines if not any(l.startswith(f"{addr} ") for addr in mailboxes)]
+            lines = [
+                line for line in lines if not any(line.startswith(f"{addr} ") for addr in mailboxes)
+            ]
             self.VIRTUAL_MAILBOX_FILE.write_text("\n".join(lines) + "\n" if lines else "")
             subprocess.run(["postmap", str(self.VIRTUAL_MAILBOX_FILE)], check=False)
 
         # Remove from virtual domains file
         if self.VIRTUAL_DOMAINS_FILE.exists():
             lines = self.VIRTUAL_DOMAINS_FILE.read_text().splitlines()
-            lines = [l for l in lines if not l.startswith(f"{domain} ")]
+            lines = [line for line in lines if not line.startswith(f"{domain} ")]
             self.VIRTUAL_DOMAINS_FILE.write_text("\n".join(lines) + "\n" if lines else "")
             subprocess.run(["postmap", str(self.VIRTUAL_DOMAINS_FILE)], check=False)
 
@@ -1485,6 +1520,7 @@ submission inet n       -       y       -       -       smtpd
 
         # Save to config
         import datetime
+
         if "mailboxes" not in mail_config:
             mail_config["mailboxes"] = {}
 
@@ -1532,13 +1568,13 @@ submission inet n       -       y       -       -       smtpd
         # Remove from Dovecot users
         if self.DOVECOT_USERS_FILE.exists():
             lines = self.DOVECOT_USERS_FILE.read_text().splitlines()
-            lines = [l for l in lines if not l.startswith(f"{address}:")]
+            lines = [line for line in lines if not line.startswith(f"{address}:")]
             self.DOVECOT_USERS_FILE.write_text("\n".join(lines) + "\n" if lines else "")
 
         # Remove from virtual mailbox maps
         if self.VIRTUAL_MAILBOX_FILE.exists():
             lines = self.VIRTUAL_MAILBOX_FILE.read_text().splitlines()
-            lines = [l for l in lines if not l.startswith(f"{address} ")]
+            lines = [line for line in lines if not line.startswith(f"{address} ")]
             self.VIRTUAL_MAILBOX_FILE.write_text("\n".join(lines) + "\n" if lines else "")
             subprocess.run(["postmap", str(self.VIRTUAL_MAILBOX_FILE)], check=False)
 
@@ -1565,12 +1601,14 @@ submission inet n       -       y       -       -       smtpd
         mailboxes = []
         for address, data in mail_config.get("mailboxes", {}).items():
             if data.get("domain") == domain:
-                mailboxes.append({
-                    "address": address,
-                    "local_part": data.get("local_part", ""),
-                    "maildir": data.get("maildir", ""),
-                    "created_at": data.get("created_at", ""),
-                })
+                mailboxes.append(
+                    {
+                        "address": address,
+                        "local_part": data.get("local_part", ""),
+                        "maildir": data.get("maildir", ""),
+                        "created_at": data.get("created_at", ""),
+                    }
+                )
 
         return {
             "project": project,
@@ -1659,8 +1697,8 @@ submission inet n       -       y       -       -       smtpd
     ) -> dict[str, Any]:
         """Send a test email from a project mailbox."""
         import smtplib
-        from email.mime.text import MIMEText
         from email.mime.multipart import MIMEMultipart
+        from email.mime.text import MIMEText
 
         domain = self._get_project_mail_domain(project)
         from_address = f"{from_local}@{domain}"

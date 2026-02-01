@@ -97,7 +97,9 @@ def list_backups(ctx: click.Context, project: str | None, show_all: bool, show_r
 
             # Header - include R2 column if requested
             if show_r2:
-                click.echo(f"{'ID':<45} {'Type':<8} {'Size':<10} {'Created':<20} {'R2':<5} {'Local'}")
+                click.echo(
+                    f"{'ID':<45} {'Type':<8} {'Size':<10} {'Created':<20} {'R2':<5} {'Local'}"
+                )
                 click.echo("-" * 105)
             else:
                 click.echo(f"{'ID':<45} {'Type':<8} {'Size':<10} {'Created':<20} {'Weekly'}")
@@ -116,11 +118,21 @@ def list_backups(ctx: click.Context, project: str | None, show_all: bool, show_r
 
                 if show_r2:
                     r2_marker = click.style("[R2]", fg="blue") if b.r2_synced else ""
-                    local_marker = "[L]" if b.local_exists else click.style("[R2 only]", fg="yellow")
-                    click.echo(f"  {b.id:<43} {b.backup_type:<8} {size_str:<10} {created:<20} {r2_marker:<5} {local_marker}")
+                    local_marker = (
+                        "[L]" if b.local_exists else click.style("[R2 only]", fg="yellow")
+                    )
+                    click.echo(
+                        f"  {b.id:<43} {b.backup_type:<8}"
+                        f" {size_str:<10} {created:<20}"
+                        f" {r2_marker:<5} {local_marker}"
+                    )
                 else:
                     weekly_marker = "[W]" if b.is_weekly else ""
-                    click.echo(f"  {b.id:<43} {b.backup_type:<8} {size_str:<10} {created:<20} {weekly_marker}")
+                    click.echo(
+                        f"  {b.id:<43} {b.backup_type:<8}"
+                        f" {size_str:<10} {created:<20}"
+                        f" {weekly_marker}"
+                    )
 
     except BackupServiceError as e:
         formatter.error(code=e.code, message=e.message, suggestion=e.suggestion)
@@ -129,12 +141,24 @@ def list_backups(ctx: click.Context, project: str | None, show_all: bool, show_r
 
 @backup.command("create")
 @click.argument("project")
-@click.option("--type", "backup_type", default="full", type=click.Choice(["full", "db", "files", "credentials"]), help="Backup type (default: full)")
+@click.option(
+    "--type",
+    "backup_type",
+    default="full",
+    type=click.Choice(["full", "db", "files", "credentials"]),
+    help="Backup type (default: full)",
+)
 @click.option("--full", "full_backup", is_flag=True, help="Create full backup (shorthand)")
 @click.option("--r2", "upload_r2", is_flag=True, help="Also upload to R2 cloud storage")
 @click.pass_context
 @project_owner("project")
-def create_backup(ctx: click.Context, project: str, backup_type: str, full_backup: bool, upload_r2: bool) -> None:
+def create_backup(
+    ctx: click.Context,
+    project: str,
+    backup_type: str,
+    full_backup: bool,
+    upload_r2: bool,
+) -> None:
     """Create a backup for a project.
 
     \b
@@ -192,7 +216,12 @@ def create_backup(ctx: click.Context, project: str, backup_type: str, full_backu
             if backup.r2_synced:
                 click.echo(click.style(f"  R2:      Synced to {backup.r2_key}", fg="blue"))
             elif upload_r2:
-                click.echo(click.style("  R2:      Sync failed (local backup still valid)", fg="yellow"))
+                click.echo(
+                    click.style(
+                        "  R2:      Sync failed (local backup still valid)",
+                        fg="yellow",
+                    )
+                )
 
     except BackupServiceError as e:
         formatter.error(code=e.code, message=e.message, suggestion=e.suggestion)
@@ -203,7 +232,12 @@ def create_backup(ctx: click.Context, project: str, backup_type: str, full_backu
 @click.argument("project")
 @click.argument("backup_id")
 @click.option("--db/--no-db", "restore_db", default=True, help="Restore database (default: yes)")
-@click.option("--files/--no-files", "restore_files", default=True, help="Restore files (default: yes)")
+@click.option(
+    "--files/--no-files",
+    "restore_files",
+    default=True,
+    help="Restore files (default: yes)",
+)
 @click.option("--env", "restore_env", is_flag=True, help="Restore environment file (default: no)")
 @click.option("--from-r2", "from_r2", is_flag=True, help="Download from R2 if local file missing")
 @click.option("--force", is_flag=True, help="Skip confirmation prompt")
@@ -265,7 +299,13 @@ def restore_backup(
             if from_r2 and not backup.local_exists:
                 click.echo(click.style("  Will download from R2 first", fg="blue"))
             click.echo("")
-            click.echo(click.style("WARNING: This will overwrite existing data!", fg="yellow", bold=True))
+            click.echo(
+                click.style(
+                    "WARNING: This will overwrite existing data!",
+                    fg="yellow",
+                    bold=True,
+                )
+            )
 
             if not click.confirm("Do you want to proceed?"):
                 click.echo("Restore cancelled.")
@@ -273,7 +313,7 @@ def restore_backup(
 
         if not formatter.json_mode:
             if from_r2 and not backup.local_exists:
-                click.echo(f"\nDownloading backup from R2...")
+                click.echo("\nDownloading backup from R2...")
             click.echo(f"Restoring backup for {project}...")
 
         result = service.restore_backup(
@@ -292,7 +332,7 @@ def restore_backup(
             click.echo(f"  Database restored: {'Yes' if result['restored']['database'] else 'No'}")
             click.echo(f"  Files restored:    {'Yes' if result['restored']['files'] else 'No'}")
             click.echo(f"  Env restored:      {'Yes' if result['restored']['env'] else 'No'}")
-            click.echo(f"\nService has been restarted.")
+            click.echo("\nService has been restarted.")
 
     except BackupServiceError as e:
         formatter.error(code=e.code, message=e.message, suggestion=e.suggestion)
@@ -439,7 +479,7 @@ def rotate_backups(ctx: click.Context, project: str | None, rotate_all: bool) ->
                 formatter.success(data=results, message="Rotation complete")
             else:
                 total_deleted = sum(r["deleted_count"] for r in results.values())
-                click.echo(click.style(f"\n✓ Rotation complete\n", fg="green", bold=True))
+                click.echo(click.style("\n✓ Rotation complete\n", fg="green", bold=True))
                 click.echo(f"Projects processed: {len(results)}")
                 click.echo(f"Total backups deleted: {total_deleted}")
 
@@ -500,7 +540,7 @@ def export_backup(ctx: click.Context, backup_id: str, destination: str) -> None:
             click.echo(click.style("\n✓ Backup exported successfully\n", fg="green", bold=True))
             click.echo(f"  Destination: {result['destination']}")
             click.echo(f"  Size:        {format_size(result['size_bytes'])}")
-            click.echo(f"\nYou can download this file via SCP:")
+            click.echo("\nYou can download this file via SCP:")
             click.echo(f"  scp root@your-vps:{result['destination']} ./")
 
     except BackupServiceError as e:
@@ -528,17 +568,22 @@ def backup_stats(ctx: click.Context, project: str | None) -> None:
         if formatter.json_mode:
             formatter.success(data=stats, message="Backup statistics")
         else:
-            click.echo(f"\nBackup Statistics\n")
+            click.echo("\nBackup Statistics\n")
             click.echo(f"Total backups: {stats['total_backups']}")
             click.echo(f"Total size:    {format_size(stats['total_size_bytes'])}")
 
-            if stats['by_project']:
-                click.echo(f"\nBy Project:")
+            if stats["by_project"]:
+                click.echo("\nBy Project:")
                 click.echo(f"{'Project':<20} {'Count':<8} {'Size':<12} {'Latest'}")
                 click.echo("-" * 70)
-                for proj, proj_stats in stats['by_project'].items():
-                    latest = proj_stats['latest'][:19].replace("T", " ") if proj_stats['latest'] else "N/A"
-                    click.echo(f"{proj:<20} {proj_stats['count']:<8} {format_size(proj_stats['size_bytes']):<12} {latest}")
+                for proj, proj_stats in stats["by_project"].items():
+                    latest = (
+                        proj_stats["latest"][:19].replace("T", " ")
+                        if proj_stats["latest"]
+                        else "N/A"
+                    )
+                    size_str = format_size(proj_stats["size_bytes"])
+                    click.echo(f"{proj:<20} {proj_stats['count']:<8} {size_str:<12} {latest}")
 
     except BackupServiceError as e:
         formatter.error(code=e.code, message=e.message, suggestion=e.suggestion)
@@ -577,7 +622,9 @@ def backup_credentials(ctx: click.Context, project: str) -> None:
 
 
 @backup.command("setup-timer")
-@click.option("--time", "backup_time", default="02:00", help="Time for daily backup (HH:MM, default: 02:00)")
+@click.option(
+    "--time", "backup_time", default="02:00", help="Time for daily backup (HH:MM, default: 02:00)"
+)
 @click.option("--r2", "enable_r2", is_flag=True, help="Enable R2 cloud backup sync")
 @click.pass_context
 def setup_timer(ctx: click.Context, backup_time: str, enable_r2: bool) -> None:
@@ -595,7 +642,6 @@ def setup_timer(ctx: click.Context, backup_time: str, enable_r2: bool) -> None:
       hostkit backup setup-timer --r2         Set up backup with R2 sync
       hostkit backup setup-timer --time 03:30 Set up backup at 3:30 AM
     """
-    import shutil
     import subprocess
     from pathlib import Path
 
@@ -639,15 +685,13 @@ def setup_timer(ctx: click.Context, backup_time: str, enable_r2: bool) -> None:
         if enable_r2:
             # Add --r2 flag to the ExecStart command
             service_content = service_content.replace(
-                "hostkit backup run-all --json",
-                "hostkit backup run-all --json --r2"
+                "hostkit backup run-all --json", "hostkit backup run-all --json --r2"
             )
 
         # Read and customize timer template
         timer_content = timer_template.read_text()
         timer_content = timer_content.replace(
-            "OnCalendar=*-*-* 02:00:00",
-            f"OnCalendar=*-*-* {backup_time}:00"
+            "OnCalendar=*-*-* 02:00:00", f"OnCalendar=*-*-* {backup_time}:00"
         )
 
         # Install service and timer
@@ -665,11 +709,15 @@ def setup_timer(ctx: click.Context, backup_time: str, enable_r2: bool) -> None:
         subprocess.run(["systemctl", "daemon-reload"], check=True, capture_output=True)
 
         # Enable and start timer
-        subprocess.run(["systemctl", "enable", "hostkit-backup.timer"], check=True, capture_output=True)
-        subprocess.run(["systemctl", "start", "hostkit-backup.timer"], check=True, capture_output=True)
+        subprocess.run(
+            ["systemctl", "enable", "hostkit-backup.timer"], check=True, capture_output=True
+        )
+        subprocess.run(
+            ["systemctl", "start", "hostkit-backup.timer"], check=True, capture_output=True
+        )
 
         # Get timer status
-        result = subprocess.run(
+        subprocess.run(
             ["systemctl", "status", "hostkit-backup.timer"],
             capture_output=True,
             text=True,
@@ -692,8 +740,10 @@ def setup_timer(ctx: click.Context, backup_time: str, enable_r2: bool) -> None:
             click.echo(f"  Timer:   {timer_dest}")
             click.echo(f"  Time:    Daily at {backup_time}")
             if enable_r2:
-                click.echo(click.style("  R2:      Enabled (30 daily + 12 weekly retention)", fg="blue"))
-            click.echo(f"\nTimer is now active. View status with:")
+                click.echo(
+                    click.style("  R2:      Enabled (30 daily + 12 weekly retention)", fg="blue")
+                )
+            click.echo("\nTimer is now active. View status with:")
             click.echo("  systemctl status hostkit-backup.timer")
             click.echo("  systemctl list-timers hostkit-backup.timer")
 
@@ -714,7 +764,13 @@ def setup_timer(ctx: click.Context, backup_time: str, enable_r2: bool) -> None:
 
 
 @backup.command("run-all")
-@click.option("--type", "backup_type", default="full", type=click.Choice(["full", "db", "files"]), help="Backup type (default: full)")
+@click.option(
+    "--type",
+    "backup_type",
+    default="full",
+    type=click.Choice(["full", "db", "files"]),
+    help="Backup type (default: full)",
+)
 @click.option("--rotate/--no-rotate", default=True, help="Run rotation after backup (default: yes)")
 @click.option("--r2", "upload_r2", is_flag=True, help="Also upload backups to R2 cloud storage")
 @click.pass_context
@@ -783,7 +839,9 @@ def run_all_backups(ctx: click.Context, backup_type: str, rotate: bool, upload_r
                 message=f"Created {len(backups)} backup(s)",
             )
         else:
-            click.echo(click.style(f"\n✓ Created {len(backups)} backup(s)\n", fg="green", bold=True))
+            click.echo(
+                click.style(f"\n✓ Created {len(backups)} backup(s)\n", fg="green", bold=True)
+            )
             for b in backups:
                 r2_marker = click.style(" [R2]", fg="blue") if b.r2_synced else ""
                 click.echo(f"  {b.project}: {b.id} ({format_size(b.size_bytes)}){r2_marker}")
@@ -793,7 +851,9 @@ def run_all_backups(ctx: click.Context, backup_type: str, rotate: bool, upload_r
                 click.echo(f"\nLocal rotation: deleted {total_deleted} old backup(s)")
 
             if r2_rotation_results:
-                click.echo(f"R2 rotation: deleted {r2_rotation_results['total_deleted']} old backup(s)")
+                click.echo(
+                    f"R2 rotation: deleted {r2_rotation_results['total_deleted']} old backup(s)"
+                )
 
     except BackupServiceError as e:
         formatter.error(code=e.code, message=e.message, suggestion=e.suggestion)
@@ -940,7 +1000,11 @@ def r2_rotate(ctx: click.Context, project: str | None, rotate_all: bool) -> None
             click.echo(click.style("\n✓ R2 rotation complete\n", fg="green", bold=True))
             click.echo(f"  Total deleted: {result['total_deleted']}")
             for proj, stats in result["projects"].items():
-                click.echo(f"  {proj}: kept {stats['kept_daily']} daily + {stats['kept_weekly']} weekly, deleted {stats['deleted_count']}")
+                click.echo(
+                    f"  {proj}: kept {stats['kept_daily']} daily"
+                    f" + {stats['kept_weekly']} weekly,"
+                    f" deleted {stats['deleted_count']}"
+                )
 
     except BackupServiceError as e:
         formatter.error(code=e.code, message=e.message, suggestion=e.suggestion)
@@ -1016,7 +1080,11 @@ def r2_status(ctx: click.Context) -> None:
             click.echo(f"  Bucket:   {status['bucket']}")
 
             if not status.get("bucket_exists"):
-                click.echo(click.style("  Bucket does not exist yet (will be created on first backup)", fg="yellow"))
+                click.echo(
+                    click.style(
+                        "  Bucket does not exist yet (will be created on first backup)", fg="yellow"
+                    )
+                )
                 return
 
             click.echo(f"  Objects:  {status['total_objects']}")

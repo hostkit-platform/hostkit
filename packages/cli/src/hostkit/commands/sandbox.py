@@ -2,13 +2,11 @@
 
 import click
 
-from hostkit.access import root_only, project_owner
+from hostkit.access import root_only
 from hostkit.output import OutputFormatter
 from hostkit.services.sandbox_service import (
     SandboxService,
     SandboxServiceError,
-    MAX_SANDBOXES_PER_PROJECT,
-    DEFAULT_TTL_HOURS,
 )
 
 
@@ -195,7 +193,8 @@ def info(ctx: click.Context, sandbox_name: str) -> None:
 @sandbox.command("delete")
 @click.argument("sandbox_name")
 @click.option(
-    "--force", "-f",
+    "--force",
+    "-f",
     is_flag=True,
     help="Confirm deletion (required)",
 )

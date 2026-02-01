@@ -4,7 +4,6 @@ Provides iron-session based session management templates for Next.js
 projects that use HostKit Auth.
 """
 
-import os
 import secrets
 import shutil
 import subprocess
@@ -100,7 +99,10 @@ class SessionService:
         if project_data["runtime"] != "nextjs":
             raise SessionServiceError(
                 code="WRONG_RUNTIME",
-                message=f"Project '{project}' is not a Next.js project (runtime: {project_data['runtime']})",
+                message=(
+                    f"Project '{project}' is not a Next.js project"
+                    f" (runtime: {project_data['runtime']})"
+                ),
                 suggestion="Session scaffolding is only for Next.js projects",
             )
 
@@ -243,7 +245,7 @@ NEXT_PUBLIC_AUTH_URL={auth_url}
             Setup details
         """
         # Generate session secret first
-        session_secret = self.add_session_secret_to_env(project)
+        self.add_session_secret_to_env(project)
 
         # Deploy scaffolding
         scaffold_result = self.scaffold_session(project, force=False)

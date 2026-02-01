@@ -9,33 +9,32 @@ import secrets
 import string
 import subprocess
 from dataclasses import dataclass
-from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 import psycopg2
-from psycopg2 import sql
-from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
+from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
-from cryptography.hazmat.backends import default_backend
-
 from jinja2 import Template
+from psycopg2 import sql
+from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 
 from hostkit.config import get_config
 from hostkit.database import get_db
 from hostkit.registry import CapabilitiesRegistry, ServiceMeta
 
-
 # Register auth service with capabilities registry
-CapabilitiesRegistry.register_service(ServiceMeta(
-    name="auth",
-    description="HostKit Auth service (OAuth, magic links, email/password)",
-    provision_flag="--with-auth",
-    enable_command="hostkit auth enable {project}",
-    env_vars_provided=["AUTH_URL", "AUTH_JWT_PUBLIC_KEY"],
-    related_commands=["auth enable", "auth disable", "auth config", "auth logs"],
-))
+CapabilitiesRegistry.register_service(
+    ServiceMeta(
+        name="auth",
+        description=("HostKit Auth service (OAuth, magic links, email/password)"),
+        provision_flag="--with-auth",
+        enable_command="hostkit auth enable {project}",
+        env_vars_provided=["AUTH_URL", "AUTH_JWT_PUBLIC_KEY"],
+        related_commands=["auth enable", "auth disable", "auth config", "auth logs"],
+    )
+)
 
 
 # Auth database schema SQL
@@ -114,7 +113,8 @@ CREATE TABLE IF NOT EXISTS password_resets (
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_oauth_accounts_user_id ON oauth_accounts(user_id);
-CREATE INDEX IF NOT EXISTS idx_oauth_accounts_provider ON oauth_accounts(provider, provider_user_id);
+CREATE INDEX IF NOT EXISTS idx_oauth_accounts_provider
+    ON oauth_accounts(provider, provider_user_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at);
 CREATE INDEX IF NOT EXISTS idx_sessions_refresh_token ON sessions(refresh_token_hash);
@@ -274,9 +274,7 @@ class AuthService:
         conn = self._get_admin_connection()
         try:
             with conn.cursor() as cur:
-                cur.execute(
-                    "SELECT 1 FROM pg_database WHERE datname = %s", [db_name]
-                )
+                cur.execute("SELECT 1 FROM pg_database WHERE datname = %s", [db_name])
                 return cur.fetchone() is not None
         finally:
             conn.close()
@@ -299,7 +297,9 @@ class AuthService:
             raise AuthServiceError(
                 code="AUTH_DATABASE_EXISTS",
                 message=f"Auth database '{db_name}' already exists",
-                suggestion="Disable auth first with 'hostkit auth disable' or use a different project",
+                suggestion=(
+                    "Disable auth first with 'hostkit auth disable' or use a different project"
+                ),
             )
 
         password = generate_secure_password()
@@ -365,14 +365,10 @@ class AuthService:
                 )
 
                 # Drop database
-                cur.execute(
-                    sql.SQL("DROP DATABASE IF EXISTS {}").format(sql.Identifier(db_name))
-                )
+                cur.execute(sql.SQL("DROP DATABASE IF EXISTS {}").format(sql.Identifier(db_name)))
 
                 # Drop role
-                cur.execute(
-                    sql.SQL("DROP ROLE IF EXISTS {}").format(sql.Identifier(role_name))
-                )
+                cur.execute(sql.SQL("DROP ROLE IF EXISTS {}").format(sql.Identifier(role_name)))
 
         finally:
             conn.close()
@@ -528,8 +524,11 @@ class AuthService:
             public_key_path.unlink()
 
     def _update_project_env(
-        self, project: str, credentials: AuthDatabaseCredentials, auth_port: int,
-        public_key_path: Path | None = None
+        self,
+        project: str,
+        credentials: AuthDatabaseCredentials,
+        auth_port: int,
+        public_key_path: Path | None = None,
     ) -> None:
         """Update a project's .env file with auth service credentials.
 
@@ -575,8 +574,7 @@ class AuthService:
 
         # Check if AUTH_DB_URL already exists
         has_auth_db = any(
-            line.startswith("AUTH_DB_URL=") or line.startswith("# AUTH_DB_URL=")
-            for line in lines
+            line.startswith("AUTH_DB_URL=") or line.startswith("# AUTH_DB_URL=") for line in lines
         )
 
         if has_auth_db:
@@ -614,20 +612,26 @@ class AuthService:
                         new_lines.insert(i + 1, f"AUTH_URL={auth_url}\n")
                         break
             # Add NEXT_PUBLIC_AUTH_URL if not present and we have a domain
-            if next_public_auth_url and not any(line.startswith("NEXT_PUBLIC_AUTH_URL=") for line in lines):
+            if next_public_auth_url and not any(
+                line.startswith("NEXT_PUBLIC_AUTH_URL=") for line in lines
+            ):
                 for i, line in enumerate(new_lines):
                     if line.startswith("AUTH_URL="):
                         new_lines.insert(i + 1, f"NEXT_PUBLIC_AUTH_URL={next_public_auth_url}\n")
                         break
             # Add AUTH_JWT_PUBLIC_KEY if not present and we have key content
-            if jwt_public_key_content and not any(line.startswith("AUTH_JWT_PUBLIC_KEY=") for line in lines):
+            if jwt_public_key_content and not any(
+                line.startswith("AUTH_JWT_PUBLIC_KEY=") for line in lines
+            ):
                 for i, line in enumerate(new_lines):
                     if line.startswith("AUTH_DB_URL="):
                         new_lines.insert(i + 1, f'AUTH_JWT_PUBLIC_KEY="{jwt_public_key_content}"\n')
                         break
         else:
             # Add new auth block with inline public key, AUTH_URL, and NEXT_PUBLIC_AUTH_URL
-            next_public_line = f"NEXT_PUBLIC_AUTH_URL={next_public_auth_url}\n" if next_public_auth_url else ""
+            next_public_line = (
+                f"NEXT_PUBLIC_AUTH_URL={next_public_auth_url}\n" if next_public_auth_url else ""
+            )
             auth_block = f"""
 # Authentication Service (HostKit managed)
 AUTH_ENABLED=true
@@ -755,9 +759,7 @@ AUTH_JWT_PUBLIC_KEY="{jwt_public_key_content}"
                 suggestion="Ensure HostKit is properly installed",
             )
 
-    def _deploy_auth_service(
-        self, project: str, credentials: AuthDatabaseCredentials
-    ) -> None:
+    def _deploy_auth_service(self, project: str, credentials: AuthDatabaseCredentials) -> None:
         """Deploy the FastAPI auth service for a project.
 
         Steps:
@@ -849,9 +851,10 @@ LOG_LEVEL=INFO
                 timeout=60,
             )
         except subprocess.CalledProcessError as e:
+            stderr = e.stderr.decode() if e.stderr else "unknown error"
             raise AuthServiceError(
                 code="VENV_CREATE_FAILED",
-                message=f"Failed to create virtual environment: {e.stderr.decode() if e.stderr else 'unknown error'}",
+                message=f"Failed to create virtual environment: {stderr}",
                 suggestion="Ensure python3-venv is installed",
             )
 
@@ -866,9 +869,10 @@ LOG_LEVEL=INFO
                 timeout=300,  # 5 minutes for pip install
             )
         except subprocess.CalledProcessError as e:
+            stderr = e.stderr.decode() if e.stderr else "unknown error"
             raise AuthServiceError(
                 code="PIP_INSTALL_FAILED",
-                message=f"Failed to install dependencies: {e.stderr.decode() if e.stderr else 'unknown error'}",
+                message=f"Failed to install dependencies: {stderr}",
                 suggestion="Check requirements.txt and network connectivity",
             )
 
@@ -944,9 +948,10 @@ LOG_LEVEL=INFO
                 timeout=30,
             )
         except subprocess.CalledProcessError as e:
+            stderr = e.stderr.decode() if e.stderr else "unknown error"
             raise AuthServiceError(
                 code="SERVICE_START_FAILED",
-                message=f"Failed to start auth service: {e.stderr.decode() if e.stderr else 'unknown error'}",
+                message=f"Failed to start auth service: {stderr}",
                 suggestion=f"Check logs: journalctl -u {service_name}.service",
             )
 
@@ -987,9 +992,10 @@ LOG_LEVEL=INFO
                 timeout=30,
             )
         except subprocess.CalledProcessError as e:
+            stderr = e.stderr.decode() if e.stderr else "unknown error"
             raise AuthServiceError(
                 code="SERVICE_RESTART_FAILED",
-                message=f"Failed to restart auth service: {e.stderr.decode() if e.stderr else 'unknown error'}",
+                message=f"Failed to restart auth service: {stderr}",
                 suggestion=f"Check logs: journalctl -u {service_name}.service",
             )
 
@@ -1310,6 +1316,7 @@ LOG_LEVEL=INFO
 
             # Step 9: Regenerate nginx port mappings for wildcard routing
             from hostkit.services.project_service import ProjectService
+
             ProjectService()._regenerate_nginx_port_mappings()
 
             # Step 10: Auto-configure OAuth from platform if available
@@ -1597,12 +1604,14 @@ LOG_LEVEL=INFO
 
         if env_path.exists():
             import re
+
             with open(env_path) as f:
                 content = f.read()
                 # Extract password from AUTH_DB_URL
-                match = re.search(r'AUTH_DB_URL=postgresql://[^:]+:([^@]+)@', content)
+                match = re.search(r"AUTH_DB_URL=postgresql://[^:]+:([^@]+)@", content)
                 if match:
                     from urllib.parse import unquote
+
                     db_password = unquote(match.group(1))
 
         if not db_password:
@@ -1761,23 +1770,27 @@ LOG_LEVEL=INFO
                 name = proj["name"]
                 if name in auth_map:
                     record = auth_map[name]
-                    results.append({
-                        "project": name,
-                        "enabled": bool(record["enabled"]),
-                        "auth_port": record["auth_port"],
-                        "providers": {
-                            "email": bool(record["email_enabled"]),
-                            "google": bool(record["google_client_id"]),
-                            "apple": bool(record["apple_client_id"]),
-                        },
-                    })
+                    results.append(
+                        {
+                            "project": name,
+                            "enabled": bool(record["enabled"]),
+                            "auth_port": record["auth_port"],
+                            "providers": {
+                                "email": bool(record["email_enabled"]),
+                                "google": bool(record["google_client_id"]),
+                                "apple": bool(record["apple_client_id"]),
+                            },
+                        }
+                    )
                 else:
-                    results.append({
-                        "project": name,
-                        "enabled": False,
-                        "auth_port": None,
-                        "providers": {},
-                    })
+                    results.append(
+                        {
+                            "project": name,
+                            "enabled": False,
+                            "auth_port": None,
+                            "providers": {},
+                        }
+                    )
 
             return {
                 "projects": results,

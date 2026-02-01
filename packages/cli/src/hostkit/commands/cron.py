@@ -4,7 +4,7 @@ import click
 
 from hostkit.access import project_owner
 from hostkit.output import OutputFormatter
-from hostkit.services.cron_service import CronService, CronError
+from hostkit.services.cron_service import CronError, CronService
 
 
 @click.group()
@@ -126,14 +126,16 @@ def cron_list(ctx: click.Context, project: str) -> None:
             # Format for display
             display_data = []
             for task in tasks:
-                display_data.append({
-                    "name": task.name,
-                    "schedule": task.schedule_cron or task.schedule,
-                    "enabled": "yes" if task.enabled else "no",
-                    "timer_active": "yes" if task.timer_active else "no",
-                    "last_run_status": task.last_run_status or "-",
-                    "last_run_at": task.last_run_at[:19] if task.last_run_at else "-",
-                })
+                display_data.append(
+                    {
+                        "name": task.name,
+                        "schedule": task.schedule_cron or task.schedule,
+                        "enabled": "yes" if task.enabled else "no",
+                        "timer_active": "yes" if task.timer_active else "no",
+                        "last_run_status": task.last_run_status or "-",
+                        "last_run_at": task.last_run_at[:19] if task.last_run_at else "-",
+                    }
+                )
             formatter.table(display_data, columns, title=f"Scheduled Tasks: {project}")
 
     except CronError as e:
@@ -390,7 +392,9 @@ def cron_info(ctx: click.Context, project: str, name: str) -> None:
                 },
                 "last_run": {
                     "status": task.last_run_status or "(never run)",
-                    "exit_code": task.last_run_exit_code if task.last_run_exit_code is not None else "-",
+                    "exit_code": task.last_run_exit_code
+                    if task.last_run_exit_code is not None
+                    else "-",
                     "time": task.last_run_at[:19] if task.last_run_at else "-",
                 },
                 "metadata": {
@@ -399,7 +403,9 @@ def cron_info(ctx: click.Context, project: str, name: str) -> None:
                     "updated_at": task.updated_at[:19],
                 },
             }
-            formatter.status_panel(f"Task: {task.name}", sections, message=f"Task info for '{name}'")
+            formatter.status_panel(
+                f"Task: {task.name}", sections, message=f"Task info for '{name}'"
+            )
 
     except CronError as e:
         formatter.error(code=e.code, message=e.message, suggestion=e.suggestion)

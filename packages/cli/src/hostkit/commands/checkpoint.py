@@ -114,12 +114,20 @@ def create_checkpoint(ctx: click.Context, project: str, label: str | None) -> No
 
 @checkpoint.command("list")
 @click.argument("project")
-@click.option("--limit", "-n", default=20, help="Maximum number of checkpoints to show (default: 20)")
-@click.option("--type", "checkpoint_type", default=None,
-              type=click.Choice(["manual", "pre_migration", "pre_restore", "auto"]),
-              help="Filter by checkpoint type")
+@click.option(
+    "--limit", "-n", default=20, help="Maximum number of checkpoints to show (default: 20)"
+)
+@click.option(
+    "--type",
+    "checkpoint_type",
+    default=None,
+    type=click.Choice(["manual", "pre_migration", "pre_restore", "auto"]),
+    help="Filter by checkpoint type",
+)
 @click.pass_context
-def list_checkpoints(ctx: click.Context, project: str, limit: int, checkpoint_type: str | None) -> None:
+def list_checkpoints(
+    ctx: click.Context, project: str, limit: int, checkpoint_type: str | None
+) -> None:
     """List database checkpoints for a project.
 
     Checkpoints are shown most recent first.
@@ -172,16 +180,24 @@ def list_checkpoints(ctx: click.Context, project: str, limit: int, checkpoint_ty
             click.echo(f"\nCheckpoints for {project} ({len(checkpoints)} total):\n")
 
             # Header
-            click.echo(f"{'ID':<6} {'Type':<14} {'Label':<25} {'Size':<10} {'Created':<20} {'Expires'}")
+            click.echo(
+                f"{'ID':<6} {'Type':<14} {'Label':<25} {'Size':<10} {'Created':<20} {'Expires'}"
+            )
             click.echo("-" * 100)
 
             for cp in checkpoints:
-                label = cp.label[:22] + "..." if cp.label and len(cp.label) > 25 else (cp.label or "-")
+                label = (
+                    cp.label[:22] + "..." if cp.label and len(cp.label) > 25 else (cp.label or "-")
+                )
                 size = format_size(cp.size_bytes)
                 created = cp.created_at[:19].replace("T", " ")
                 expires = cp.expires_at[:10] if cp.expires_at else "Never"
 
-                click.echo(f"{cp.id:<6} {cp.checkpoint_type:<14} {label:<25} {size:<10} {created:<20} {expires}")
+                click.echo(
+                    f"{cp.id:<6} {cp.checkpoint_type:<14} "
+                    f"{label:<25} {size:<10} "
+                    f"{created:<20} {expires}"
+                )
 
             click.echo("")
 
@@ -211,7 +227,10 @@ def checkpoint_info(ctx: click.Context, project: str, checkpoint_id: int) -> Non
         if cp.project_name != project:
             formatter.error(
                 code="CHECKPOINT_MISMATCH",
-                message=f"Checkpoint {checkpoint_id} belongs to project '{cp.project_name}', not '{project}'",
+                message=(
+                    f"Checkpoint {checkpoint_id} belongs to"
+                    f" project '{cp.project_name}', not '{project}'"
+                ),
                 suggestion="Specify the correct project or checkpoint ID",
             )
             raise SystemExit(1)
@@ -261,7 +280,9 @@ def checkpoint_info(ctx: click.Context, project: str, checkpoint_id: int) -> Non
 @click.option("--no-safety", is_flag=True, help="Skip creating a safety checkpoint before restore")
 @click.pass_context
 @project_owner("project")
-def restore_checkpoint(ctx: click.Context, project: str, checkpoint_id: int, force: bool, no_safety: bool) -> None:
+def restore_checkpoint(
+    ctx: click.Context, project: str, checkpoint_id: int, force: bool, no_safety: bool
+) -> None:
     """Restore a database from a checkpoint.
 
     WARNING: This will drop the current database and restore from the checkpoint.
@@ -285,7 +306,10 @@ def restore_checkpoint(ctx: click.Context, project: str, checkpoint_id: int, for
         if cp.project_name != project:
             formatter.error(
                 code="CHECKPOINT_MISMATCH",
-                message=f"Checkpoint {checkpoint_id} belongs to project '{cp.project_name}', not '{project}'",
+                message=(
+                    f"Checkpoint {checkpoint_id} belongs to"
+                    f" project '{cp.project_name}', not '{project}'"
+                ),
                 suggestion="Specify the correct project or checkpoint ID",
             )
             raise SystemExit(1)
@@ -299,7 +323,13 @@ def restore_checkpoint(ctx: click.Context, project: str, checkpoint_id: int, for
             click.echo(f"  Created:    {cp.created_at}")
             click.echo(f"  Size:       {format_size(cp.size_bytes)}")
             click.echo("")
-            click.echo(click.style("WARNING: This will drop the current database and restore from checkpoint!", fg="yellow", bold=True))
+            click.echo(
+                click.style(
+                    "WARNING: This will drop the current database and restore from checkpoint!",
+                    fg="yellow",
+                    bold=True,
+                )
+            )
 
             if not no_safety:
                 click.echo("\nA safety checkpoint will be created before restoring.")
@@ -323,10 +353,11 @@ def restore_checkpoint(ctx: click.Context, project: str, checkpoint_id: int, for
             click.echo(click.style("\nCheckpoint restored successfully\n", fg="green", bold=True))
             click.echo(f"  Database:     {result['database']}")
             click.echo(f"  Restored from: Checkpoint {result['restored_from_checkpoint']}")
-            if result.get('checkpoint_label'):
+            if result.get("checkpoint_label"):
                 click.echo(f"  Label:        {result['checkpoint_label']}")
-            if result.get('pre_restore_checkpoint_id'):
-                click.echo(f"  Safety checkpoint: {result['pre_restore_checkpoint_id']} (in case of issues)")
+            if result.get("pre_restore_checkpoint_id"):
+                cp_id = result["pre_restore_checkpoint_id"]
+                click.echo(f"  Safety checkpoint: {cp_id} (in case of issues)")
             click.echo(f"  Restored at:  {result['restored_at']}")
 
     except CheckpointServiceError as e:
@@ -402,7 +433,11 @@ def cleanup_checkpoints(ctx: click.Context) -> None:
             formatter.success(data=result, message="Cleanup complete")
         else:
             if result["deleted_count"] > 0:
-                click.echo(click.style(f"\nDeleted {result['deleted_count']} expired checkpoint(s)", fg="green"))
+                click.echo(
+                    click.style(
+                        f"\nDeleted {result['deleted_count']} expired checkpoint(s)", fg="green"
+                    )
+                )
                 click.echo(f"  Freed: {format_size(result['freed_bytes'])}")
             else:
                 click.echo("\nNo expired checkpoints found.")
@@ -419,9 +454,13 @@ def cleanup_checkpoints(ctx: click.Context) -> None:
 
 @checkpoint.command("latest")
 @click.argument("project")
-@click.option("--type", "checkpoint_type", default=None,
-              type=click.Choice(["manual", "pre_migration", "pre_restore", "auto"]),
-              help="Filter by checkpoint type")
+@click.option(
+    "--type",
+    "checkpoint_type",
+    default=None,
+    type=click.Choice(["manual", "pre_migration", "pre_restore", "auto"]),
+    help="Filter by checkpoint type",
+)
 @click.pass_context
 def latest_checkpoint(ctx: click.Context, project: str, checkpoint_type: str | None) -> None:
     """Show the most recent checkpoint for a project.

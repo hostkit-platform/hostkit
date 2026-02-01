@@ -19,7 +19,6 @@ from hostkit.config import get_config
 from hostkit.database import get_db
 from hostkit.registry import CapabilitiesRegistry, ServiceMeta
 
-
 # Register R2 service with capabilities registry
 CapabilitiesRegistry.register_service(
     ServiceMeta(

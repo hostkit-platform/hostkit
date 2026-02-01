@@ -92,7 +92,7 @@ class DocsService:
 
         # Split by ## and ### headers
         # Pattern: capture header level, title, and content until next header
-        pattern = r'^(#{2,3})\s+(.+?)$\n(.*?)(?=^#{2,3}\s|\Z)'
+        pattern = r"^(#{2,3})\s+(.+?)$\n(.*?)(?=^#{2,3}\s|\Z)"
         matches = re.findall(pattern, content, re.MULTILINE | re.DOTALL)
 
         for i, (level, title, body) in enumerate(matches):
@@ -123,14 +123,16 @@ class DocsService:
                 sub_chunks = self._split_large_section(chunk_id, title, body, section, chunk_type)
                 chunks.extend(sub_chunks)
             else:
-                chunks.append(DocChunk(
-                    id=chunk_id,
-                    title=title,
-                    content=f"# {title}\n\n{body}",
-                    section=section,
-                    source="CLAUDE.md",
-                    chunk_type=chunk_type,
-                ))
+                chunks.append(
+                    DocChunk(
+                        id=chunk_id,
+                        title=title,
+                        content=f"# {title}\n\n{body}",
+                        section=section,
+                        source="CLAUDE.md",
+                        chunk_type=chunk_type,
+                    )
+                )
 
         return chunks
 
@@ -146,21 +148,23 @@ class DocsService:
         chunks: list[DocChunk] = []
 
         # Split by paragraph or code blocks
-        parts = re.split(r'\n\n+', body)
+        parts = re.split(r"\n\n+", body)
         current_chunk = ""
         chunk_num = 0
 
         for part in parts:
             if len(current_chunk) + len(part) > 2500:
                 if current_chunk:
-                    chunks.append(DocChunk(
-                        id=f"{base_id}-{chunk_num}",
-                        title=f"{title} (part {chunk_num + 1})",
-                        content=f"# {title}\n\n{current_chunk}",
-                        section=section,
-                        source="CLAUDE.md",
-                        chunk_type=chunk_type,
-                    ))
+                    chunks.append(
+                        DocChunk(
+                            id=f"{base_id}-{chunk_num}",
+                            title=f"{title} (part {chunk_num + 1})",
+                            content=f"# {title}\n\n{current_chunk}",
+                            section=section,
+                            source="CLAUDE.md",
+                            chunk_type=chunk_type,
+                        )
+                    )
                     chunk_num += 1
                 current_chunk = part
             else:
@@ -168,14 +172,16 @@ class DocsService:
 
         # Don't forget the last chunk
         if current_chunk:
-            chunks.append(DocChunk(
-                id=f"{base_id}-{chunk_num}",
-                title=f"{title} (part {chunk_num + 1})" if chunk_num > 0 else title,
-                content=f"# {title}\n\n{current_chunk}",
-                section=section,
-                source="CLAUDE.md",
-                chunk_type=chunk_type,
-            ))
+            chunks.append(
+                DocChunk(
+                    id=f"{base_id}-{chunk_num}",
+                    title=f"{title} (part {chunk_num + 1})" if chunk_num > 0 else title,
+                    content=f"# {title}\n\n{current_chunk}",
+                    section=section,
+                    source="CLAUDE.md",
+                    chunk_type=chunk_type,
+                )
+            )
 
         return chunks
 
@@ -188,10 +194,10 @@ class DocsService:
 
         # Look backwards for ## header
         before = content[:pos]
-        match = re.search(r'^##\s+(.+?)$', before, re.MULTILINE)
+        match = re.search(r"^##\s+(.+?)$", before, re.MULTILINE)
         if match:
             # Get the last ## match before our position
-            matches = list(re.finditer(r'^##\s+(.+?)$', before, re.MULTILINE))
+            matches = list(re.finditer(r"^##\s+(.+?)$", before, re.MULTILINE))
             if matches:
                 return matches[-1].group(1)
 
@@ -200,8 +206,8 @@ class DocsService:
     def _slugify(self, text: str) -> str:
         """Convert text to URL-safe slug."""
         text = text.lower()
-        text = re.sub(r'[^a-z0-9]+', '-', text)
-        return text.strip('-')[:50]
+        text = re.sub(r"[^a-z0-9]+", "-", text)
+        return text.strip("-")[:50]
 
     def _chunk_capabilities(self) -> list[DocChunk]:
         """Generate chunks from capabilities command output."""
@@ -242,14 +248,16 @@ class DocsService:
                     for cmd_name, cmd in info["commands"].items():
                         chunk_content += f"- `{cmd}` - {cmd_name}\n"
 
-                chunks.append(DocChunk(
-                    id=f"service-{name}",
-                    title=f"{name.title()} Service",
-                    content=chunk_content,
-                    section="Services",
-                    source="capabilities",
-                    chunk_type="service",
-                ))
+                chunks.append(
+                    DocChunk(
+                        id=f"service-{name}",
+                        title=f"{name.title()} Service",
+                        content=chunk_content,
+                        section="Services",
+                        source="capabilities",
+                        chunk_type="service",
+                    )
+                )
 
             # Chunk command groups
             commands = caps.get("commands", {})
@@ -265,14 +273,16 @@ class DocsService:
                             cmd_help = cmd.get("help", "")
                             chunk_content += f"- `hostkit {group_name} {cmd_name}` - {cmd_help}\n"
 
-                    chunks.append(DocChunk(
-                        id=f"cmd-{group_name}",
-                        title=f"hostkit {group_name}",
-                        content=chunk_content,
-                        section="Commands",
-                        source="capabilities",
-                        chunk_type="command",
-                    ))
+                    chunks.append(
+                        DocChunk(
+                            id=f"cmd-{group_name}",
+                            title=f"hostkit {group_name}",
+                            content=chunk_content,
+                            section="Commands",
+                            source="capabilities",
+                            chunk_type="command",
+                        )
+                    )
 
         except (subprocess.TimeoutExpired, json.JSONDecodeError, Exception):
             # Capabilities not available, skip
@@ -504,19 +514,24 @@ source: {chunk.source}
                 parts = content.split("---", 2)
                 if len(parts) >= 3:
                     content = parts[2].strip()
-            context_parts.append(f"[Doc {i+1}]\n{content}\n")
+            context_parts.append(f"[Doc {i + 1}]\n{content}\n")
 
         context = "\n".join(context_parts)
 
         # Build RAG prompt
-        system_prompt = """You are a HostKit documentation assistant. Answer questions about HostKit using ONLY the provided documentation context.
-
-Rules:
-1. Be concise and direct
-2. Include specific commands when relevant (use exact syntax from docs)
-3. If the docs don't contain the answer, say so
-4. Format commands in backticks
-5. Return a JSON object with: answer, commands (list of relevant commands), see_also (related topics)"""
+        system_prompt = (
+            "You are a HostKit documentation assistant."
+            " Answer questions about HostKit using ONLY the"
+            " provided documentation context.\n\nRules:\n"
+            "1. Be concise and direct\n"
+            "2. Include specific commands when relevant"
+            " (use exact syntax from docs)\n"
+            "3. If the docs don't contain the answer, say so\n"
+            "4. Format commands in backticks\n"
+            "5. Return a JSON object with: answer, commands"
+            " (list of relevant commands), see_also"
+            " (related topics)"
+        )
 
         user_prompt = f"""Documentation context:
 {context}
@@ -536,6 +551,7 @@ Respond with a JSON object containing:
             llm_config_path = Path("/etc/hostkit/llm.ini")
             if llm_config_path.exists():
                 import configparser
+
                 config = configparser.ConfigParser()
                 config.read(llm_config_path)
                 api_key = config.get("anthropic", "api_key", fallback=None)
@@ -561,7 +577,7 @@ Respond with a JSON object containing:
             # Try to extract JSON
             try:
                 # Find JSON in response
-                json_match = re.search(r'\{[\s\S]*\}', response_text)
+                json_match = re.search(r"\{[\s\S]*\}", response_text)
                 if json_match:
                     result = json.loads(json_match.group())
                     return {
@@ -581,7 +597,7 @@ Respond with a JSON object containing:
                 "sources": len(chunks),
             }
 
-        except Exception as e:
+        except Exception:
             # LLM not available, return chunks-based answer
             return self._fallback_answer(question, chunks)
 
@@ -596,7 +612,7 @@ Respond with a JSON object containing:
             content_parts.append(content)
 
             # Extract commands (hostkit ...)
-            cmd_matches = re.findall(r'`(hostkit [^`]+)`', content)
+            cmd_matches = re.findall(r"`(hostkit [^`]+)`", content)
             commands.extend(cmd_matches)
 
         # Dedupe commands
@@ -625,5 +641,5 @@ Respond with a JSON object containing:
 
     def _extract_commands(self, text: str) -> list[str]:
         """Extract hostkit commands from text."""
-        matches = re.findall(r'`(hostkit [^`]+)`', text)
+        matches = re.findall(r"`(hostkit [^`]+)`", text)
         return list(dict.fromkeys(matches))[:10]

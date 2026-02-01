@@ -105,7 +105,6 @@ def introspect_parameter(param: click.Parameter) -> dict[str, Any]:
 
     # Options-specific fields
     if not is_argument:
-        option = param  # Type hint for clarity
         result["default"] = param.default
         result["help"] = param.help
         result["is_flag"] = param.is_flag

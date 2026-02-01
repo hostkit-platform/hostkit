@@ -4,7 +4,7 @@ import click
 
 from hostkit.access import project_owner
 from hostkit.output import OutputFormatter
-from hostkit.services.rate_limit_service import RateLimitService, RateLimitError
+from hostkit.services.rate_limit_service import RateLimitError, RateLimitService
 
 
 def get_formatter(ctx: click.Context) -> OutputFormatter:
@@ -97,30 +97,52 @@ def show_limits(ctx: click.Context, project: str) -> None:
             click.echo(f"  Max deploys:       {status.config.max_deploys} per window")
             click.echo(f"  Window:            {status.config.window_minutes} minutes")
             click.echo(f"  Failure cooldown:  {status.config.failure_cooldown_minutes} minutes")
-            click.echo(f"  Failure limit:     {status.config.consecutive_failure_limit} consecutive")
+            fail_limit = status.config.consecutive_failure_limit
+            click.echo(f"  Failure limit:     {fail_limit} consecutive")
 
             click.echo()
             click.echo(click.style("Current Status:", bold=True))
 
             # Deploys in window
-            deploy_pct = (status.deploys_in_window / status.config.max_deploys * 100) if status.config.max_deploys else 0
+            max_deploys = status.config.max_deploys
+            deploy_pct = (status.deploys_in_window / max_deploys * 100) if max_deploys else 0
             deploy_color = "green" if deploy_pct < 50 else ("yellow" if deploy_pct < 80 else "red")
-            click.echo(f"  Deploys in window: {click.style(str(status.deploys_in_window), fg=deploy_color)}/{status.config.max_deploys}")
+            deploys_styled = click.style(
+                str(status.deploys_in_window),
+                fg=deploy_color,
+            )
+            click.echo(f"  Deploys in window: {deploys_styled}/{max_deploys}")
 
             # Consecutive failures
-            failure_color = "green" if status.consecutive_failures == 0 else ("yellow" if status.consecutive_failures < status.config.consecutive_failure_limit else "red")
-            click.echo(f"  Consecutive fails: {click.style(str(status.consecutive_failures), fg=failure_color)}/{status.config.consecutive_failure_limit}")
+            fail_limit = status.config.consecutive_failure_limit
+            cons_fails = status.consecutive_failures
+            failure_color = (
+                "green" if cons_fails == 0 else ("yellow" if cons_fails < fail_limit else "red")
+            )
+            fails_styled = click.style(
+                str(cons_fails),
+                fg=failure_color,
+            )
+            click.echo(f"  Consecutive fails: {fails_styled}/{fail_limit}")
 
             # Cooldown status
             if status.in_cooldown:
-                click.echo(f"  Cooldown:          {click.style('Active', fg='yellow')} (until {status.cooldown_ends_at})")
+                active = click.style("Active", fg="yellow")
+                ends = status.cooldown_ends_at
+                click.echo(f"  Cooldown:          {active} (until {ends})")
             else:
                 click.echo(f"  Cooldown:          {click.style('None', fg='green')}")
 
             # Overall status
             click.echo()
             if status.config.max_deploys <= 0:
-                click.echo(click.style("Status: Rate limiting DISABLED (unlimited deploys)", fg="cyan", bold=True))
+                click.echo(
+                    click.style(
+                        "Status: Rate limiting DISABLED (unlimited deploys)",
+                        fg="cyan",
+                        bold=True,
+                    )
+                )
             elif status.is_blocked:
                 click.echo(click.style(f"BLOCKED: {status.block_reason}", fg="red", bold=True))
             else:
@@ -177,7 +199,13 @@ def set_limits(
         raise SystemExit(1)
 
     # Check that at least one option was provided
-    if max_deploys is None and window_minutes is None and cooldown_minutes is None and failure_limit is None:
+    all_none = (
+        max_deploys is None
+        and window_minutes is None
+        and cooldown_minutes is None
+        and failure_limit is None
+    )
+    if all_none:
         formatter.error(
             code="NO_OPTIONS",
             message="No configuration options provided",
@@ -249,7 +277,13 @@ def disable_limits(ctx: click.Context, project: str) -> None:
                 message="Rate limiting disabled",
             )
         else:
-            click.echo(click.style("\nRate limiting disabled for " + project, fg="green", bold=True))
+            click.echo(
+                click.style(
+                    "\nRate limiting disabled for " + project,
+                    fg="green",
+                    bold=True,
+                )
+            )
             click.echo("  Unlimited deploys are now allowed.")
             click.echo()
             click.echo("To re-enable, run:")
@@ -263,7 +297,13 @@ def disable_limits(ctx: click.Context, project: str) -> None:
 
 @ratelimit.command("enable")
 @click.argument("project")
-@click.option("--max", "max_deploys", type=int, default=10, help="Maximum deploys per window (default: 10)")
+@click.option(
+    "--max",
+    "max_deploys",
+    type=int,
+    default=10,
+    help="Maximum deploys per window (default: 10)",
+)
 @click.option("--window", "window_str", default="1h", help="Window duration (default: 1h)")
 @click.pass_context
 @project_owner("project")

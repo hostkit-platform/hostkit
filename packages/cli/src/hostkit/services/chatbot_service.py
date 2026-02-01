@@ -19,16 +19,24 @@ from hostkit.config import get_config
 from hostkit.database import get_db
 from hostkit.registry import CapabilitiesRegistry, ServiceMeta
 
-
 # Register chatbot service with capabilities registry
-CapabilitiesRegistry.register_service(ServiceMeta(
-    name="chatbot",
-    description="AI-powered chatbot with embeddable widget and SSE streaming",
-    provision_flag="--with-chatbot",
-    enable_command="hostkit chatbot enable {project}",
-    env_vars_provided=["CHATBOT_URL", "CHATBOT_API_KEY"],
-    related_commands=["chatbot enable", "chatbot disable", "chatbot status", "chatbot config", "chatbot stats", "chatbot logs"],
-))
+CapabilitiesRegistry.register_service(
+    ServiceMeta(
+        name="chatbot",
+        description="AI-powered chatbot with embeddable widget and SSE streaming",
+        provision_flag="--with-chatbot",
+        enable_command="hostkit chatbot enable {project}",
+        env_vars_provided=["CHATBOT_URL", "CHATBOT_API_KEY"],
+        related_commands=[
+            "chatbot enable",
+            "chatbot disable",
+            "chatbot status",
+            "chatbot config",
+            "chatbot stats",
+            "chatbot logs",
+        ],
+    )
+)
 
 
 @dataclass
@@ -95,6 +103,7 @@ class ChatbotService:
 
         try:
             import configparser
+
             config = configparser.ConfigParser()
             config.read(llm_ini_path)
 
@@ -104,8 +113,14 @@ class ChatbotService:
             if config.has_section("openai"):
                 result["openai_api_key"] = config.get("openai", "api_key", fallback="")
             if config.has_section("defaults"):
-                result["default_provider"] = config.get("defaults", "provider", fallback="anthropic")
-                result["default_model"] = config.get("defaults", "model", fallback="claude-sonnet-4-20250514")
+                result["default_provider"] = config.get(
+                    "defaults", "provider", fallback="anthropic"
+                )
+                result["default_model"] = config.get(
+                    "defaults",
+                    "model",
+                    fallback="claude-sonnet-4-20250514",
+                )
             return result
         except Exception:
             return {}
@@ -145,7 +160,8 @@ class ChatbotService:
         """Calculate chatbot service port from project port.
 
         Chatbot service runs on project_port + 5000.
-        (Auth uses +1000, payment uses +2000, SMS uses +3000, booking uses +4000, chatbot uses +5000)
+        (Auth uses +1000, payment uses +2000, SMS uses +3000,
+        booking uses +4000, chatbot uses +5000)
         """
         project_data = self.hostkit_db.get_project(project)
         if not project_data:
@@ -184,9 +200,7 @@ class ChatbotService:
         conn = self._get_admin_connection()
         try:
             with conn.cursor() as cur:
-                cur.execute(
-                    "SELECT 1 FROM pg_database WHERE datname = %s", [db_name]
-                )
+                cur.execute("SELECT 1 FROM pg_database WHERE datname = %s", [db_name])
                 return cur.fetchone() is not None
         finally:
             conn.close()
@@ -209,7 +223,11 @@ class ChatbotService:
             raise ChatbotServiceError(
                 code="CHATBOT_DATABASE_EXISTS",
                 message=f"Chatbot database '{db_name}' already exists",
-                suggestion="Disable chatbot first with 'hostkit chatbot disable' or use a different project",
+                suggestion=(
+                    "Disable chatbot first with "
+                    "'hostkit chatbot disable' or "
+                    "use a different project"
+                ),
             )
 
         password = generate_secure_password()
@@ -256,7 +274,9 @@ class ChatbotService:
         schema_path = Path("/var/lib/hostkit/templates/chatbot/schema.sql")
         if not schema_path.exists():
             # Try dev path
-            schema_path = Path(__file__).parent.parent.parent.parent / "templates" / "chatbot" / "schema.sql"
+            schema_path = (
+                Path(__file__).parent.parent.parent.parent / "templates" / "chatbot" / "schema.sql"
+            )
 
         if not schema_path.exists():
             raise ChatbotServiceError(
@@ -307,6 +327,7 @@ class ChatbotService:
         5. Create log files
         """
         import shutil
+
         from jinja2 import Template
 
         chatbot_dir = self._chatbot_dir(project)
@@ -373,7 +394,10 @@ class ChatbotService:
         except subprocess.CalledProcessError as e:
             raise ChatbotServiceError(
                 code="VENV_CREATE_FAILED",
-                message=f"Failed to create virtual environment: {e.stderr.decode() if e.stderr else 'unknown error'}",
+                message=(
+                    "Failed to create virtual environment: "
+                    f"{e.stderr.decode() if e.stderr else 'unknown error'}"
+                ),
                 suggestion="Ensure python3-venv is installed",
             )
 
@@ -390,14 +414,19 @@ class ChatbotService:
         except subprocess.CalledProcessError as e:
             raise ChatbotServiceError(
                 code="PIP_INSTALL_FAILED",
-                message=f"Failed to install dependencies: {e.stderr.decode() if e.stderr else 'unknown error'}",
+                message=(
+                    "Failed to install dependencies: "
+                    f"{e.stderr.decode() if e.stderr else 'unknown error'}"
+                ),
                 suggestion="Check requirements.txt and network connectivity",
             )
 
         # Step 4: Generate systemd service file
         service_template_path = Path("/var/lib/hostkit/templates/chatbot.service.j2")
         if not service_template_path.exists():
-            service_template_path = Path(__file__).parent.parent.parent.parent / "templates" / "chatbot.service.j2"
+            service_template_path = (
+                Path(__file__).parent.parent.parent.parent / "templates" / "chatbot.service.j2"
+            )
 
         if not service_template_path.exists():
             raise ChatbotServiceError(
@@ -485,7 +514,10 @@ class ChatbotService:
         except subprocess.CalledProcessError as e:
             raise ChatbotServiceError(
                 code="SERVICE_START_FAILED",
-                message=f"Failed to start chatbot service: {e.stderr.decode() if e.stderr else 'unknown error'}",
+                message=(
+                    "Failed to start chatbot service: "
+                    f"{e.stderr.decode() if e.stderr else 'unknown error'}"
+                ),
                 suggestion=f"Check logs: journalctl -u {service_name}.service",
             )
 
@@ -535,14 +567,10 @@ class ChatbotService:
                 )
 
                 # Drop database
-                cur.execute(
-                    sql.SQL("DROP DATABASE IF EXISTS {}").format(sql.Identifier(db_name))
-                )
+                cur.execute(sql.SQL("DROP DATABASE IF EXISTS {}").format(sql.Identifier(db_name)))
 
                 # Drop role
-                cur.execute(
-                    sql.SQL("DROP ROLE IF EXISTS {}").format(sql.Identifier(role_name))
-                )
+                cur.execute(sql.SQL("DROP ROLE IF EXISTS {}").format(sql.Identifier(role_name)))
 
         finally:
             conn.close()
@@ -559,8 +587,11 @@ class ChatbotService:
             env_content = env_path.read_text()
 
         # Remove any existing CHATBOT_ variables
-        lines = [line for line in env_content.split("\n")
-                 if not line.startswith("CHATBOT_URL=") and not line.startswith("CHATBOT_API_KEY=")]
+        lines = [
+            line
+            for line in env_content.split("\n")
+            if not line.startswith("CHATBOT_URL=") and not line.startswith("CHATBOT_API_KEY=")
+        ]
 
         # Add new variables
         lines.append(f"CHATBOT_URL={chatbot_url}")
@@ -614,7 +645,9 @@ class ChatbotService:
             )
 
         # Check LLM credentials
-        if not self._llm_config.get("anthropic_api_key") and not self._llm_config.get("openai_api_key"):
+        if not self._llm_config.get("anthropic_api_key") and not self._llm_config.get(
+            "openai_api_key"
+        ):
             raise ChatbotServiceError(
                 code="LLM_NOT_CONFIGURED",
                 message="LLM credentials not configured",
@@ -648,6 +681,7 @@ class ChatbotService:
 
             # Step 7: Regenerate nginx port mappings for wildcard routing
             from hostkit.services.project_service import ProjectService
+
             ProjectService()._regenerate_nginx_port_mappings()
 
             return {
@@ -675,6 +709,7 @@ class ChatbotService:
                 pass
             try:
                 import shutil
+
                 chatbot_dir = self._chatbot_dir(project)
                 if chatbot_dir.exists():
                     shutil.rmtree(chatbot_dir)
@@ -745,6 +780,7 @@ class ChatbotService:
 
         # Step 5: Remove chatbot directory
         import shutil
+
         chatbot_dir = self._chatbot_dir(project)
         if chatbot_dir.exists():
             shutil.rmtree(chatbot_dir)
@@ -877,6 +913,7 @@ class ChatbotService:
                     suggested_questions = row[7] or []
                     if isinstance(suggested_questions, str):
                         import json
+
                         try:
                             suggested_questions = json.loads(suggested_questions)
                         except Exception:
@@ -1001,6 +1038,7 @@ class ChatbotService:
                     params.append(system_prompt)
                 if suggested_questions is not None:
                     import json
+
                     updates.append("suggested_questions = %s::jsonb")
                     params.append(json.dumps(suggested_questions))
                 if position is not None:
@@ -1116,7 +1154,9 @@ class ChatbotService:
                     "avg_messages_per_conversation": round(avg_messages, 1),
                     "cta_shown": cta_shown,
                     "cta_clicked": cta_clicked,
-                    "cta_click_rate": round(cta_clicked / cta_shown * 100, 1) if cta_shown > 0 else 0.0,
+                    "cta_click_rate": round(cta_clicked / cta_shown * 100, 1)
+                    if cta_shown > 0
+                    else 0.0,
                 }
         finally:
             conn.close()

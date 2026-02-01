@@ -5,7 +5,6 @@ import pwd
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 
 import requests
 
@@ -32,7 +31,7 @@ class SSHSession:
     user: str
     tty: str
     login_time: str
-    from_host: Optional[str]
+    from_host: str | None
 
 
 def get_authorized_keys_path(project: str) -> Path:
@@ -350,9 +349,7 @@ def enable_ssh(project: str, changed_by: str | None = None) -> bool:
     return was_disabled
 
 
-def disable_ssh(
-    project: str, force: bool = False, changed_by: str | None = None
-) -> int:
+def disable_ssh(project: str, force: bool = False, changed_by: str | None = None) -> int:
     """Disable SSH access for a project.
 
     Args:
@@ -438,11 +435,7 @@ def get_all_projects_ssh_status() -> list[dict]:
 
     for pw in pwd.getpwall():
         # Project users have UID >= 1000, home in /home/, and aren't 'ubuntu'
-        if (
-            pw.pw_uid >= 1000
-            and pw.pw_dir.startswith("/home/")
-            and pw.pw_name != "ubuntu"
-        ):
+        if pw.pw_uid >= 1000 and pw.pw_dir.startswith("/home/") and pw.pw_name != "ubuntu":
             try:
                 status = get_ssh_status(pw.pw_name)
                 statuses.append(status)

@@ -121,7 +121,7 @@ def booking_status(ctx: click.Context, project: str) -> None:
                 click.echo("  Status: DISABLED")
                 click.echo(f"\n  Enable with: hostkit booking enable {project}")
             else:
-                click.echo(f"  Status: ACTIVE")
+                click.echo("  Status: ACTIVE")
                 click.echo(f"  Booking Port: {status['booking_port']}")
                 click.echo(f"  API URL: {status['api_url']}")
                 click.echo(f"  Admin API: {status['admin_url']}")
@@ -154,7 +154,11 @@ def booking_seed(ctx: click.Context, project: str, providers: int, services: int
     service = BookingService()
 
     try:
-        result = service.seed_demo_data(project=project, provider_count=providers, service_count=services)
+        result = service.seed_demo_data(
+            project=project,
+            provider_count=providers,
+            service_count=services,
+        )
 
         formatter.success(
             message=f"Demo data seeded for '{project}'",
@@ -192,7 +196,11 @@ def booking_upgrade(ctx: click.Context, project: str, dry_run: bool, force: bool
         if not has_changes:
             formatter.success(
                 message=f"Booking service for '{project}' is already up to date",
-                data={"project": project, "current_version": preview["current_version"], "status": "up_to_date"},
+                data={
+                    "project": project,
+                    "current_version": preview["current_version"],
+                    "status": "up_to_date",
+                },
             )
             return
 
@@ -212,10 +220,14 @@ def booking_upgrade(ctx: click.Context, project: str, dry_run: bool, force: bool
                     click.echo("\n  Schema changes:")
                     for m in preview["migrations"]:
                         click.echo(f"    - Migration {m['version']}: {m['description']}")
-                click.echo(f"\n  Data preserved: {preview['preserved_data']['providers']} providers, "
-                          f"{preview['preserved_data']['services']} services, "
-                          f"{preview['preserved_data']['appointments']} appointments")
-                click.echo(f"\nRun without --dry-run to apply changes.")
+                preserved = preview["preserved_data"]
+                click.echo(
+                    f"\n  Data preserved:"
+                    f" {preserved['providers']} providers,"
+                    f" {preserved['services']} services,"
+                    f" {preserved['appointments']} appointments"
+                )
+                click.echo("\nRun without --dry-run to apply changes.")
             return
 
         if not force and not ctx.obj["json_mode"]:
@@ -232,10 +244,15 @@ def booking_upgrade(ctx: click.Context, project: str, dry_run: bool, force: bool
             formatter.success(message=f"Booking service upgraded for '{project}'", data=result)
         else:
             click.echo(f"\nUpgrading booking service for '{project}'...")
-            click.echo(f"  {'✓' if result['files_copied'] > 0 else '○'} Copied {result['files_copied']} files")
-            click.echo(f"  {'✓' if result['migrations_applied'] > 0 else '○'} Applied {result['migrations_applied']} migrations")
-            click.echo(f"  {'✓' if result['restarted'] else '✗'} Restarted service")
-            click.echo(f"  {'✓' if result['healthy'] else '✗'} Health check {'passed' if result['healthy'] else 'failed'}")
+            copied_icon = "✓" if result["files_copied"] > 0 else "○"
+            migrated_icon = "✓" if result["migrations_applied"] > 0 else "○"
+            restart_icon = "✓" if result["restarted"] else "✗"
+            health_icon = "✓" if result["healthy"] else "✗"
+            health_text = "passed" if result["healthy"] else "failed"
+            click.echo(f"  {copied_icon} Copied {result['files_copied']} files")
+            click.echo(f"  {migrated_icon} Applied {result['migrations_applied']} migrations")
+            click.echo(f"  {restart_icon} Restarted service")
+            click.echo(f"  {health_icon} Health check {health_text}")
             click.echo(f"\nBooking service upgraded to v{result['target_version']}")
 
     except BookingServiceError as e:

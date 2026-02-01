@@ -43,15 +43,11 @@ class KeyValidation:
         # Check length constraints
         if self.min_length and len(value) < self.min_length:
             result["valid"] = False
-            result["warnings"].append(
-                f"Value too short (min {self.min_length} chars)"
-            )
+            result["warnings"].append(f"Value too short (min {self.min_length} chars)")
 
         if self.max_length and len(value) > self.max_length:
             result["valid"] = False
-            result["warnings"].append(
-                f"Value too long (max {self.max_length} chars)"
-            )
+            result["warnings"].append(f"Value too long (max {self.max_length} chars)")
 
         # Check pattern
         if self.pattern:
@@ -676,7 +672,12 @@ PROVIDERS: dict[str, Provider] = {
     "cloudinary": Provider(
         id="cloudinary",
         name="Cloudinary",
-        keys=["CLOUDINARY_URL", "CLOUDINARY_API_KEY", "CLOUDINARY_API_SECRET", "CLOUDINARY_CLOUD_NAME"],
+        keys=[
+            "CLOUDINARY_URL",
+            "CLOUDINARY_API_KEY",
+            "CLOUDINARY_API_SECRET",
+            "CLOUDINARY_CLOUD_NAME",
+        ],
         url="https://console.cloudinary.com/settings/api-keys",
         path="Settings → API Keys",
         docs="https://cloudinary.com/documentation/admin_api",
@@ -701,6 +702,7 @@ PROVIDERS: dict[str, Provider] = {
 # =============================================================================
 # Helper Functions
 # =============================================================================
+
 
 def get_provider(provider_id: str) -> Provider | None:
     """Get a provider by ID."""

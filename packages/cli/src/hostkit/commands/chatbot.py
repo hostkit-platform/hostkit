@@ -1,7 +1,8 @@
 """Chatbot service management commands for HostKit."""
 
-import click
 import json
+
+import click
 
 from hostkit.access import project_access, project_owner
 from hostkit.output import OutputFormatter
@@ -129,26 +130,30 @@ def chatbot_status(ctx: click.Context, project: str, show_key: bool) -> None:
                 click.echo(f"  Chatbot URL: {status['chatbot_url']}")
                 click.echo(f"  Port: {status['chatbot_port']}")
                 click.echo(f"  Widget Script: {status['widget_script']}")
-                if show_key and status.get('api_key'):
+                if show_key and status.get("api_key"):
                     click.echo(f"  API Key: {status['api_key']}")
                 elif not show_key:
                     click.echo("  API Key: ******** (use --show-key to reveal)")
-                click.echo(f"\n  Appearance:")
+                click.echo("\n  Appearance:")
                 click.echo(f"    Name: {status['name']}")
                 click.echo(f"    Position: {status['position']}")
                 click.echo(f"    Theme: {status['theme']}")
                 click.echo(f"    Primary Color: {status['primary_color']}")
-                click.echo(f"\n  AI Settings:")
+                click.echo("\n  AI Settings:")
                 click.echo(f"    Model: {status['model']}")
-                if status.get('system_prompt'):
-                    prompt_preview = status['system_prompt'][:50] + "..." if len(status.get('system_prompt', '')) > 50 else status['system_prompt']
+                if status.get("system_prompt"):
+                    prompt_preview = (
+                        status["system_prompt"][:50] + "..."
+                        if len(status.get("system_prompt", "")) > 50
+                        else status["system_prompt"]
+                    )
                     click.echo(f"    System Prompt: {prompt_preview}")
-                if status.get('cta_enabled'):
-                    click.echo(f"\n  CTA:")
+                if status.get("cta_enabled"):
+                    click.echo("\n  CTA:")
                     click.echo(f"    Text: {status.get('cta_text', 'N/A')}")
                     click.echo(f"    URL: {status.get('cta_url', 'N/A')}")
                     click.echo(f"    After Messages: {status.get('cta_after_messages', 3)}")
-                click.echo(f"\n  Statistics:")
+                click.echo("\n  Statistics:")
                 click.echo(f"    Total Conversations: {status['conversations_total']}")
                 click.echo(f"    Total Messages: {status['messages_total']}")
 
@@ -162,8 +167,11 @@ def chatbot_status(ctx: click.Context, project: str, show_key: bool) -> None:
 @click.option("--name", help="Chatbot display name")
 @click.option("--system-prompt", help="System prompt for the AI")
 @click.option("--suggested-questions", help="Suggested questions (JSON array)")
-@click.option("--position", type=click.Choice(["bottom-right", "bottom-left", "top-right", "top-left"]),
-              help="Widget position")
+@click.option(
+    "--position",
+    type=click.Choice(["bottom-right", "bottom-left", "top-right", "top-left"]),
+    help="Widget position",
+)
 @click.option("--primary-color", help="Primary color (hex, e.g., #6366f1)")
 @click.option("--theme", type=click.Choice(["light", "dark"]), help="Widget theme")
 @click.option("--cta-text", help="Call-to-action button text")
@@ -270,14 +278,14 @@ def chatbot_stats(ctx: click.Context, project: str) -> None:
         else:
             click.echo(f"\nChatbot Statistics: {project}")
             click.echo("-" * 60)
-            click.echo(f"  Conversations:")
+            click.echo("  Conversations:")
             click.echo(f"    Total: {stats['conversations_total']}")
             click.echo(f"    Today: {stats['conversations_today']}")
-            click.echo(f"  Messages:")
+            click.echo("  Messages:")
             click.echo(f"    Total: {stats['messages_total']}")
             click.echo(f"    Today: {stats['messages_today']}")
             click.echo(f"    Avg per Conversation: {stats['avg_messages_per_conversation']:.1f}")
-            click.echo(f"  CTA Performance:")
+            click.echo("  CTA Performance:")
             click.echo(f"    Shown: {stats['cta_shown']}")
             click.echo(f"    Clicked: {stats['cta_clicked']}")
             click.echo(f"    Click Rate: {stats['cta_click_rate']:.1f}%")

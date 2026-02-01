@@ -4,7 +4,7 @@ import click
 
 from hostkit.access import project_owner
 from hostkit.services.release_service import ReleaseService, ReleaseServiceError
-from hostkit.services.service_service import ServiceService, ServiceError
+from hostkit.services.service_service import ServiceError, ServiceService
 
 
 @click.command("rollback")
@@ -119,9 +119,13 @@ def rollback(
                     snapshot_status = "ENV"
                 else:
                     snapshot_status = "-"
-                click.echo(
-                    f"{release.release_name:<20} {release.deployed_at:<25} {files:<8} {snapshot_status:<10} {status}"
+                row = (
+                    f"{release.release_name:<20} "
+                    f"{release.deployed_at:<25} "
+                    f"{files:<8} {snapshot_status:<10} "
+                    f"{status}"
                 )
+                click.echo(row)
 
             click.echo(f"\nTotal: {len(releases)} release(s)")
             click.echo(
@@ -172,15 +176,11 @@ def rollback(
                         message=message,
                         suggestion="Use --list to see available releases",
                     )
-                raise click.ClickException(
-                    f"{message}. Use --list to see available releases."
-                )
+                raise click.ClickException(f"{message}. Use --list to see available releases.")
 
         # Dry-run mode: show what would happen
         if dry_run:
-            _show_rollback_preview(
-                project, current, target, full, formatter, json_mode
-            )
+            _show_rollback_preview(project, current, target, full, formatter, json_mode)
             return
 
         # Perform rollback
@@ -189,9 +189,9 @@ def rollback(
             click.echo(f"  Current release: {current.release_name}")
             click.echo(f"  Target release:  {target.release_name}")
             if full:
-                click.echo(f"  Mode: Full rollback (code + database + environment)")
+                click.echo("  Mode: Full rollback (code + database + environment)")
             else:
-                click.echo(f"  Mode: Code only")
+                click.echo("  Mode: Code only")
 
         # Full rollback: restore database checkpoint first
         db_restored = False
@@ -199,6 +199,7 @@ def rollback(
         if full and target.checkpoint_id:
             try:
                 from hostkit.services.checkpoint_service import CheckpointService
+
                 checkpoint_service = CheckpointService()
                 checkpoint_service.restore_checkpoint(
                     project_name=project,
@@ -207,7 +208,12 @@ def rollback(
                 )
                 db_restored = True
                 if not json_mode:
-                    click.echo(click.style(f"  ✓ Database restored from checkpoint {target.checkpoint_id}", fg="green"))
+                    click.echo(
+                        click.style(
+                            f"  ✓ Database restored from checkpoint {target.checkpoint_id}",
+                            fg="green",
+                        )
+                    )
             except Exception as e:
                 db_restore_error = str(e)
                 if not json_mode:
@@ -219,6 +225,7 @@ def rollback(
         if full and target.env_snapshot:
             try:
                 from hostkit.services.env_service import EnvService
+
                 env_service = EnvService()
                 env_service.restore_snapshot(project, target.env_snapshot)
                 env_restored = True
@@ -260,7 +267,9 @@ def rollback(
         else:
             click.echo()
             click.echo(
-                click.style(f"✓ Rolled back to release '{activated.release_name}'", fg="green", bold=True)
+                click.style(
+                    f"✓ Rolled back to release '{activated.release_name}'", fg="green", bold=True
+                )
             )
             if restart_result:
                 click.echo(click.style("✓ Service restarted", fg="green"))
@@ -284,7 +293,6 @@ def _show_rollback_preview(
     json_mode: bool,
 ) -> None:
     """Show a preview of what would be rolled back."""
-    from hostkit.services.release_service import Release
 
     # Collect preview data
     preview = {
@@ -304,6 +312,7 @@ def _show_rollback_preview(
         preview["checkpoint_id"] = target.checkpoint_id
         try:
             from hostkit.services.checkpoint_service import CheckpointService
+
             checkpoint_service = CheckpointService()
             checkpoint = checkpoint_service.get_checkpoint(target.checkpoint_id)
             preview["checkpoint_info"] = {
@@ -320,6 +329,7 @@ def _show_rollback_preview(
         preview["env_rollback"] = True
         try:
             from hostkit.services.env_service import EnvService
+
             env_service = EnvService()
             env_diff = env_service.compare_snapshot(project, target.env_snapshot)
             preview["env_changes"] = env_diff
@@ -360,7 +370,9 @@ def _show_rollback_preview(
                 size_mb = (cp.get("size_bytes", 0) or 0) / (1024 * 1024)
                 click.echo(f"  Size: {size_mb:.2f} MB")
         else:
-            click.echo(click.style("  No database checkpoint available for this release", fg="yellow"))
+            click.echo(
+                click.style("  No database checkpoint available for this release", fg="yellow")
+            )
         click.echo()
 
         # Environment rollback
@@ -368,10 +380,13 @@ def _show_rollback_preview(
         if target.env_snapshot:
             env_changes = preview.get("env_changes", {})
             if env_changes.get("error"):
-                click.echo(click.style(f"  Error checking changes: {env_changes['error']}", fg="red"))
+                click.echo(
+                    click.style(f"  Error checking changes: {env_changes['error']}", fg="red")
+                )
             elif env_changes.get("has_changes"):
                 if env_changes.get("added"):
-                    click.echo(f"  Variables to remove (added since snapshot): {', '.join(env_changes['added'])}")
+                    added = ", ".join(env_changes["added"])
+                    click.echo(f"  Variables to remove (added since snapshot): {added}")
                 if env_changes.get("removed"):
                     click.echo(f"  Variables to restore: {', '.join(env_changes['removed'])}")
                 if env_changes.get("changed"):
@@ -380,7 +395,9 @@ def _show_rollback_preview(
             else:
                 click.echo("  No changes detected (environment already matches snapshot)")
         else:
-            click.echo(click.style("  No environment snapshot available for this release", fg="yellow"))
+            click.echo(
+                click.style("  No environment snapshot available for this release", fg="yellow")
+            )
         click.echo()
 
     click.echo(click.style("No changes have been made. Remove --dry-run to execute.", fg="cyan"))

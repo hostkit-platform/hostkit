@@ -17,15 +17,16 @@ from hostkit.config import get_config
 from hostkit.database import get_db
 from hostkit.registry import CapabilitiesRegistry, ServiceMeta
 
-
-CapabilitiesRegistry.register_service(ServiceMeta(
-    name="database",
-    description="PostgreSQL 15 database",
-    provision_flag="--with-db",
-    enable_command=None,
-    env_vars_provided=["DATABASE_URL"],
-    related_commands=["db create", "db backup", "db shell", "db restore"],
-))
+CapabilitiesRegistry.register_service(
+    ServiceMeta(
+        name="database",
+        description="PostgreSQL 15 database",
+        provision_flag="--with-db",
+        enable_command=None,
+        env_vars_provided=["DATABASE_URL"],
+        related_commands=["db create", "db backup", "db shell", "db restore"],
+    )
+)
 
 
 @dataclass
@@ -225,14 +226,10 @@ class DatabaseService:
                 )
 
                 # Drop database
-                cur.execute(
-                    sql.SQL("DROP DATABASE IF EXISTS {}").format(sql.Identifier(db_name))
-                )
+                cur.execute(sql.SQL("DROP DATABASE IF EXISTS {}").format(sql.Identifier(db_name)))
 
                 # Drop role
-                cur.execute(
-                    sql.SQL("DROP ROLE IF EXISTS {}").format(sql.Identifier(role_name))
-                )
+                cur.execute(sql.SQL("DROP ROLE IF EXISTS {}").format(sql.Identifier(role_name)))
 
         finally:
             conn.close()
@@ -244,9 +241,7 @@ class DatabaseService:
         conn = self._get_admin_connection()
         try:
             with conn.cursor() as cur:
-                cur.execute(
-                    "SELECT 1 FROM pg_database WHERE datname = %s", [db_name]
-                )
+                cur.execute("SELECT 1 FROM pg_database WHERE datname = %s", [db_name])
                 return cur.fetchone() is not None
         finally:
             conn.close()
@@ -262,8 +257,12 @@ class DatabaseService:
                     SELECT
                         d.datname AS name,
                         pg_catalog.pg_get_userbyid(d.datdba) AS owner,
-                        pg_catalog.pg_size_pretty(pg_catalog.pg_database_size(d.datname)) AS size,
-                        (SELECT count(*) FROM pg_stat_activity WHERE datname = d.datname) AS connections
+                        pg_catalog.pg_size_pretty(
+                            pg_catalog.pg_database_size(d.datname)
+                        ) AS size,
+                        (SELECT count(*)
+                         FROM pg_stat_activity
+                         WHERE datname = d.datname) AS connections
                     FROM pg_catalog.pg_database d
                     WHERE d.datname LIKE '%_db'
                     AND d.datname NOT IN ('postgres', 'template0', 'template1')
@@ -276,9 +275,7 @@ class DatabaseService:
                 for row in rows:
                     # Extract project name from database name
                     db_name = row[0]
-                    project_name = (
-                        db_name[:-3] if db_name.endswith("_db") else None
-                    )
+                    project_name = db_name[:-3] if db_name.endswith("_db") else None
 
                     databases.append(
                         DatabaseInfo(
@@ -313,8 +310,12 @@ class DatabaseService:
                     SELECT
                         d.datname AS name,
                         pg_catalog.pg_get_userbyid(d.datdba) AS owner,
-                        pg_catalog.pg_size_pretty(pg_catalog.pg_database_size(d.datname)) AS size,
-                        (SELECT count(*) FROM pg_stat_activity WHERE datname = d.datname) AS connections
+                        pg_catalog.pg_size_pretty(
+                            pg_catalog.pg_database_size(d.datname)
+                        ) AS size,
+                        (SELECT count(*)
+                         FROM pg_stat_activity
+                         WHERE datname = d.datname) AS connections
                     FROM pg_catalog.pg_database d
                     WHERE d.datname = %s
                     """,
@@ -366,10 +367,14 @@ class DatabaseService:
 
         pg_dump_cmd = [
             "pg_dump",
-            "-h", self.config.postgres_host,
-            "-p", str(self.config.postgres_port),
-            "-U", self._admin_user,
-            "-d", db_name,
+            "-h",
+            self.config.postgres_host,
+            "-p",
+            str(self.config.postgres_port),
+            "-U",
+            self._admin_user,
+            "-d",
+            db_name,
             "--no-owner",
             "--no-acl",
         ]
@@ -467,9 +472,7 @@ class DatabaseService:
                         [db_name],
                     )
                     cur.execute(
-                        sql.SQL("DROP DATABASE IF EXISTS {}").format(
-                            sql.Identifier(db_name)
-                        )
+                        sql.SQL("DROP DATABASE IF EXISTS {}").format(sql.Identifier(db_name))
                     )
                     # Recreate database
                     cur.execute(
@@ -493,10 +496,14 @@ class DatabaseService:
 
         psql_cmd = [
             "psql",
-            "-h", self.config.postgres_host,
-            "-p", str(self.config.postgres_port),
-            "-U", self._admin_user,
-            "-d", db_name,
+            "-h",
+            self.config.postgres_host,
+            "-p",
+            str(self.config.postgres_port),
+            "-U",
+            self._admin_user,
+            "-d",
+            db_name,
             "-q",  # Quiet mode
         ]
 
@@ -575,7 +582,6 @@ class DatabaseService:
 
         # Read password from project's .env file
         env_path = Path(f"/home/{project_name}/.env")
-        password = None
 
         if env_path.exists():
             try:
@@ -587,26 +593,28 @@ class DatabaseService:
                             if "://" in url and "@" in url:
                                 auth_part = url.split("://")[1].split("@")[0]
                                 if ":" in auth_part:
-                                    password = auth_part.split(":")[1]
+                                    auth_part.split(":")[1]
                             break
             except (OSError, IndexError):
                 pass
 
         cmd = [
             "psql",
-            "-h", self.config.postgres_host,
-            "-p", str(self.config.postgres_port),
-            "-U", role_name,
-            "-d", db_name,
+            "-h",
+            self.config.postgres_host,
+            "-p",
+            str(self.config.postgres_port),
+            "-U",
+            role_name,
+            "-d",
+            db_name,
         ]
 
         # Note: password will need to be provided via PGPASSWORD env var
         # The caller should handle setting this from the .env file
         return cmd
 
-    def update_project_env(
-        self, project_name: str, credentials: DatabaseCredentials
-    ) -> None:
+    def update_project_env(self, project_name: str, credentials: DatabaseCredentials) -> None:
         """Update a project's .env file with database credentials."""
         env_path = Path(f"/home/{project_name}/.env")
 
@@ -639,10 +647,12 @@ class DatabaseService:
             for line in new_lines:
                 final_lines.append(line)
                 if line.startswith("REDIS_URL=") and not inserted:
-                    final_lines.append(f"\n# PostgreSQL (HostKit managed)\nDATABASE_URL={credentials.connection_url}\n")
+                    db_url = credentials.connection_url
+                    final_lines.append(f"\n# PostgreSQL (HostKit managed)\nDATABASE_URL={db_url}\n")
                     inserted = True
             if not inserted:
-                final_lines.append(f"\n# PostgreSQL (HostKit managed)\nDATABASE_URL={credentials.connection_url}\n")
+                db_url = credentials.connection_url
+                final_lines.append(f"\n# PostgreSQL (HostKit managed)\nDATABASE_URL={db_url}\n")
             new_lines = final_lines
 
         # Write back
@@ -780,7 +790,10 @@ class DatabaseService:
             raise DatabaseServiceError(
                 code="EXTENSION_ENABLE_FAILED",
                 message=f"Failed to enable extension '{extension}': {e}",
-                suggestion=f"Ensure the extension is installed on the server (apt install postgresql-16-{extension})",
+                suggestion=(
+                    "Ensure the extension is installed on the server"
+                    f" (apt install postgresql-16-{extension})"
+                ),
             )
 
     def list_extensions(self, project_name: str) -> list[dict[str, Any]]:
@@ -919,6 +932,7 @@ class DatabaseService:
                                 auth_part = url.split("://")[1].split("@")[0]
                                 if ":" in auth_part:
                                     from urllib.parse import unquote_plus
+
                                     password = unquote_plus(auth_part.split(":", 1)[1])
                             break
             except (OSError, IndexError):
@@ -939,12 +953,18 @@ class DatabaseService:
         for migration_file in sql_files:
             psql_cmd = [
                 "psql",
-                "-h", self.config.postgres_host,
-                "-p", str(self.config.postgres_port),
-                "-U", role_name,  # Run as project user, not admin
-                "-d", db_name,
-                "-v", "ON_ERROR_STOP=1",  # Stop on first error
-                "-f", str(migration_file),
+                "-h",
+                self.config.postgres_host,
+                "-p",
+                str(self.config.postgres_port),
+                "-U",
+                role_name,  # Run as project user, not admin
+                "-d",
+                db_name,
+                "-v",
+                "ON_ERROR_STOP=1",  # Stop on first error
+                "-f",
+                str(migration_file),
             ]
 
             try:

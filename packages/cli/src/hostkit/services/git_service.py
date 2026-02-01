@@ -3,7 +3,6 @@
 import re
 import shutil
 import subprocess
-import tempfile
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -51,8 +50,12 @@ class GitService:
     """Handle Git operations for project deployments."""
 
     # Valid URL patterns
-    HTTPS_PATTERN = re.compile(r"^https://[a-zA-Z0-9.-]+/.*\.git$|^https://[a-zA-Z0-9.-]+/[^/]+/[^/]+/?$")
-    SSH_PATTERN = re.compile(r"^git@[a-zA-Z0-9.-]+:[a-zA-Z0-9._/-]+\.git$|^git@[a-zA-Z0-9.-]+:[a-zA-Z0-9._/-]+/?$")
+    HTTPS_PATTERN = re.compile(
+        r"^https://[a-zA-Z0-9.-]+/.*\.git$|^https://[a-zA-Z0-9.-]+/[^/]+/[^/]+/?$"
+    )
+    SSH_PATTERN = re.compile(
+        r"^git@[a-zA-Z0-9.-]+:[a-zA-Z0-9._/-]+\.git$|^git@[a-zA-Z0-9.-]+:[a-zA-Z0-9._/-]+/?$"
+    )
 
     def __init__(self) -> None:
         self.config = get_config()
@@ -66,7 +69,11 @@ class GitService:
             raise GitServiceError(
                 code="INVALID_GIT_URL",
                 message=f"Invalid git URL: {url}",
-                suggestion="Use https:// or git@ URL format (e.g., https://github.com/user/repo.git or git@github.com:user/repo.git)",
+                suggestion=(
+                    "Use https:// or git@ URL format"
+                    " (e.g., https://github.com/user/repo.git"
+                    " or git@github.com:user/repo.git)"
+                ),
             )
 
     def _ensure_git_installed(self) -> None:
@@ -271,7 +278,9 @@ class GitService:
         with self.db.transaction() as conn:
             conn.execute(
                 """
-                INSERT INTO git_config (project_name, repo_url, default_branch, ssh_key_path, created_at, updated_at)
+                INSERT INTO git_config
+                (project_name, repo_url, default_branch,
+                ssh_key_path, created_at, updated_at)
                 VALUES (?, ?, ?, ?, ?, ?)
                 ON CONFLICT(project_name) DO UPDATE SET
                     repo_url = excluded.repo_url,
@@ -335,9 +344,11 @@ class GitService:
                 if path.is_dir():
                     # Get size
                     size = sum(f.stat().st_size for f in path.rglob("*") if f.is_file())
-                    result.append({
-                        "project": path.name,
-                        "path": str(path),
-                        "size_bytes": size,
-                    })
+                    result.append(
+                        {
+                            "project": path.name,
+                            "path": str(path),
+                            "size_bytes": size,
+                        }
+                    )
         return result

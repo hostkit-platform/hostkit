@@ -4,7 +4,7 @@ import click
 
 from hostkit.access import project_owner
 from hostkit.output import OutputFormatter
-from hostkit.services.auto_pause_service import AutoPauseService, AutoPauseError
+from hostkit.services.auto_pause_service import AutoPauseError, AutoPauseService
 
 
 def get_formatter(ctx: click.Context) -> OutputFormatter:

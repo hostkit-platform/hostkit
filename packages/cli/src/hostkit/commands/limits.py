@@ -110,12 +110,17 @@ def show_limits(ctx: click.Context, project: str) -> None:
 
             if limits_config is None:
                 click.echo(click.style("No limits configured (defaults shown):", bold=True))
-                from hostkit.services.limits_service import LimitsService as LS
-                click.echo(f"  CPU quota:     {format_cpu(LS.DEFAULT_CPU_QUOTA)}")
-                click.echo(f"  Memory max:    {format_size_mb(LS.DEFAULT_MEMORY_MAX_MB)}")
-                click.echo(f"  Memory high:   {format_size_mb(LS.DEFAULT_MEMORY_HIGH_MB)}")
-                click.echo(f"  Tasks max:     {LS.DEFAULT_TASKS_MAX}")
-                click.echo(f"  Disk quota:    {format_size_mb(LS.DEFAULT_DISK_QUOTA_MB)}")
+                click.echo(f"  CPU quota:     {format_cpu(LimitsService.DEFAULT_CPU_QUOTA)}")
+                click.echo(
+                    f"  Memory max:    {format_size_mb(LimitsService.DEFAULT_MEMORY_MAX_MB)}"
+                )
+                click.echo(
+                    f"  Memory high:   {format_size_mb(LimitsService.DEFAULT_MEMORY_HIGH_MB)}"
+                )
+                click.echo(f"  Tasks max:     {LimitsService.DEFAULT_TASKS_MAX}")
+                click.echo(
+                    f"  Disk quota:    {format_size_mb(LimitsService.DEFAULT_DISK_QUOTA_MB)}"
+                )
             else:
                 enabled_color = "green" if limits_config.enabled else "yellow"
                 enabled_text = "Enabled" if limits_config.enabled else "Disabled"
@@ -214,7 +219,9 @@ def set_limits(
         raise SystemExit(1)
 
     # Check that at least one option was provided
-    if not unlimited and all(v is None for v in [cpu, memory_max_mb, memory_high_mb, tasks, disk_quota_mb, enabled]):
+    if not unlimited and all(
+        v is None for v in [cpu, memory_max_mb, memory_high_mb, tasks, disk_quota_mb, enabled]
+    ):
         formatter.error(
             code="NO_OPTIONS",
             message="No configuration options provided",
@@ -256,7 +263,9 @@ def set_limits(
             )
         else:
             if unlimited:
-                click.echo(click.style("\nResource limits cleared (unlimited):", fg="green", bold=True))
+                click.echo(
+                    click.style("\nResource limits cleared (unlimited):", fg="green", bold=True)
+                )
             else:
                 click.echo(click.style("\nResource limits updated:", fg="green", bold=True))
 
@@ -274,10 +283,11 @@ def set_limits(
                 click.echo(click.style("Limits applied to running service", fg="green"))
             elif apply:
                 click.echo()
-                click.echo(click.style(
-                    "Run 'hostkit limits apply' to apply to running service",
-                    fg="yellow"
-                ))
+                click.echo(
+                    click.style(
+                        "Run 'hostkit limits apply' to apply to running service", fg="yellow"
+                    )
+                )
 
             click.echo()
 

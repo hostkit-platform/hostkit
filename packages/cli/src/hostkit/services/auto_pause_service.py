@@ -128,13 +128,13 @@ class AutoPauseService:
                     else defaults.failure_threshold
                 ),
                 window_minutes=(
-                    window_minutes
-                    if window_minutes is not None
-                    else defaults.window_minutes
+                    window_minutes if window_minutes is not None else defaults.window_minutes
                 ),
             )
 
-        return AutoPauseConfig.from_dict(updated) if updated else AutoPauseConfig.default(project_name)
+        return (
+            AutoPauseConfig.from_dict(updated) if updated else AutoPauseConfig.default(project_name)
+        )
 
     def is_paused(self, project_name: str) -> bool:
         """Check if a project is currently paused."""
@@ -300,5 +300,7 @@ class AutoPauseService:
             raise AutoPauseError(
                 code="PROJECT_PAUSED",
                 message=f"Project '{project_name}' is paused: {reason}",
-                suggestion=f"Run 'hostkit resume {project_name}' to continue. Paused at {paused_at}",
+                suggestion=(
+                    f"Run 'hostkit resume {project_name}' to continue. Paused at {paused_at}"
+                ),
             )

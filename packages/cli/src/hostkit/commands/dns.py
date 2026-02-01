@@ -4,9 +4,9 @@ import socket
 
 import click
 
-from hostkit.output import OutputFormatter
-from hostkit.services.dns_service import DNSService, DNSError
 from hostkit.config import get_config
+from hostkit.output import OutputFormatter
+from hostkit.services.dns_service import DNSError, DNSService
 from hostkit.services.nginx_service import DEV_DOMAIN_SUFFIXES
 
 
@@ -383,7 +383,9 @@ def dns_check(ctx: click.Context, domain: str) -> None:
         if formatter.json_mode:
             formatter.error(
                 code="DNS_MISMATCH",
-                message=f"Domain '{domain}' resolves to {resolved_ip}, expected {get_config().vps_ip}",
+                message=(
+                    f"Domain '{domain}' resolves to {resolved_ip}, expected {get_config().vps_ip}"
+                ),
                 suggestion=f"Update the domain's A record to point to {get_config().vps_ip}",
             )
         else:

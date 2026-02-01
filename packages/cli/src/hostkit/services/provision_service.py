@@ -10,11 +10,11 @@ from pathlib import Path
 from typing import Any
 
 from hostkit.database import get_db
-from hostkit.services.project_service import ProjectService, ProjectServiceError
 from hostkit.services.deploy_service import DeployService, DeployServiceError
-from hostkit.services.nginx_service import NginxService, NginxError
-from hostkit.services.ssl_service import SSLService, SSLError
 from hostkit.services.health_service import HealthService, HealthServiceError
+from hostkit.services.nginx_service import NginxError, NginxService
+from hostkit.services.project_service import ProjectService, ProjectServiceError
+from hostkit.services.ssl_service import SSLError, SSLService
 
 
 @dataclass
@@ -308,7 +308,7 @@ class ProvisionService:
                 health = self.health_service.check_health(name)
                 result.health_status = health.overall
                 result.steps_completed.append("health_check")
-            except HealthServiceError as e:
+            except HealthServiceError:
                 result.health_status = "unknown"
                 result.steps_failed.append("health_check")
             except Exception:
@@ -321,14 +321,14 @@ class ProvisionService:
         if source:
             critical_failures.add("deploy")
 
-        result.success = not any(
-            step in result.steps_failed for step in critical_failures
-        )
+        result.success = not any(step in result.steps_failed for step in critical_failures)
 
         # Generate suggestion if there were failures
         if result.steps_failed:
             failed_steps = ", ".join(result.steps_failed)
-            result.suggestion = f"Some steps failed: {failed_steps}. Review logs and retry individual steps."
+            result.suggestion = (
+                f"Some steps failed: {failed_steps}. Review logs and retry individual steps."
+            )
 
         return result
 

@@ -3,7 +3,6 @@
 Sandboxes are temporary, isolated clones of projects for safe experimentation.
 """
 
-import json
 import os
 import secrets
 import shutil
@@ -15,7 +14,6 @@ from typing import Any
 
 from hostkit.config import get_config
 from hostkit.database import get_db
-
 
 # Sandbox limits
 MAX_SANDBOXES_PER_PROJECT = 3
@@ -103,7 +101,9 @@ class SandboxService:
             raise SandboxServiceError(
                 code="SANDBOX_LIMIT_EXCEEDED",
                 message=f"Maximum {MAX_SANDBOXES_PER_PROJECT} sandboxes per project",
-                suggestion=f"Delete existing sandboxes with 'hostkit sandbox list {source_project}'",
+                suggestion=(
+                    f"Delete existing sandboxes with 'hostkit sandbox list {source_project}'"
+                ),
             )
 
         # 3. Generate sandbox name and ID
@@ -135,7 +135,7 @@ class SandboxService:
         port = self.db.get_next_port()
 
         # 8. Create database record first (so we can track cleanup on failure)
-        sandbox_record = self.db.create_sandbox(
+        self.db.create_sandbox(
             sandbox_id=sandbox_id,
             sandbox_name=sandbox_name,
             source_project=source_project,
@@ -347,6 +347,7 @@ class SandboxService:
             # 2. Create backup of source (optional, best effort)
             try:
                 from hostkit.services.backup_service import BackupService
+
                 backup_service = BackupService()
                 backup = backup_service.create_backup(source_project, full=True)
                 backup_id = backup.get("backup_id")
@@ -485,8 +486,10 @@ class SandboxService:
                 "useradd",
                 "--system",
                 "--create-home",
-                "--home-dir", f"/home/{name}",
-                "--shell", "/bin/bash",
+                "--home-dir",
+                f"/home/{name}",
+                "--shell",
+                "/bin/bash",
                 name,
             ],
             check=True,
@@ -534,7 +537,9 @@ class SandboxService:
             # Use rsync for efficient copying
             subprocess.run(
                 [
-                    "rsync", "-a", "--delete",
+                    "rsync",
+                    "-a",
+                    "--delete",
                     f"{source_app}/",
                     f"{dest_app}/",
                 ],
@@ -550,7 +555,9 @@ class SandboxService:
             if source_dir.exists():
                 subprocess.run(
                     [
-                        "rsync", "-a", "--delete",
+                        "rsync",
+                        "-a",
+                        "--delete",
                         f"{source_dir}/",
                         f"{dest_dir}/",
                     ],
@@ -575,6 +582,7 @@ class SandboxService:
             # Update PROJECT_NAME
             if "PROJECT_NAME=" in content:
                 import re
+
                 content = re.sub(
                     r"PROJECT_NAME=.*",
                     f"PROJECT_NAME={sandbox_name}",
@@ -584,6 +592,7 @@ class SandboxService:
             # Update PORT
             if "PORT=" in content:
                 import re
+
                 content = re.sub(r"PORT=\d+", f"PORT={port}", content)
             else:
                 content += f"\nPORT={port}\n"
@@ -608,7 +617,7 @@ HOST=127.0.0.1
         Returns the new database name if successful, None if source has no database.
         """
         try:
-            from hostkit.services.database_service import DatabaseService, DatabaseServiceError
+            from hostkit.services.database_service import DatabaseService
 
             db_service = DatabaseService()
 
@@ -618,7 +627,7 @@ HOST=127.0.0.1
 
             # Create new database for sandbox
             sandbox_db_name = f"{sandbox_name}_db"
-            credentials = db_service.create_database(sandbox_name)
+            db_service.create_database(sandbox_name)
 
             # Dump source database and restore to sandbox
             source_db_name = f"{source_project}_db"
@@ -632,18 +641,24 @@ HOST=127.0.0.1
             # pg_dump | psql pipeline
             pg_dump_cmd = [
                 "pg_dump",
-                "-h", "localhost",
-                "-U", admin_user,
-                "-d", source_db_name,
+                "-h",
+                "localhost",
+                "-U",
+                admin_user,
+                "-d",
+                source_db_name,
                 "--no-owner",
                 "--no-acl",
             ]
 
             psql_cmd = [
                 "psql",
-                "-h", "localhost",
-                "-U", admin_user,
-                "-d", sandbox_db_name,
+                "-h",
+                "localhost",
+                "-U",
+                admin_user,
+                "-d",
+                sandbox_db_name,
                 "-q",
             ]
 
@@ -690,13 +705,11 @@ HOST=127.0.0.1
     ) -> None:
         """Create systemd service for sandbox."""
         from hostkit.services.project_service import (
-            SYSTEMD_TEMPLATE,
             DEFAULT_START_COMMANDS,
+            SYSTEMD_TEMPLATE,
         )
 
-        start_command = DEFAULT_START_COMMANDS.get(
-            runtime, DEFAULT_START_COMMANDS["python"]
-        )
+        start_command = DEFAULT_START_COMMANDS.get(runtime, DEFAULT_START_COMMANDS["python"])
         start_command = start_command.format(project_name=sandbox_name)
 
         service_content = SYSTEMD_TEMPLATE.format(
@@ -720,6 +733,7 @@ HOST=127.0.0.1
     def _create_nginx_config(self, sandbox_name: str, domain: str, port: int) -> None:
         """Create Nginx configuration for sandbox."""
         from datetime import datetime
+
         from jinja2 import Template
 
         template = Template("""# Managed by HostKit Sandbox
@@ -849,6 +863,7 @@ server {
         if sandbox and sandbox.get("db_name"):
             try:
                 from hostkit.services.database_service import DatabaseService
+
                 db_service = DatabaseService()
                 db_service.delete_database(sandbox_name, force=True)
             except Exception:
@@ -915,11 +930,7 @@ server {
                 )
 
                 # Drop old source database
-                cur.execute(
-                    sql.SQL("DROP DATABASE IF EXISTS {}").format(
-                        sql.Identifier(temp_db)
-                    )
-                )
+                cur.execute(sql.SQL("DROP DATABASE IF EXISTS {}").format(sql.Identifier(temp_db)))
 
         finally:
             conn.close()
@@ -932,7 +943,9 @@ server {
         if sandbox_app.exists():
             subprocess.run(
                 [
-                    "rsync", "-a", "--delete",
+                    "rsync",
+                    "-a",
+                    "--delete",
                     f"{sandbox_app}/",
                     f"{source_app}/",
                 ],
@@ -948,7 +961,9 @@ server {
             if sandbox_dir.exists():
                 subprocess.run(
                     [
-                        "rsync", "-a", "--delete",
+                        "rsync",
+                        "-a",
+                        "--delete",
                         f"{sandbox_dir}/",
                         f"{source_dir}/",
                     ],

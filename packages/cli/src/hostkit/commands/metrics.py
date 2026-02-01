@@ -83,16 +83,28 @@ def metrics_show(ctx: click.Context, project: str, since: str | None, limit: int
                 "enabled": "Yes" if config.enabled else "No",
                 "collection_interval": f"{config.collection_interval}s",
                 "retention_days": config.retention_days,
-                "last_collected": config.last_collected_at[:19] if config.last_collected_at else "Never",
+                "last_collected": (
+                    config.last_collected_at[:19] if config.last_collected_at else "Never"
+                ),
             }
 
             # Latest section
             if latest:
                 sections["current"] = {
-                    "cpu_percent": f"{latest.cpu_percent:.1f}%" if latest.cpu_percent is not None else "N/A",
-                    "memory": format_bytes(latest.memory_rss_bytes) if latest.memory_rss_bytes else "N/A",
-                    "memory_percent": f"{latest.memory_percent:.1f}%" if latest.memory_percent is not None else "N/A",
-                    "disk": format_bytes(latest.disk_used_bytes) if latest.disk_used_bytes else "N/A",
+                    "cpu_percent": (
+                        f"{latest.cpu_percent:.1f}%" if latest.cpu_percent is not None else "N/A"
+                    ),
+                    "memory": (
+                        format_bytes(latest.memory_rss_bytes) if latest.memory_rss_bytes else "N/A"
+                    ),
+                    "memory_percent": (
+                        f"{latest.memory_percent:.1f}%"
+                        if latest.memory_percent is not None
+                        else "N/A"
+                    ),
+                    "disk": (
+                        format_bytes(latest.disk_used_bytes) if latest.disk_used_bytes else "N/A"
+                    ),
                     "processes": latest.process_count or 0,
                 }
             else:
@@ -115,18 +127,28 @@ def metrics_show(ctx: click.Context, project: str, since: str | None, limit: int
                     "4xx": summary.total_4xx,
                     "5xx": summary.total_5xx,
                     "error_rate": f"{summary.error_rate:.1f}%" if summary.error_rate else "0%",
-                    "avg_response": f"{summary.avg_response_ms:.1f}ms" if summary.avg_response_ms else "N/A",
-                    "p95_response": f"{summary.p95_response_ms:.1f}ms" if summary.p95_response_ms else "N/A",
+                    "avg_response": (
+                        f"{summary.avg_response_ms:.1f}ms" if summary.avg_response_ms else "N/A"
+                    ),
+                    "p95_response": (
+                        f"{summary.p95_response_ms:.1f}ms" if summary.p95_response_ms else "N/A"
+                    ),
                 }
 
             # Database section
             if summary.db_size_latest:
                 sections["database"] = {
                     "size": format_bytes(summary.db_size_latest),
-                    "connections_avg": f"{summary.db_connections_avg:.1f}" if summary.db_connections_avg else "N/A",
+                    "connections_avg": (
+                        f"{summary.db_connections_avg:.1f}" if summary.db_connections_avg else "N/A"
+                    ),
                 }
 
-            formatter.status_panel(f"Metrics: {project}", sections, message=f"Metrics for {project}")
+            formatter.status_panel(
+                f"Metrics: {project}",
+                sections,
+                message=f"Metrics for {project}",
+            )
 
     except MetricsServiceError as e:
         formatter.error(code=e.code, message=e.message, suggestion=e.suggestion)
@@ -183,14 +205,24 @@ def metrics_history(ctx: click.Context, project: str, since: str, limit: int) ->
             # Format as table
             rows = []
             for sample in history:
-                rows.append({
-                    "time": sample.collected_at[:19] if sample.collected_at else "",
-                    "cpu": f"{sample.cpu_percent:.1f}%" if sample.cpu_percent is not None else "-",
-                    "mem": f"{sample.memory_percent:.1f}%" if sample.memory_percent is not None else "-",
-                    "reqs": str(sample.requests_total) if sample.requests_total else "-",
-                    "5xx": str(sample.requests_5xx) if sample.requests_5xx else "-",
-                    "resp_ms": f"{sample.avg_response_ms:.0f}" if sample.avg_response_ms else "-",
-                })
+                rows.append(
+                    {
+                        "time": sample.collected_at[:19] if sample.collected_at else "",
+                        "cpu": f"{sample.cpu_percent:.1f}%"
+                        if sample.cpu_percent is not None
+                        else "-",
+                        "mem": (
+                            f"{sample.memory_percent:.1f}%"
+                            if sample.memory_percent is not None
+                            else "-"
+                        ),
+                        "reqs": str(sample.requests_total) if sample.requests_total else "-",
+                        "5xx": str(sample.requests_5xx) if sample.requests_5xx else "-",
+                        "resp_ms": f"{sample.avg_response_ms:.0f}"
+                        if sample.avg_response_ms
+                        else "-",
+                    }
+                )
 
             formatter.table(
                 rows,
@@ -311,16 +343,18 @@ def metrics_config(
         service = MetricsService()
 
         # Check if any update options were provided
-        has_updates = any([
-            interval is not None,
-            retention is not None,
-            cpu_warning is not None,
-            cpu_critical is not None,
-            memory_warning is not None,
-            memory_critical is not None,
-            error_rate_warning is not None,
-            error_rate_critical is not None,
-        ])
+        has_updates = any(
+            [
+                interval is not None,
+                retention is not None,
+                cpu_warning is not None,
+                cpu_critical is not None,
+                memory_warning is not None,
+                memory_critical is not None,
+                error_rate_warning is not None,
+                error_rate_critical is not None,
+            ]
+        )
 
         if has_updates:
             config = service.update_config(
@@ -365,19 +399,49 @@ def metrics_config(
                     "enabled": "Yes" if config.enabled else "No",
                     "collection_interval": f"{config.collection_interval}s",
                     "retention_days": config.retention_days,
-                    "alert_on_threshold": "Yes" if config.alert_on_threshold else "No",
-                    "last_collected": config.last_collected_at[:19] if config.last_collected_at else "Never",
+                    "alert_on_threshold": ("Yes" if config.alert_on_threshold else "No"),
+                    "last_collected": (
+                        config.last_collected_at[:19] if config.last_collected_at else "Never"
+                    ),
                 },
                 "thresholds": {
-                    "cpu_warning": f"{config.cpu_warning_percent}%" if config.cpu_warning_percent else "Default (80%)",
-                    "cpu_critical": f"{config.cpu_critical_percent}%" if config.cpu_critical_percent else "Default (95%)",
-                    "memory_warning": f"{config.memory_warning_percent}%" if config.memory_warning_percent else "Default (80%)",
-                    "memory_critical": f"{config.memory_critical_percent}%" if config.memory_critical_percent else "Default (95%)",
-                    "error_rate_warning": f"{config.error_rate_warning_percent}%" if config.error_rate_warning_percent else "Default (5%)",
-                    "error_rate_critical": f"{config.error_rate_critical_percent}%" if config.error_rate_critical_percent else "Default (10%)",
+                    "cpu_warning": (
+                        f"{config.cpu_warning_percent}%"
+                        if config.cpu_warning_percent
+                        else "Default (80%)"
+                    ),
+                    "cpu_critical": (
+                        f"{config.cpu_critical_percent}%"
+                        if config.cpu_critical_percent
+                        else "Default (95%)"
+                    ),
+                    "memory_warning": (
+                        f"{config.memory_warning_percent}%"
+                        if config.memory_warning_percent
+                        else "Default (80%)"
+                    ),
+                    "memory_critical": (
+                        f"{config.memory_critical_percent}%"
+                        if config.memory_critical_percent
+                        else "Default (95%)"
+                    ),
+                    "error_rate_warning": (
+                        f"{config.error_rate_warning_percent}%"
+                        if config.error_rate_warning_percent
+                        else "Default (5%)"
+                    ),
+                    "error_rate_critical": (
+                        f"{config.error_rate_critical_percent}%"
+                        if config.error_rate_critical_percent
+                        else "Default (10%)"
+                    ),
                 },
             }
-            formatter.status_panel(f"Metrics Config: {project}", sections, message=message)
+            formatter.status_panel(
+                f"Metrics Config: {project}",
+                sections,
+                message=message,
+            )
 
     except MetricsServiceError as e:
         formatter.error(code=e.code, message=e.message, suggestion=e.suggestion)
@@ -423,8 +487,16 @@ def metrics_collect(ctx: click.Context, project: str | None, collect_all: bool) 
                 if samples:
                     formatter.info(f"Collected metrics for {len(samples)} projects")
                     for sample in samples:
-                        cpu = f"{sample.cpu_percent:.1f}%" if sample.cpu_percent is not None else "N/A"
-                        mem = f"{sample.memory_percent:.1f}%" if sample.memory_percent is not None else "N/A"
+                        cpu = (
+                            f"{sample.cpu_percent:.1f}%"
+                            if sample.cpu_percent is not None
+                            else "N/A"
+                        )
+                        mem = (
+                            f"{sample.memory_percent:.1f}%"
+                            if sample.memory_percent is not None
+                            else "N/A"
+                        )
                         formatter.info(f"  {sample.project}: CPU {cpu}, Memory {mem}")
                 else:
                     formatter.info("No projects with metrics enabled")
@@ -499,7 +571,9 @@ def metrics_setup_timer(ctx: click.Context) -> None:
         formatter.error(
             code="TEMPLATES_NOT_FOUND",
             message="Metrics timer templates not found",
-            suggestion="Check templates directory has hostkit-metrics.service and hostkit-metrics.timer",
+            suggestion=(
+                "Check templates directory has hostkit-metrics.service and hostkit-metrics.timer"
+            ),
         )
 
     # Copy to systemd directory
@@ -551,7 +625,12 @@ def metrics_setup_timer(ctx: click.Context) -> None:
 @click.option("--all", "cleanup_all", is_flag=True, help="Cleanup metrics for all projects")
 @click.option("--force", is_flag=True, help="Skip confirmation")
 @click.pass_context
-def metrics_cleanup(ctx: click.Context, project: str | None, cleanup_all: bool, force: bool) -> None:
+def metrics_cleanup(
+    ctx: click.Context,
+    project: str | None,
+    cleanup_all: bool,
+    force: bool,
+) -> None:
     """Delete old metrics data beyond retention period.
 
     Examples:

@@ -7,7 +7,6 @@ import click
 from hostkit.access import project_owner, root_only
 from hostkit.services.crypto_service import CryptoServiceError
 from hostkit.services.secrets_service import (
-    SecretsService,
     SecretsServiceError,
     get_secrets_service,
 )
@@ -24,7 +23,11 @@ def secrets():
 
 
 @secrets.command("init")
-@click.option("--force", is_flag=True, help="Regenerate existing master key (WARNING: breaks existing secrets)")
+@click.option(
+    "--force",
+    is_flag=True,
+    help="Regenerate existing master key (WARNING: breaks existing secrets)",
+)
 @click.pass_context
 @root_only
 def init_master_key(ctx: click.Context, force: bool):
@@ -90,7 +93,9 @@ def list_secrets(ctx: click.Context, project: str):
     except (CryptoServiceError, SecretsServiceError) as e:
         formatter = ctx.obj.get("formatter")
         if formatter:
-            formatter.error(code=e.code, message=e.message, suggestion=getattr(e, "suggestion", None))
+            formatter.error(
+                code=e.code, message=e.message, suggestion=getattr(e, "suggestion", None)
+            )
         raise click.ClickException(e.message)
 
     if not secrets_list:
@@ -176,7 +181,9 @@ def set_secret(
     except (CryptoServiceError, SecretsServiceError) as e:
         formatter = ctx.obj.get("formatter")
         if formatter:
-            formatter.error(code=e.code, message=e.message, suggestion=getattr(e, "suggestion", None))
+            formatter.error(
+                code=e.code, message=e.message, suggestion=getattr(e, "suggestion", None)
+            )
         raise click.ClickException(e.message)
 
     action = result["action"]
@@ -208,7 +215,9 @@ def delete_secret(ctx: click.Context, project: str, key: str, force: bool):
     except (CryptoServiceError, SecretsServiceError) as e:
         formatter = ctx.obj.get("formatter")
         if formatter:
-            formatter.error(code=e.code, message=e.message, suggestion=getattr(e, "suggestion", None))
+            formatter.error(
+                code=e.code, message=e.message, suggestion=getattr(e, "suggestion", None)
+            )
         raise click.ClickException(e.message)
 
     click.echo(f"Secret deleted: {key}")
@@ -265,7 +274,9 @@ def import_secrets(
     except (CryptoServiceError, SecretsServiceError) as e:
         formatter = ctx.obj.get("formatter")
         if formatter:
-            formatter.error(code=e.code, message=e.message, suggestion=getattr(e, "suggestion", None))
+            formatter.error(
+                code=e.code, message=e.message, suggestion=getattr(e, "suggestion", None)
+            )
         raise click.ClickException(e.message)
 
     click.echo(f"Imported secrets for '{project}':")
@@ -328,7 +339,9 @@ def portal(
         except (CryptoServiceError, SecretsServiceError) as e:
             formatter = ctx.obj.get("formatter")
             if formatter:
-                formatter.error(code=e.code, message=e.message, suggestion=getattr(e, "suggestion", None))
+                formatter.error(
+                    code=e.code, message=e.message, suggestion=getattr(e, "suggestion", None)
+                )
             raise click.ClickException(e.message)
 
         click.echo(f"All magic links for '{project}' have been revoked.")
@@ -348,7 +361,9 @@ def portal(
     except (CryptoServiceError, SecretsServiceError) as e:
         formatter = ctx.obj.get("formatter")
         if formatter:
-            formatter.error(code=e.code, message=e.message, suggestion=getattr(e, "suggestion", None))
+            formatter.error(
+                code=e.code, message=e.message, suggestion=getattr(e, "suggestion", None)
+            )
         raise click.ClickException(e.message)
 
     if url_only:
@@ -372,7 +387,9 @@ def portal(
 
 @secrets.command("clear")
 @click.argument("project")
-@click.option("--keep-values", is_flag=True, default=True, help="Keep existing secret values (default)")
+@click.option(
+    "--keep-values", is_flag=True, default=True, help="Keep existing secret values (default)"
+)
 @click.option("--delete-values", is_flag=True, help="Also delete all secret values")
 @click.option("--force", is_flag=True, help="Skip confirmation prompt")
 @click.pass_context
@@ -410,9 +427,17 @@ def clear_definitions(
     # Confirmation
     if not force:
         if delete_values:
-            msg = f"This will clear all secret definitions AND delete all stored values for '{project}'. Continue?"
+            msg = (
+                "This will clear all secret definitions AND"
+                f" delete all stored values for '{project}'."
+                " Continue?"
+            )
         else:
-            msg = f"This will clear all secret definitions for '{project}' (values will be preserved). Continue?"
+            msg = (
+                "This will clear all secret definitions for"
+                f" '{project}' (values will be preserved)."
+                " Continue?"
+            )
 
         if not click.confirm(click.style(msg, fg="yellow")):
             click.echo("Aborted.")
@@ -423,7 +448,9 @@ def clear_definitions(
     except (CryptoServiceError, SecretsServiceError) as e:
         formatter = ctx.obj.get("formatter")
         if formatter:
-            formatter.error(code=e.code, message=e.message, suggestion=getattr(e, "suggestion", None))
+            formatter.error(
+                code=e.code, message=e.message, suggestion=getattr(e, "suggestion", None)
+            )
         raise click.ClickException(e.message)
 
     click.echo(f"\nCleared secret definitions for '{project}'")
@@ -434,12 +461,23 @@ def clear_definitions(
             click.echo(f"  - {key}")
 
     if result["preserved_values"]:
-        click.echo(click.style(f"\nPreserved {len(result['preserved_values'])} secret value(s)", fg="green"))
+        click.echo(
+            click.style(
+                f"\nPreserved {len(result['preserved_values'])} secret value(s)", fg="green"
+            )
+        )
 
     if result["deleted_values"]:
-        click.echo(click.style(f"\nDeleted {len(result['deleted_values'])} secret value(s)", fg="red"))
+        click.echo(
+            click.style(f"\nDeleted {len(result['deleted_values'])} secret value(s)", fg="red")
+        )
 
-    click.echo(click.style(f"\nRun 'hostkit secrets define {project} --from .env.example' to re-define secrets.", fg="cyan"))
+    click.echo(
+        click.style(
+            f"\nRun 'hostkit secrets define {project} --from .env.example' to re-define secrets.",
+            fg="cyan",
+        )
+    )
 
 
 @secrets.command("undefine")
@@ -490,13 +528,17 @@ def undefine_secret(
     except (CryptoServiceError, SecretsServiceError) as e:
         formatter = ctx.obj.get("formatter")
         if formatter:
-            formatter.error(code=e.code, message=e.message, suggestion=getattr(e, "suggestion", None))
+            formatter.error(
+                code=e.code, message=e.message, suggestion=getattr(e, "suggestion", None)
+            )
         raise click.ClickException(e.message)
 
     click.echo(f"Removed '{key}' from portal")
 
     if result["value_preserved"]:
-        click.echo(click.style("  Value preserved (use --delete-value to also remove)", fg="yellow"))
+        click.echo(
+            click.style("  Value preserved (use --delete-value to also remove)", fg="yellow")
+        )
     elif result["value_deleted"]:
         click.echo(click.style("  Value deleted", fg="red"))
 
@@ -504,7 +546,9 @@ def undefine_secret(
 @secrets.command("define")
 @click.argument("project")
 @click.argument("key", required=False)
-@click.option("--from", "from_file", type=click.Path(exists=True), help="Parse secrets from .env.example file")
+@click.option(
+    "--from", "from_file", type=click.Path(exists=True), help="Parse secrets from .env.example file"
+)
 @click.option("--required/--optional", default=True, help="Mark secret as required or optional")
 @click.option("--provider", help="Provider ID (e.g., stripe, google_oauth)")
 @click.option("--description", help="Description of the secret")
@@ -544,7 +588,9 @@ def define_secret(
         except (CryptoServiceError, SecretsServiceError) as e:
             formatter = ctx.obj.get("formatter")
             if formatter:
-                formatter.error(code=e.code, message=e.message, suggestion=getattr(e, "suggestion", None))
+                formatter.error(
+                    code=e.code, message=e.message, suggestion=getattr(e, "suggestion", None)
+                )
             raise click.ClickException(e.message)
 
         click.echo(f"Defined secrets for '{project}' from {from_file}:\n")
@@ -563,7 +609,12 @@ def define_secret(
             click.echo(f"\nSkipped (errors): {', '.join(result['skipped'])}")
 
         click.echo(f"\nTotal: {result['total_defined']} secret(s) defined")
-        click.echo(click.style(f"\nRun 'hostkit secrets portal {project}' to generate a link for setting values.", fg="cyan"))
+        click.echo(
+            click.style(
+                f"\nRun 'hostkit secrets portal {project}' to generate a link for setting values.",
+                fg="cyan",
+            )
+        )
         return
 
     # Define single key
@@ -581,7 +632,9 @@ def define_secret(
     except (CryptoServiceError, SecretsServiceError) as e:
         formatter = ctx.obj.get("formatter")
         if formatter:
-            formatter.error(code=e.code, message=e.message, suggestion=getattr(e, "suggestion", None))
+            formatter.error(
+                code=e.code, message=e.message, suggestion=getattr(e, "suggestion", None)
+            )
         raise click.ClickException(e.message)
 
     req_str = "required" if required else "optional"
@@ -616,11 +669,14 @@ def verify_secrets(ctx: click.Context, project: str, output_json: bool):
     except (CryptoServiceError, SecretsServiceError) as e:
         formatter = ctx.obj.get("formatter")
         if formatter:
-            formatter.error(code=e.code, message=e.message, suggestion=getattr(e, "suggestion", None))
+            formatter.error(
+                code=e.code, message=e.message, suggestion=getattr(e, "suggestion", None)
+            )
         raise click.ClickException(e.message)
 
     if output_json:
         import json
+
         click.echo(json.dumps(result, indent=2))
         if not result["ready"]:
             ctx.exit(1)
@@ -631,7 +687,13 @@ def verify_secrets(ctx: click.Context, project: str, output_json: bool):
 
     if not result["secrets"]:
         click.echo("\nNo secrets defined for this project.")
-        click.echo(click.style(f"Use 'hostkit secrets define {project} --from .env.example' to define requirements.", fg="yellow"))
+        click.echo(
+            click.style(
+                f"Use 'hostkit secrets define {project}"
+                " --from .env.example' to define requirements.",
+                fg="yellow",
+            )
+        )
         return
 
     # Display each secret
@@ -728,11 +790,14 @@ def audit_secrets(ctx: click.Context, project: str, limit: int, output_json: boo
     except (CryptoServiceError, SecretsServiceError) as e:
         formatter = ctx.obj.get("formatter")
         if formatter:
-            formatter.error(code=e.code, message=e.message, suggestion=getattr(e, "suggestion", None))
+            formatter.error(
+                code=e.code, message=e.message, suggestion=getattr(e, "suggestion", None)
+            )
         raise click.ClickException(e.message)
 
     if output_json:
         import json
+
         click.echo(json.dumps(entries, indent=2))
         return
 

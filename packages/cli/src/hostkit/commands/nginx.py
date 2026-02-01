@@ -3,7 +3,7 @@
 import click
 
 from hostkit.output import OutputFormatter
-from hostkit.services.nginx_service import NginxService, NginxError
+from hostkit.services.nginx_service import NginxError, NginxService
 
 
 @click.group()
@@ -39,13 +39,15 @@ def nginx_list(ctx: click.Context) -> None:
         # Format data for output
         data = []
         for site in sites:
-            data.append({
-                "project": site.project,
-                "domains": ", ".join(site.domains) if site.domains else "(none)",
-                "enabled": "yes" if site.enabled else "no",
-                "ssl": "yes" if site.ssl_enabled else "no",
-                "port": site.port,
-            })
+            data.append(
+                {
+                    "project": site.project,
+                    "domains": ", ".join(site.domains) if site.domains else "(none)",
+                    "enabled": "yes" if site.enabled else "no",
+                    "ssl": "yes" if site.ssl_enabled else "no",
+                    "port": site.port,
+                }
+            )
 
         formatter.table(
             data=data,
@@ -67,7 +69,9 @@ def nginx_list(ctx: click.Context) -> None:
 @nginx.command("add")
 @click.argument("project")
 @click.argument("domain")
-@click.option("--skip-dns", is_flag=True, help="Skip DNS verification (use when DNS is propagating)")
+@click.option(
+    "--skip-dns", is_flag=True, help="Skip DNS verification (use when DNS is propagating)"
+)
 @click.pass_context
 def nginx_add(ctx: click.Context, project: str, domain: str, skip_dns: bool) -> None:
     """Add a domain to a project.

@@ -3,9 +3,9 @@
 Provides vector embedding and semantic search services for projects.
 """
 
-import click
 import sys
-from typing import Optional
+
+import click
 
 from hostkit.access import project_access, project_owner, root_only
 from hostkit.output import OutputFormatter
@@ -305,7 +305,7 @@ def vector_create_collection(
     ctx: click.Context,
     project: str,
     name: str,
-    description: Optional[str],
+    description: str | None,
 ) -> None:
     """Create a collection.
 
@@ -429,7 +429,7 @@ def vector_ingest(
     source: str,
     url: bool,
     from_stdin: bool,
-    name: Optional[str],
+    name: str | None,
     wait: bool,
 ) -> None:
     """Ingest a document into a collection.
@@ -453,7 +453,9 @@ def vector_ingest(
             # Read from stdin
             content = sys.stdin.read()
             result = service.ingest_text(
-                project, collection, content,
+                project,
+                collection,
+                content,
                 source_name=name or "stdin",
             )
         elif url:
@@ -570,10 +572,14 @@ def vector_search(
 
 @vector.command("jobs")
 @click.argument("project")
-@click.option("--status", "status_filter", help="Filter by status (queued, processing, completed, failed)")
+@click.option(
+    "--status",
+    "status_filter",
+    help="Filter by status (queued, processing, completed, failed)",
+)
 @click.pass_context
 @project_access("project")
-def vector_jobs(ctx: click.Context, project: str, status_filter: Optional[str]) -> None:
+def vector_jobs(ctx: click.Context, project: str, status_filter: str | None) -> None:
     """List jobs for a project.
 
     Shows ingestion jobs and their status.
@@ -600,17 +606,25 @@ def vector_jobs(ctx: click.Context, project: str, status_filter: Optional[str]) 
             else:
                 click.echo(f"\nJobs for {project}")
                 click.echo("-" * 90)
-                click.echo(f"{'ID':<25} {'COLLECTION':<15} {'SOURCE':<25} {'STATUS':<12} {'PROGRESS':<10}")
+                header = (
+                    f"{'ID':<25} {'COLLECTION':<15} {'SOURCE':<25} {'STATUS':<12} {'PROGRESS':<10}"
+                )
+                click.echo(header)
                 click.echo("-" * 90)
 
                 for j in jobs:
-                    job_id = j.get("id", "")[:23] + ".." if len(j.get("id", "")) > 25 else j.get("id", "")
-                    collection = j.get("collection_name", "")[:13] + ".." if len(j.get("collection_name", "")) > 15 else j.get("collection_name", "")
-                    source = j.get("source_identifier", "")[:23] + ".." if len(j.get("source_identifier", "")) > 25 else j.get("source_identifier", "")
+                    raw_id = j.get("id", "")
+                    job_id = raw_id[:23] + ".." if len(raw_id) > 25 else raw_id
+                    raw_coll = j.get("collection_name", "")
+                    collection = raw_coll[:13] + ".." if len(raw_coll) > 15 else raw_coll
+                    raw_src = j.get("source_identifier", "")
+                    source = raw_src[:23] + ".." if len(raw_src) > 25 else raw_src
                     status = j.get("status", "")
                     progress = f"{j.get('progress', 0)}%"
 
-                    click.echo(f"{job_id:<25} {collection:<15} {source:<25} {status:<12} {progress:<10}")
+                    click.echo(
+                        f"{job_id:<25} {collection:<15} {source:<25} {status:<12} {progress:<10}"
+                    )
 
                 click.echo("-" * 90)
                 click.echo(f"Total: {len(jobs)} job(s)")
@@ -641,7 +655,7 @@ def vector_job(ctx: click.Context, project: str, job_id: str) -> None:
 
         if ctx.obj["json_mode"]:
             formatter.success(
-                message=f"Job details",
+                message="Job details",
                 data=result,
             )
         else:

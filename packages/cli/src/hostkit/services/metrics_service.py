@@ -1,12 +1,11 @@
 """Metrics collection and querying service for HostKit projects."""
 
-import json
 import re
 import subprocess
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Generator
+from typing import Any
 
 import psutil
 
@@ -506,7 +505,9 @@ class MetricsService:
         """Parse Nginx access logs for application metrics.
 
         Expected log format with $request_time at the end:
-        $remote_addr - $remote_user [$time_local] "$request" $status $body_bytes_sent "$http_referer" "$http_user_agent" $request_time
+        $remote_addr - $remote_user [$time_local] "$request"
+        $status $body_bytes_sent "$http_referer"
+        "$http_user_agent" $request_time
 
         Returns dict with:
             - requests_total: int
@@ -546,25 +547,26 @@ class MetricsService:
             return result
 
         # Regex to parse Nginx combined log format with request_time
-        # Example: 127.0.0.1 - - [15/Dec/2025:10:30:00 +0000] "GET / HTTP/1.1" 200 1234 "-" "curl" 0.005
+        # Example: 127.0.0.1 - - [15/Dec/2025:10:30:00 +0000]
+        # "GET / HTTP/1.1" 200 1234 "-" "curl" 0.005
         log_pattern = re.compile(
-            r'^(\S+)\s+'  # remote_addr
-            r'\S+\s+'  # remote_user (usually -)
-            r'\S+\s+'  # remote_user (usually -)
-            r'\[([^\]]+)\]\s+'  # time_local
+            r"^(\S+)\s+"  # remote_addr
+            r"\S+\s+"  # remote_user (usually -)
+            r"\S+\s+"  # remote_user (usually -)
+            r"\[([^\]]+)\]\s+"  # time_local
             r'"([^"]*)"\s+'  # request
-            r'(\d+)\s+'  # status
-            r'(\d+)\s+'  # body_bytes_sent
+            r"(\d+)\s+"  # status
+            r"(\d+)\s+"  # body_bytes_sent
             r'"([^"]*)"\s+'  # referer
             r'"([^"]*)"\s*'  # user_agent
-            r'(\d+\.?\d*)?'  # request_time (optional)
+            r"(\d+\.?\d*)?"  # request_time (optional)
         )
 
         response_times = []
         status_counts = {"2xx": 0, "4xx": 0, "5xx": 0}
 
         try:
-            with open(log_path, "r") as f:
+            with open(log_path) as f:
                 # Seek to last position
                 f.seek(config.nginx_log_position)
 
@@ -605,7 +607,9 @@ class MetricsService:
             result["avg_response_ms"] = round(sum(response_times) / len(response_times), 2)
             sorted_times = sorted(response_times)
             p95_idx = int(len(sorted_times) * 0.95)
-            result["p95_response_ms"] = round(sorted_times[p95_idx] if p95_idx < len(sorted_times) else sorted_times[-1], 2)
+            result["p95_response_ms"] = round(
+                sorted_times[p95_idx] if p95_idx < len(sorted_times) else sorted_times[-1], 2
+            )
 
         return result
 
@@ -749,9 +753,7 @@ class MetricsService:
         samples = []
 
         with self.db.connection() as conn:
-            cursor = conn.execute(
-                "SELECT project_name FROM metrics_config WHERE enabled = 1"
-            )
+            cursor = conn.execute("SELECT project_name FROM metrics_config WHERE enabled = 1")
             projects = [row["project_name"] for row in cursor.fetchall()]
 
         for project in projects:
@@ -946,7 +948,9 @@ class MetricsService:
             avg_response_ms=round(row["avg_response_ms"], 2) if row["avg_response_ms"] else None,
             p95_response_ms=round(row["p95_response_ms"], 2) if row["p95_response_ms"] else None,
             db_size_latest=db_row["db_size_bytes"] if db_row else None,
-            db_connections_avg=round(row["db_connections_avg"], 2) if row["db_connections_avg"] else None,
+            db_connections_avg=round(row["db_connections_avg"], 2)
+            if row["db_connections_avg"]
+            else None,
         )
 
     def _parse_since(self, since: str) -> datetime:
@@ -988,7 +992,9 @@ class MetricsService:
     # Threshold Checking and Alerts
     # -------------------------------------------------------------------------
 
-    def check_thresholds(self, sample: MetricsSample, config: MetricsConfig) -> list[ThresholdAlert]:
+    def check_thresholds(
+        self, sample: MetricsSample, config: MetricsConfig
+    ) -> list[ThresholdAlert]:
         """Check a metrics sample against thresholds.
 
         Returns list of alerts for any exceeded thresholds.
@@ -998,11 +1004,16 @@ class MetricsService:
         # Get thresholds (use config values if set, otherwise defaults)
         thresholds = {
             "cpu_warning": config.cpu_warning_percent or DEFAULT_THRESHOLDS["cpu_warning_percent"],
-            "cpu_critical": config.cpu_critical_percent or DEFAULT_THRESHOLDS["cpu_critical_percent"],
-            "memory_warning": config.memory_warning_percent or DEFAULT_THRESHOLDS["memory_warning_percent"],
-            "memory_critical": config.memory_critical_percent or DEFAULT_THRESHOLDS["memory_critical_percent"],
-            "error_rate_warning": config.error_rate_warning_percent or DEFAULT_THRESHOLDS["error_rate_warning_percent"],
-            "error_rate_critical": config.error_rate_critical_percent or DEFAULT_THRESHOLDS["error_rate_critical_percent"],
+            "cpu_critical": config.cpu_critical_percent
+            or DEFAULT_THRESHOLDS["cpu_critical_percent"],
+            "memory_warning": config.memory_warning_percent
+            or DEFAULT_THRESHOLDS["memory_warning_percent"],
+            "memory_critical": config.memory_critical_percent
+            or DEFAULT_THRESHOLDS["memory_critical_percent"],
+            "error_rate_warning": config.error_rate_warning_percent
+            or DEFAULT_THRESHOLDS["error_rate_warning_percent"],
+            "error_rate_critical": config.error_rate_critical_percent
+            or DEFAULT_THRESHOLDS["error_rate_critical_percent"],
         }
 
         # Check CPU
@@ -1132,7 +1143,9 @@ class MetricsService:
                 configs = list(cursor.fetchall())
 
                 for config in configs:
-                    cutoff = (datetime.utcnow() - timedelta(days=config["retention_days"])).isoformat()
+                    cutoff = (
+                        datetime.utcnow() - timedelta(days=config["retention_days"])
+                    ).isoformat()
                     cursor = conn.execute(
                         "DELETE FROM metrics WHERE project_name = ? AND collected_at < ?",
                         (config["project_name"], cutoff),

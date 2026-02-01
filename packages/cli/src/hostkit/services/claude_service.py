@@ -3,14 +3,13 @@
 Handles setup, enablement, and management of the Claude daemon.
 """
 
+import hashlib
 import os
+import secrets
 import shutil
 import subprocess
-import secrets
-import hashlib
-from pathlib import Path
-from typing import Optional
 from dataclasses import dataclass
+from pathlib import Path
 
 from hostkit.database import get_db
 
@@ -30,7 +29,7 @@ class ClaudeServiceError(Exception):
         self,
         message: str,
         code: str = "CLAUDE_ERROR",
-        suggestion: Optional[str] = None,
+        suggestion: str | None = None,
     ):
         super().__init__(message)
         self.message = message
@@ -41,6 +40,7 @@ class ClaudeServiceError(Exception):
 @dataclass
 class ProjectKeyResult:
     """Result of enabling Claude for a project."""
+
     project_name: str
     api_key: str
     api_key_prefix: str
@@ -128,15 +128,19 @@ class ClaudeService:
         # Create virtual environment and install dependencies
         venv_path = CLAUDE_DAEMON_DIR / "venv"
         self._run(["python3", "-m", "venv", str(venv_path)])
-        self._run([
-            str(venv_path / "bin" / "pip"),
-            "install",
-            "-r",
-            str(CLAUDE_DAEMON_DIR / "requirements.txt"),
-        ])
+        self._run(
+            [
+                str(venv_path / "bin" / "pip"),
+                "install",
+                "-r",
+                str(CLAUDE_DAEMON_DIR / "requirements.txt"),
+            ]
+        )
 
         # Create config file
-        database_url = f"postgresql+asyncpg://{CLAUDE_DB_USER}:{db_password}@localhost/{CLAUDE_DB_NAME}"
+        database_url = (
+            f"postgresql+asyncpg://{CLAUDE_DB_USER}:{db_password}@localhost/{CLAUDE_DB_NAME}"
+        )
         self._create_config(api_key, database_url)
 
         # Install systemd service
@@ -158,31 +162,55 @@ class ClaudeService:
         """Create the Claude database and user."""
         # Check if user exists
         result = self._run(
-            ["sudo", "-u", "postgres", "psql", "-tAc",
-             f"SELECT 1 FROM pg_roles WHERE rolname='{CLAUDE_DB_USER}'"],
+            [
+                "sudo",
+                "-u",
+                "postgres",
+                "psql",
+                "-tAc",
+                f"SELECT 1 FROM pg_roles WHERE rolname='{CLAUDE_DB_USER}'",
+            ],
             check=False,
         )
 
         if result.returncode != 0 or "1" not in result.stdout:
             # Create user
-            self._run([
-                "sudo", "-u", "postgres", "psql", "-c",
-                f"CREATE USER {CLAUDE_DB_USER} WITH PASSWORD '{password}'",
-            ])
+            self._run(
+                [
+                    "sudo",
+                    "-u",
+                    "postgres",
+                    "psql",
+                    "-c",
+                    f"CREATE USER {CLAUDE_DB_USER} WITH PASSWORD '{password}'",
+                ]
+            )
 
         # Check if database exists
         result = self._run(
-            ["sudo", "-u", "postgres", "psql", "-tAc",
-             f"SELECT 1 FROM pg_database WHERE datname='{CLAUDE_DB_NAME}'"],
+            [
+                "sudo",
+                "-u",
+                "postgres",
+                "psql",
+                "-tAc",
+                f"SELECT 1 FROM pg_database WHERE datname='{CLAUDE_DB_NAME}'",
+            ],
             check=False,
         )
 
         if result.returncode != 0 or "1" not in result.stdout:
             # Create database
-            self._run([
-                "sudo", "-u", "postgres", "psql", "-c",
-                f"CREATE DATABASE {CLAUDE_DB_NAME} OWNER {CLAUDE_DB_USER}",
-            ])
+            self._run(
+                [
+                    "sudo",
+                    "-u",
+                    "postgres",
+                    "psql",
+                    "-c",
+                    f"CREATE DATABASE {CLAUDE_DB_NAME} OWNER {CLAUDE_DB_USER}",
+                ]
+            )
 
     def _create_config(self, api_key: str, database_url: str) -> None:
         """Create the configuration file."""
@@ -284,10 +312,19 @@ WantedBy=multi-user.target
 
         Note: For now, counts projects in the daemon database.
         """
-        result = self._run([
-            "sudo", "-u", "postgres", "psql", "-d", CLAUDE_DB_NAME, "-tAc",
-            "SELECT COUNT(*) FROM project_keys WHERE enabled = true"
-        ], check=False)
+        result = self._run(
+            [
+                "sudo",
+                "-u",
+                "postgres",
+                "psql",
+                "-d",
+                CLAUDE_DB_NAME,
+                "-tAc",
+                "SELECT COUNT(*) FROM project_keys WHERE enabled = true",
+            ],
+            check=False,
+        )
 
         if result.returncode == 0 and result.stdout.strip():
             try:
@@ -334,9 +371,16 @@ WantedBy=multi-user.target
         api_key_prefix = f"ck_{project_name}_{random_part[:8]}"
 
         # Insert into daemon database
-        self._run([
-            "sudo", "-u", "postgres", "psql", "-d", CLAUDE_DB_NAME, "-c",
-            f"""
+        self._run(
+            [
+                "sudo",
+                "-u",
+                "postgres",
+                "psql",
+                "-d",
+                CLAUDE_DB_NAME,
+                "-c",
+                f"""
             INSERT INTO project_keys (project_name, api_key_hash, api_key_prefix, enabled)
             VALUES ('{project_name}', '{api_key_hash}', '{api_key_prefix}', true)
             ON CONFLICT (project_name)
@@ -344,8 +388,9 @@ WantedBy=multi-user.target
                           api_key_prefix = EXCLUDED.api_key_prefix,
                           enabled = true,
                           updated_at = NOW()
-            """
-        ])
+            """,
+            ]
+        )
 
         return ProjectKeyResult(
             project_name=project_name,
@@ -369,10 +414,19 @@ WantedBy=multi-user.target
             ClaudeServiceError: If disabling fails
         """
         # Disable in daemon database
-        self._run([
-            "sudo", "-u", "postgres", "psql", "-d", CLAUDE_DB_NAME, "-c",
-            f"UPDATE project_keys SET enabled = false WHERE project_name = '{project_name}'"
-        ], check=False)
+        self._run(
+            [
+                "sudo",
+                "-u",
+                "postgres",
+                "psql",
+                "-d",
+                CLAUDE_DB_NAME,
+                "-c",
+                f"UPDATE project_keys SET enabled = false WHERE project_name = '{project_name}'",
+            ],
+            check=False,
+        )
 
         return {
             "project": project_name,
@@ -395,10 +449,18 @@ WantedBy=multi-user.target
         """
         # Validate tools
         valid_tools = {
-            "logs", "health", "db:read", "db:write",
-            "env:read", "env:write", "service",
-            "deploy", "rollback", "migrate",
-            "vector:search", "cache:flush",
+            "logs",
+            "health",
+            "db:read",
+            "db:write",
+            "env:read",
+            "env:write",
+            "service",
+            "deploy",
+            "rollback",
+            "migrate",
+            "vector:search",
+            "cache:flush",
         }
 
         invalid = set(tools) - valid_tools
@@ -411,14 +473,22 @@ WantedBy=multi-user.target
 
         # Grant tools in daemon database
         for tool in tools:
-            self._run([
-                "sudo", "-u", "postgres", "psql", "-d", CLAUDE_DB_NAME, "-c",
-                f"""
+            self._run(
+                [
+                    "sudo",
+                    "-u",
+                    "postgres",
+                    "psql",
+                    "-d",
+                    CLAUDE_DB_NAME,
+                    "-c",
+                    f"""
                 INSERT INTO tool_permissions (project_name, tool_name, granted_by)
                 VALUES ('{project_name}', '{tool}', '{granted_by}')
                 ON CONFLICT (project_name, tool_name) DO NOTHING
-                """
-            ])
+                """,
+                ]
+            )
 
         return {
             "project": project_name,
@@ -436,10 +506,21 @@ WantedBy=multi-user.target
             Dict with revoked tools
         """
         for tool in tools:
-            self._run([
-                "sudo", "-u", "postgres", "psql", "-d", CLAUDE_DB_NAME, "-c",
-                f"DELETE FROM tool_permissions WHERE project_name = '{project_name}' AND tool_name = '{tool}'"
-            ], check=False)
+            self._run(
+                [
+                    "sudo",
+                    "-u",
+                    "postgres",
+                    "psql",
+                    "-d",
+                    CLAUDE_DB_NAME,
+                    "-c",
+                    f"DELETE FROM tool_permissions"
+                    f" WHERE project_name = '{project_name}'"
+                    f" AND tool_name = '{tool}'",
+                ],
+                check=False,
+            )
 
         return {
             "project": project_name,
@@ -455,10 +536,21 @@ WantedBy=multi-user.target
         Returns:
             Dict with tool list
         """
-        result = self._run([
-            "sudo", "-u", "postgres", "psql", "-d", CLAUDE_DB_NAME, "-tAc",
-            f"SELECT tool_name FROM tool_permissions WHERE project_name = '{project_name}' ORDER BY tool_name"
-        ], check=False)
+        result = self._run(
+            [
+                "sudo",
+                "-u",
+                "postgres",
+                "psql",
+                "-d",
+                CLAUDE_DB_NAME,
+                "-tAc",
+                f"SELECT tool_name FROM tool_permissions"
+                f" WHERE project_name = '{project_name}'"
+                " ORDER BY tool_name",
+            ],
+            check=False,
+        )
 
         tools = []
         if result.returncode == 0 and result.stdout.strip():
@@ -480,17 +572,26 @@ WantedBy=multi-user.target
             Dict with usage statistics
         """
         # Get today's usage
-        result = self._run([
-            "sudo", "-u", "postgres", "psql", "-d", CLAUDE_DB_NAME, "-tAc",
-            f"""
+        result = self._run(
+            [
+                "sudo",
+                "-u",
+                "postgres",
+                "psql",
+                "-d",
+                CLAUDE_DB_NAME,
+                "-tAc",
+                f"""
             SELECT COALESCE(SUM(requests), 0),
                    COALESCE(SUM(input_tokens), 0),
                    COALESCE(SUM(output_tokens), 0),
                    COALESCE(SUM(tool_calls), 0)
             FROM usage_tracking
             WHERE project_name = '{project_name}' AND date = CURRENT_DATE
-            """
-        ], check=False)
+            """,
+            ],
+            check=False,
+        )
 
         today = {"requests": 0, "input_tokens": 0, "output_tokens": 0, "tool_calls": 0}
         if result.returncode == 0 and result.stdout.strip():
@@ -504,9 +605,16 @@ WantedBy=multi-user.target
                 }
 
         # Get monthly usage
-        result = self._run([
-            "sudo", "-u", "postgres", "psql", "-d", CLAUDE_DB_NAME, "-tAc",
-            f"""
+        result = self._run(
+            [
+                "sudo",
+                "-u",
+                "postgres",
+                "psql",
+                "-d",
+                CLAUDE_DB_NAME,
+                "-tAc",
+                f"""
             SELECT COALESCE(SUM(requests), 0),
                    COALESCE(SUM(input_tokens), 0),
                    COALESCE(SUM(output_tokens), 0),
@@ -514,8 +622,10 @@ WantedBy=multi-user.target
             FROM usage_tracking
             WHERE project_name = '{project_name}'
               AND date >= date_trunc('month', CURRENT_DATE)
-            """
-        ], check=False)
+            """,
+            ],
+            check=False,
+        )
 
         this_month = {"requests": 0, "input_tokens": 0, "output_tokens": 0, "tool_calls": 0}
         if result.returncode == 0 and result.stdout.strip():
@@ -529,14 +639,23 @@ WantedBy=multi-user.target
                 }
 
         # Get limits
-        result = self._run([
-            "sudo", "-u", "postgres", "psql", "-d", CLAUDE_DB_NAME, "-tAc",
-            f"""
+        result = self._run(
+            [
+                "sudo",
+                "-u",
+                "postgres",
+                "psql",
+                "-d",
+                CLAUDE_DB_NAME,
+                "-tAc",
+                f"""
             SELECT rate_limit_rpm, daily_token_limit
             FROM project_keys
             WHERE project_name = '{project_name}'
-            """
-        ], check=False)
+            """,
+            ],
+            check=False,
+        )
 
         limits = {"rate_limit_rpm": 60, "daily_token_limit": 1000000}
         if result.returncode == 0 and result.stdout.strip():

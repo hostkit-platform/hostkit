@@ -6,26 +6,34 @@ System-wide API key, per-project rate limiting and usage tracking.
 
 import os
 import time
-from typing import Optional
 
 import click
 import requests
 
-from hostkit.access import project_access, root_only
+from hostkit.access import project_access
 from hostkit.database import get_db
 from hostkit.output import OutputFormatter
 from hostkit.registry import CapabilitiesRegistry, ServiceMeta
 
-
 # Register image service with capabilities registry
-CapabilitiesRegistry.register_service(ServiceMeta(
-    name="image",
-    description="AI image generation via Black Forest Labs Flux API (flux-1.1-pro, flux-1.1-pro-ultra)",
-    provision_flag=None,  # No auto-provisioning, uses system API key
-    enable_command=None,  # Available to all projects by default
-    env_vars_provided=["BFL_API_KEY"],  # System-level only
-    related_commands=["image generate", "image models", "image usage", "image history", "image config"],
-))
+CapabilitiesRegistry.register_service(
+    ServiceMeta(
+        name="image",
+        description=(
+            "AI image generation via Black Forest Labs Flux API (flux-1.1-pro, flux-1.1-pro-ultra)"
+        ),
+        provision_flag=None,  # No auto-provisioning, uses system API key
+        enable_command=None,  # Available to all projects by default
+        env_vars_provided=["BFL_API_KEY"],  # System-level only
+        related_commands=[
+            "image generate",
+            "image models",
+            "image usage",
+            "image history",
+            "image config",
+        ],
+    )
+)
 
 
 # Flux model endpoints and constraints
@@ -58,8 +66,15 @@ MODEL_CONSTRAINTS = {
 
 # Valid aspect ratios for ultra model
 VALID_ASPECT_RATIOS = [
-    "21:9", "16:9", "3:2", "4:3", "1:1",
-    "3:4", "2:3", "9:16", "9:21",
+    "21:9",
+    "16:9",
+    "3:2",
+    "4:3",
+    "1:1",
+    "3:4",
+    "2:3",
+    "9:16",
+    "9:21",
 ]
 
 # Approximate cost per image (for tracking)
@@ -76,7 +91,7 @@ DEFAULT_HOURLY_LIMIT = 100
 class ImageServiceError(Exception):
     """Image service error with structured info."""
 
-    def __init__(self, code: str, message: str, suggestion: Optional[str] = None):
+    def __init__(self, code: str, message: str, suggestion: str | None = None):
         super().__init__(message)
         self.code = code
         self.message = message
@@ -93,6 +108,7 @@ def get_api_key() -> str:
     config_path = "/etc/hostkit/config.yaml"
     if os.path.exists(config_path):
         import yaml
+
         with open(config_path) as f:
             config = yaml.safe_load(f) or {}
             key = config.get("bfl_api_key")
@@ -152,10 +168,10 @@ def check_rate_limit(project: str) -> None:
 
 def validate_dimensions(
     model: str,
-    width: Optional[int],
-    height: Optional[int],
-    aspect_ratio: Optional[str],
-) -> tuple[Optional[int], Optional[int], Optional[str]]:
+    width: int | None,
+    height: int | None,
+    aspect_ratio: str | None,
+) -> tuple[int | None, int | None, str | None]:
     """Validate and adjust dimensions based on model constraints."""
     constraints = MODEL_CONSTRAINTS.get(model)
     if not constraints:
@@ -232,7 +248,9 @@ def record_generation(
     with db.transaction() as conn:
         conn.execute(
             """
-            INSERT INTO image_generations (project, model, prompt, width, height, image_url, cost, duration_ms, created_at)
+            INSERT INTO image_generations
+            (project, model, prompt, width, height,
+             image_url, cost, duration_ms, created_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
             """,
             (project, model, prompt[:500], width, height, image_url, cost, duration_ms),
@@ -242,9 +260,9 @@ def record_generation(
 def generate_image(
     prompt: str,
     model: str = "flux-2-pro",
-    width: Optional[int] = None,
-    height: Optional[int] = None,
-    aspect_ratio: Optional[str] = None,
+    width: int | None = None,
+    height: int | None = None,
+    aspect_ratio: str | None = None,
 ) -> tuple[str, int, int, int]:
     """
     Generate an image using the Flux API.
@@ -365,9 +383,26 @@ def image(ctx: click.Context) -> None:
 @click.argument("project")
 @click.argument("prompt")
 @click.option("--model", "-m", default="flux-1.1-pro", help="Model to use")
-@click.option("--width", "-w", default=None, type=int, help="Image width (default: 1024)")
-@click.option("--height", "-h", default=None, type=int, help="Image height (default: 1024)")
-@click.option("--aspect-ratio", "-a", default=None, help="Aspect ratio for ultra model (e.g., 16:9)")
+@click.option(
+    "--width",
+    "-w",
+    default=None,
+    type=int,
+    help="Image width (default: 1024)",
+)
+@click.option(
+    "--height",
+    "-h",
+    default=None,
+    type=int,
+    help="Image height (default: 1024)",
+)
+@click.option(
+    "--aspect-ratio",
+    "-a",
+    default=None,
+    help="Aspect ratio for ultra model (e.g., 16:9)",
+)
 @click.pass_context
 @project_access("project")
 def image_generate(
@@ -375,9 +410,9 @@ def image_generate(
     project: str,
     prompt: str,
     model: str,
-    width: Optional[int],
-    height: Optional[int],
-    aspect_ratio: Optional[str],
+    width: int | None,
+    height: int | None,
+    aspect_ratio: str | None,
 ) -> None:
     """Generate an image from a text prompt.
 
@@ -405,7 +440,9 @@ def image_generate(
 
         # Record in database
         cost = MODEL_COSTS.get(model, 0.05)
-        record_generation(project, model, prompt, actual_width, actual_height, image_url, cost, duration_ms)
+        record_generation(
+            project, model, prompt, actual_width, actual_height, image_url, cost, duration_ms
+        )
 
         result_data = {
             "url": image_url,
@@ -414,7 +451,9 @@ def image_generate(
             "duration_ms": duration_ms,
         }
         if aspect_ratio or MODEL_CONSTRAINTS.get(model, {}).get("uses_aspect_ratio"):
-            result_data["aspect_ratio"] = aspect_ratio or MODEL_CONSTRAINTS[model].get("default_aspect")
+            result_data["aspect_ratio"] = aspect_ratio or MODEL_CONSTRAINTS[model].get(
+                "default_aspect"
+            )
         else:
             result_data["width"] = actual_width
             result_data["height"] = actual_height
@@ -573,7 +612,9 @@ def image_history(ctx: click.Context, project: str, limit: int) -> None:
     ]
 
     if ctx.obj["json_mode"]:
-        formatter.success(message=f"Recent generations for '{project}'", data={"generations": generations})
+        formatter.success(
+            message=f"Recent generations for '{project}'", data={"generations": generations}
+        )
     else:
         if not generations:
             click.echo("\nNo image generations found")
@@ -591,7 +632,7 @@ def image_history(ctx: click.Context, project: str, limit: int) -> None:
 @image.command("config")
 @click.option("--set-key", help="Set the BFL API key (root only)")
 @click.pass_context
-def image_config(ctx: click.Context, set_key: Optional[str]) -> None:
+def image_config(ctx: click.Context, set_key: str | None) -> None:
     """View or configure image service settings.
 
     Example:
@@ -603,9 +644,10 @@ def image_config(ctx: click.Context, set_key: Optional[str]) -> None:
     if set_key:
         # Setting key requires root
         from hostkit.access import require_root
+
         try:
             require_root()
-        except Exception as e:
+        except Exception:
             formatter.error(
                 code="ACCESS_DENIED",
                 message="Setting API key requires root",
@@ -653,7 +695,7 @@ def image_config(ctx: click.Context, set_key: Optional[str]) -> None:
             click.echo("\nImage Service Configuration")
             click.echo("-" * 40)
             click.echo(f"  API Key:       {key_status}")
-            click.echo(f"  Default Model: flux-1.1-pro")
+            click.echo("  Default Model: flux-1.1-pro")
             click.echo(f"  Hourly Limit:  {DEFAULT_HOURLY_LIMIT} images")
             click.echo(f"  Daily Limit:   {DEFAULT_DAILY_LIMIT} images")
             click.echo(f"  Models:        {len(MODEL_ENDPOINTS)}")

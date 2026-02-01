@@ -2,9 +2,9 @@
 
 import click
 
-from hostkit.access import project_owner, root_only
+from hostkit.access import project_owner
 from hostkit.output import OutputFormatter
-from hostkit.services.mail_service import MailService, MailError
+from hostkit.services.mail_service import MailError, MailService
 
 
 @click.group()
@@ -82,7 +82,9 @@ def mail_status(ctx: click.Context) -> None:
                 click.echo("-" * 30)
                 for domain in domains:
                     dkim_status = "✓ DKIM" if domain.dkim_enabled else "○ No DKIM"
-                    click.echo(f"  {domain.name} ({len(domain.mailboxes)} mailbox(es)) - {dkim_status}")
+                    click.echo(
+                        f"  {domain.name} ({len(domain.mailboxes)} mailbox(es)) - {dkim_status}"
+                    )
 
     except MailError as e:
         formatter.error(code=e.code, message=e.message, suggestion=e.suggestion)
@@ -170,7 +172,9 @@ def mail_domains(ctx: click.Context) -> None:
                 }
                 for d in domains
             ]
-            formatter.success(message=f"Found {len(domains)} mail domain(s)", data={"domains": data})
+            formatter.success(
+                message=f"Found {len(domains)} mail domain(s)", data={"domains": data}
+            )
         else:
             if not domains:
                 click.echo("\nNo mail domains configured")
@@ -228,7 +232,7 @@ def mail_add_domain(ctx: click.Context, domain: str, selector: str) -> None:
             for name, record in result.get("dns_records", {}).items():
                 click.echo(f"\n  [{record['type']}] {record['name']}")
                 click.echo(f"    Value: {record['content']}")
-                if record.get('description'):
+                if record.get("description"):
                     click.echo(f"    ({record['description']})")
 
             click.echo("\nNext Steps:")
@@ -296,7 +300,9 @@ def mail_mailboxes(ctx: click.Context, domain: str | None) -> None:
                 }
                 for m in mailboxes
             ]
-            formatter.success(message=f"Found {len(mailboxes)} mailbox(es)", data={"mailboxes": data})
+            formatter.success(
+                message=f"Found {len(mailboxes)} mailbox(es)", data={"mailboxes": data}
+            )
         else:
             filter_text = f" for '{domain}'" if domain else ""
             if not mailboxes:
@@ -501,7 +507,7 @@ def mail_dns_records(ctx: click.Context, domain: str) -> None:
             for name, record in records.items():
                 click.echo(f"\n  [{record['type']}] {record['name']}")
                 click.echo(f"    Value: {record['content']}")
-                if record.get('description'):
+                if record.get("description"):
                     click.echo(f"    ({record['description']})")
 
     except MailError as e:
@@ -589,15 +595,15 @@ def mail_enable(ctx: click.Context, project: str) -> None:
 
             click.echo("\nServer Settings:")
             click.echo("-" * 40)
-            click.echo(f"  SMTP Server: mail.hostkit.dev")
-            click.echo(f"  SMTP Port: 587 (STARTTLS)")
-            click.echo(f"  IMAP Server: mail.hostkit.dev")
-            click.echo(f"  IMAP Port: 993 (SSL)")
+            click.echo("  SMTP Server: mail.hostkit.dev")
+            click.echo("  SMTP Port: 587 (STARTTLS)")
+            click.echo("  IMAP Server: mail.hostkit.dev")
+            click.echo("  IMAP Port: 993 (SSL)")
 
             click.echo("\nFor sending from your app:")
             click.echo("-" * 40)
-            click.echo(f"  SMTP_HOST=mail.hostkit.dev")
-            click.echo(f"  SMTP_PORT=587")
+            click.echo("  SMTP_HOST=mail.hostkit.dev")
+            click.echo("  SMTP_PORT=587")
             click.echo(f"  SMTP_USER={result['default_address']}")
             click.echo(f"  SMTP_PASS={result['password']}")
             click.echo(f"  SMTP_FROM={result['default_address']}")
@@ -678,10 +684,10 @@ def mail_add(ctx: click.Context, project: str, local_part: str, password: str | 
 
             click.echo("\nServer Settings:")
             click.echo("-" * 40)
-            click.echo(f"  IMAP Server: mail.hostkit.dev")
-            click.echo(f"  IMAP Port: 993 (SSL)")
-            click.echo(f"  SMTP Server: mail.hostkit.dev")
-            click.echo(f"  SMTP Port: 587 (STARTTLS)")
+            click.echo("  IMAP Server: mail.hostkit.dev")
+            click.echo("  IMAP Port: 993 (SSL)")
+            click.echo("  SMTP Server: mail.hostkit.dev")
+            click.echo("  SMTP Port: 587 (STARTTLS)")
 
             click.echo("\n  Save these credentials - the password won't be shown again!")
 
@@ -710,7 +716,7 @@ def mail_remove(ctx: click.Context, project: str, local_part: str) -> None:
         result = service.remove_project_mailbox(project, local_part)
 
         if ctx.obj["json_mode"]:
-            formatter.success(message=f"Mailbox removed", data=result)
+            formatter.success(message="Mailbox removed", data=result)
         else:
             click.echo(f"\nMailbox '{result['address']}' Removed")
             click.echo("=" * 60)
@@ -775,7 +781,9 @@ def mail_list(ctx: click.Context, project: str) -> None:
 @click.option("--reset-password", is_flag=True, help="Generate a new password")
 @click.pass_context
 @project_owner()
-def mail_credentials(ctx: click.Context, project: str, local_part: str | None, reset_password: bool) -> None:
+def mail_credentials(
+    ctx: click.Context, project: str, local_part: str | None, reset_password: bool
+) -> None:
     """Show or reset credentials for a project mailbox.
 
     If local_part is not specified, shows credentials for the default noreply address.
@@ -805,19 +813,19 @@ def mail_credentials(ctx: click.Context, project: str, local_part: str | None, r
                 click.echo(f"  Password: {result['password']}")
                 click.echo("\n  Save this password - it won't be shown again!")
             else:
-                click.echo(f"  Password: (unchanged - use --reset-password to generate new)")
+                click.echo("  Password: (unchanged - use --reset-password to generate new)")
 
             click.echo("\nServer Settings:")
             click.echo("-" * 40)
-            click.echo(f"  SMTP Server: mail.hostkit.dev")
-            click.echo(f"  SMTP Port: 587 (STARTTLS)")
-            click.echo(f"  IMAP Server: mail.hostkit.dev")
-            click.echo(f"  IMAP Port: 993 (SSL)")
+            click.echo("  SMTP Server: mail.hostkit.dev")
+            click.echo("  SMTP Port: 587 (STARTTLS)")
+            click.echo("  IMAP Server: mail.hostkit.dev")
+            click.echo("  IMAP Port: 993 (SSL)")
 
             click.echo("\nEnvironment Variables:")
             click.echo("-" * 40)
-            click.echo(f"  SMTP_HOST=mail.hostkit.dev")
-            click.echo(f"  SMTP_PORT=587")
+            click.echo("  SMTP_HOST=mail.hostkit.dev")
+            click.echo("  SMTP_PORT=587")
             click.echo(f"  SMTP_USER={result['address']}")
             if result.get("password"):
                 click.echo(f"  SMTP_PASS={result['password']}")
@@ -831,7 +839,9 @@ def mail_credentials(ctx: click.Context, project: str, local_part: str | None, r
 @mail.command("send-test")
 @click.argument("project")
 @click.argument("to_email")
-@click.option("--from", "from_local", default="noreply", help="Local part to send from (default: noreply)")
+@click.option(
+    "--from", "from_local", default="noreply", help="Local part to send from (default: noreply)"
+)
 @click.pass_context
 @project_owner()
 def mail_send_test(ctx: click.Context, project: str, to_email: str, from_local: str) -> None:
@@ -852,12 +862,12 @@ def mail_send_test(ctx: click.Context, project: str, to_email: str, from_local: 
         if ctx.obj["json_mode"]:
             formatter.success(message="Test email sent", data=result)
         else:
-            click.echo(f"\nTest Email Sent")
+            click.echo("\nTest Email Sent")
             click.echo("=" * 60)
             click.echo(f"  From: {result['from']}")
             click.echo(f"  To: {result['to']}")
             click.echo(f"  Subject: {result['subject']}")
-            click.echo(f"\n  Check the recipient's inbox (and spam folder)")
+            click.echo("\n  Check the recipient's inbox (and spam folder)")
 
     except MailError as e:
         formatter.error(code=e.code, message=e.message, suggestion=e.suggestion)

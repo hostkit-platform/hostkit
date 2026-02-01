@@ -1,6 +1,5 @@
 """Log management commands for HostKit CLI."""
 
-import sys
 from dataclasses import asdict
 
 import click
@@ -25,10 +24,29 @@ def log(ctx: click.Context) -> None:
 @click.argument("project")
 @click.option("-n", "--lines", default=100, help="Number of lines to show")
 @click.option("-f", "--follow", is_flag=True, help="Follow log output in real-time")
-@click.option("-l", "--level", type=click.Choice(["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"], case_sensitive=False), help="Minimum log level to show")
-@click.option("-s", "--source", multiple=True, help="Log sources to include (app.log, error.log, journal)")
-@click.option("--since", help="Show logs since time (e.g., '1h', '24h', '7d', '2025-12-15')")
-@click.option("--until", help="Show logs until time (e.g., 'now', '2025-12-15')")
+@click.option(
+    "-l",
+    "--level",
+    type=click.Choice(
+        ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
+        case_sensitive=False,
+    ),
+    help="Minimum log level to show",
+)
+@click.option(
+    "-s",
+    "--source",
+    multiple=True,
+    help="Log sources to include (app.log, error.log, journal)",
+)
+@click.option(
+    "--since",
+    help="Show logs since time (e.g., '1h', '24h', '7d', '2025-12-15')",
+)
+@click.option(
+    "--until",
+    help="Show logs until time (e.g., 'now', '2025-12-15')",
+)
 @click.pass_context
 @project_access("project")
 def show(
@@ -90,8 +108,7 @@ def show(
         else:
             # Static log retrieval
             entries = service.get_aggregated_logs(
-                project, lines=lines, level=level, sources=sources,
-                since=since, until=until
+                project, lines=lines, level=level, sources=sources, since=since, until=until
             )
 
             if ctx.obj.get("json_mode"):
@@ -130,7 +147,12 @@ def show(
 @log.command(name="search")
 @click.argument("project")
 @click.argument("pattern")
-@click.option("-c", "--context", default=2, help="Lines of context around matches")
+@click.option(
+    "-c",
+    "--context",
+    default=2,
+    help="Lines of context around matches",
+)
 @click.option("-f", "--file", "files", multiple=True, help="Specific log files to search")
 @click.option("-i", "--ignore-case/--case-sensitive", default=True, help="Case sensitivity")
 @click.pass_context
@@ -185,7 +207,9 @@ def search(
 
             for i, result in enumerate(results, 1):
                 # File and line info
-                click.echo(click.style(f"--- Match {i}: {result.file}:{result.line_number} ---", fg="cyan"))
+                click.echo(
+                    click.style(f"--- Match {i}: {result.file}:{result.line_number} ---", fg="cyan")
+                )
 
                 # Context before
                 for line in result.context_before:
@@ -347,8 +371,11 @@ def stats(ctx: click.Context, project: str) -> None:
             error_style = "red" if data["error_count_24h"] > 0 else "green"
             warning_style = "yellow" if data["warning_count_24h"] > 0 else "green"
 
-            click.echo(f"    Errors (24h):   {click.style(str(data['error_count_24h']), fg=error_style)}")
-            click.echo(f"    Warnings (24h): {click.style(str(data['warning_count_24h']), fg=warning_style)}")
+            click.echo(
+                f"    Errors (24h):   {click.style(str(data['error_count_24h']), fg=error_style)}"
+            )
+            warn_count = click.style(str(data["warning_count_24h"]), fg=warning_style)
+            click.echo(f"    Warnings (24h): {warn_count}")
 
     except LogServiceError as e:
         formatter.error(code=e.code, message=e.message, suggestion=e.suggestion)
@@ -389,7 +416,9 @@ def clear(
 
         formatter.success(
             data=result,
-            message=f"Cleared {len(result['cleared_files'])} files ({result['cleared_size_human']})",
+            message=(
+                f"Cleared {len(result['cleared_files'])} files ({result['cleared_size_human']})"
+            ),
         )
 
     except LogServiceError as e:
@@ -474,4 +503,13 @@ def _get_level_color(level: str | None) -> str:
 @project_access("project")
 def view(ctx: click.Context, project: str, lines: int, follow: bool) -> None:
     """Alias for 'log show'."""
-    ctx.invoke(show, project=project, lines=lines, follow=follow, level=None, source=(), since=None, until=None)
+    ctx.invoke(
+        show,
+        project=project,
+        lines=lines,
+        follow=follow,
+        level=None,
+        source=(),
+        since=None,
+        until=None,
+    )

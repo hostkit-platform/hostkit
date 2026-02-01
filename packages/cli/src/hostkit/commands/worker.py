@@ -4,7 +4,7 @@ import click
 
 from hostkit.access import project_owner
 from hostkit.output import OutputFormatter
-from hostkit.services.worker_service import WorkerService, WorkerError
+from hostkit.services.worker_service import WorkerError, WorkerService
 
 
 @click.group()
@@ -25,8 +25,12 @@ def worker(ctx: click.Context) -> None:
 
 @worker.command("add")
 @click.argument("project")
-@click.option("--name", "-n", "worker_name", default="default", help="Worker name (default: default)")
-@click.option("--concurrency", "-c", type=int, default=2, help="Number of worker processes (default: 2)")
+@click.option(
+    "--name", "-n", "worker_name", default="default", help="Worker name (default: default)"
+)
+@click.option(
+    "--concurrency", "-c", type=int, default=2, help="Number of worker processes (default: 2)"
+)
 @click.option("--queues", "-q", help="Comma-separated list of queues")
 @click.option("--app", "-A", "app_module", default="app", help="Celery app module (default: app)")
 @click.option("--loglevel", "-l", default="info", help="Log level (default: info)")
@@ -85,7 +89,9 @@ def worker_add(
 
 @worker.command("remove")
 @click.argument("project")
-@click.option("--name", "-n", "worker_name", default="default", help="Worker name (default: default)")
+@click.option(
+    "--name", "-n", "worker_name", default="default", help="Worker name (default: default)"
+)
 @click.option("--force", "-f", is_flag=True, help="Skip confirmation")
 @click.pass_context
 @project_owner()
@@ -174,13 +180,15 @@ def worker_list(ctx: click.Context, project: str) -> None:
             # Format for display
             display_data = []
             for w in workers:
-                display_data.append({
-                    "worker_name": w.worker_name,
-                    "concurrency": str(w.concurrency),
-                    "queues": w.queues or "(all)",
-                    "service_active": "yes" if w.service_active else "no",
-                    "service_enabled": "yes" if w.service_enabled else "no",
-                })
+                display_data.append(
+                    {
+                        "worker_name": w.worker_name,
+                        "concurrency": str(w.concurrency),
+                        "queues": w.queues or "(all)",
+                        "service_active": "yes" if w.service_active else "no",
+                        "service_enabled": "yes" if w.service_enabled else "no",
+                    }
+                )
             formatter.table(display_data, columns, title=f"Workers: {project}")
 
     except WorkerError as e:
@@ -229,10 +237,14 @@ def worker_status(ctx: click.Context, project: str) -> None:
                 worker_info = {}
                 for w in workers:
                     status_str = "running" if w["service_active"] else "stopped"
-                    worker_info[w["worker_name"]] = f"{status_str} (concurrency: {w['concurrency']})"
+                    worker_info[w["worker_name"]] = (
+                        f"{status_str} (concurrency: {w['concurrency']})"
+                    )
                 sections["workers"] = worker_info
 
-            formatter.status_panel(f"Workers: {project}", sections, message=f"Worker status for '{project}'")
+            formatter.status_panel(
+                f"Workers: {project}", sections, message=f"Worker status for '{project}'"
+            )
 
     except WorkerError as e:
         formatter.error(code=e.code, message=e.message, suggestion=e.suggestion)
@@ -241,7 +253,9 @@ def worker_status(ctx: click.Context, project: str) -> None:
 
 @worker.command("start")
 @click.argument("project")
-@click.option("--name", "-n", "worker_name", default="default", help="Worker name (default: default)")
+@click.option(
+    "--name", "-n", "worker_name", default="default", help="Worker name (default: default)"
+)
 @click.pass_context
 @project_owner()
 def worker_start(ctx: click.Context, project: str, worker_name: str) -> None:
@@ -270,7 +284,9 @@ def worker_start(ctx: click.Context, project: str, worker_name: str) -> None:
 
 @worker.command("stop")
 @click.argument("project")
-@click.option("--name", "-n", "worker_name", default="default", help="Worker name (default: default)")
+@click.option(
+    "--name", "-n", "worker_name", default="default", help="Worker name (default: default)"
+)
 @click.pass_context
 @project_owner()
 def worker_stop(ctx: click.Context, project: str, worker_name: str) -> None:
@@ -299,7 +315,9 @@ def worker_stop(ctx: click.Context, project: str, worker_name: str) -> None:
 
 @worker.command("restart")
 @click.argument("project")
-@click.option("--name", "-n", "worker_name", default="default", help="Worker name (default: default)")
+@click.option(
+    "--name", "-n", "worker_name", default="default", help="Worker name (default: default)"
+)
 @click.pass_context
 @project_owner()
 def worker_restart(ctx: click.Context, project: str, worker_name: str) -> None:
@@ -329,7 +347,9 @@ def worker_restart(ctx: click.Context, project: str, worker_name: str) -> None:
 @worker.command("scale")
 @click.argument("project")
 @click.argument("concurrency", type=int)
-@click.option("--name", "-n", "worker_name", default="default", help="Worker name (default: default)")
+@click.option(
+    "--name", "-n", "worker_name", default="default", help="Worker name (default: default)"
+)
 @click.pass_context
 @project_owner()
 def worker_scale(
@@ -366,7 +386,9 @@ def worker_scale(
 
 @worker.command("logs")
 @click.argument("project")
-@click.option("--name", "-n", "worker_name", default="default", help="Worker name (default: default)")
+@click.option(
+    "--name", "-n", "worker_name", default="default", help="Worker name (default: default)"
+)
 @click.option("--lines", "-l", type=int, default=50, help="Number of lines to show")
 @click.option("--follow", "-f", is_flag=True, help="Follow log output")
 @click.pass_context
@@ -536,7 +558,9 @@ def beat_status(ctx: click.Context, project: str) -> None:
                     "updated_at": beat_obj.updated_at[:19],
                 },
             }
-            formatter.status_panel(f"Beat: {project}", sections, message=f"Beat status for '{project}'")
+            formatter.status_panel(
+                f"Beat: {project}", sections, message=f"Beat status for '{project}'"
+            )
 
     except WorkerError as e:
         formatter.error(code=e.code, message=e.message, suggestion=e.suggestion)
@@ -574,7 +598,7 @@ def beat_logs(
 
         if logs is None:
             formatter.success(
-                message=f"No logs found for beat scheduler",
+                message="No logs found for beat scheduler",
                 data={"project": project, "logs": None},
             )
             return

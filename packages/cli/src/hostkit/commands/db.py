@@ -2,7 +2,6 @@
 
 import os
 import subprocess
-import sys
 
 import click
 
@@ -155,14 +154,13 @@ def db_list(ctx: click.Context) -> None:
             # Pretty table output
             click.echo("\nDatabases:")
             click.echo("-" * 70)
-            click.echo(
-                f"{'DATABASE':<20} {'PROJECT':<15} {'SIZE':<10} {'CONNS':<8} {'OWNER':<15}"
-            )
+            click.echo(f"{'DATABASE':<20} {'PROJECT':<15} {'SIZE':<10} {'CONNS':<8} {'OWNER':<15}")
             click.echo("-" * 70)
 
             for db in databases:
                 click.echo(
-                    f"{db.name:<20} {db.project or '-':<15} {db.size:<10} {db.connections:<8} {db.owner:<15}"
+                    f"{db.name:<20} {db.project or '-':<15} "
+                    f"{db.size:<10} {db.connections:<8} {db.owner:<15}"
                 )
 
             click.echo("-" * 70)
@@ -482,9 +480,7 @@ def db_extensions(ctx: click.Context, project: str) -> None:
             click.echo("-" * 60)
 
             for ext in extensions:
-                click.echo(
-                    f"{ext['name']:<20} {ext['version']:<10} {ext['description']:<30}"
-                )
+                click.echo(f"{ext['name']:<20} {ext['version']:<10} {ext['description']:<30}")
 
             click.echo("-" * 60)
             click.echo(f"Total: {len(extensions)} extension(s)")

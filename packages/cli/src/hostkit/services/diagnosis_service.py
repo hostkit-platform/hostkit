@@ -9,9 +9,9 @@ from pathlib import Path
 from typing import Any
 
 from hostkit.database import get_db
+from hostkit.services.health_service import HealthService
 from hostkit.services.log_service import LogService
 from hostkit.services.rate_limit_service import RateLimitService
-from hostkit.services.health_service import HealthService
 
 
 @dataclass
@@ -82,21 +82,35 @@ class DiagnosisError(Exception):
 ERROR_PATTERNS = [
     {
         "name": "missing_module",
-        "pattern": r"(?:ImportError|ModuleNotFoundError):\s*(?:No module named\s*)?['\"]?([a-zA-Z0-9_.-]+)['\"]?",
+        "pattern": (
+            r"(?:ImportError|ModuleNotFoundError):\s*"
+            r"(?:No module named\s*)?['\"]?([a-zA-Z0-9_.-]+)['\"]?"
+        ),
         "severity": "high",
-        "suggestion_template": "Install missing module: pip install {module} or run 'hostkit deploy {project} --install'",
+        "suggestion_template": (
+            "Install missing module: pip install {module}"
+            " or run 'hostkit deploy {project} --install'"
+        ),
     },
     {
         "name": "port_conflict",
-        "pattern": r"(?:OSError|socket\.error).*(?:Address already in use|bind\(\) failed).*?:?(\d+)?",
+        "pattern": (
+            r"(?:OSError|socket\.error).*"
+            r"(?:Address already in use|bind\(\) failed).*?:?(\d+)?"
+        ),
         "severity": "high",
-        "suggestion_template": "Port conflict detected. Run 'lsof -i :{port}' to find conflicting process, or change the port",
+        "suggestion_template": (
+            "Port conflict detected. Run 'lsof -i :{port}'"
+            " to find conflicting process, or change the port"
+        ),
     },
     {
         "name": "permission_denied",
         "pattern": r"(?:PermissionError|Permission denied).*?([/\w.-]+)?",
         "severity": "medium",
-        "suggestion_template": "Check file permissions: 'chown -R {project}:{project} /home/{project}'",
+        "suggestion_template": (
+            "Check file permissions: 'chown -R {project}:{project} /home/{project}'"
+        ),
     },
     {
         "name": "syntax_error",
@@ -106,15 +120,26 @@ ERROR_PATTERNS = [
     },
     {
         "name": "database_connection",
-        "pattern": r"(?:psycopg2\.OperationalError|Connection refused|could not connect to server|FATAL:\s*password authentication failed)",
+        "pattern": (
+            r"(?:psycopg2\.OperationalError|Connection refused"
+            r"|could not connect to server"
+            r"|FATAL:\s*password authentication failed)"
+        ),
         "severity": "critical",
-        "suggestion_template": "Database connection failed. Check PostgreSQL: 'systemctl status postgresql' and verify DATABASE_URL in .env",
+        "suggestion_template": (
+            "Database connection failed. Check PostgreSQL:"
+            " 'systemctl status postgresql'"
+            " and verify DATABASE_URL in .env"
+        ),
     },
     {
         "name": "memory_error",
         "pattern": r"(?:MemoryError|Out of memory|Killed|OOM)",
         "severity": "critical",
-        "suggestion_template": "Memory exhaustion detected. Consider increasing memory limits or optimizing memory usage",
+        "suggestion_template": (
+            "Memory exhaustion detected. Consider increasing"
+            " memory limits or optimizing memory usage"
+        ),
     },
     {
         "name": "file_not_found",
@@ -126,19 +151,25 @@ ERROR_PATTERNS = [
         "name": "timeout_error",
         "pattern": r"(?:TimeoutError|timed out|deadline exceeded)",
         "severity": "medium",
-        "suggestion_template": "Timeout errors detected. Check network connectivity and increase timeouts if needed",
+        "suggestion_template": (
+            "Timeout errors detected. Check network connectivity and increase timeouts if needed"
+        ),
     },
     {
         "name": "redis_connection",
         "pattern": r"(?:redis\.exceptions\.ConnectionError|Connection to Redis refused)",
         "severity": "high",
-        "suggestion_template": "Redis connection failed. Check Redis: 'systemctl status redis-server'",
+        "suggestion_template": (
+            "Redis connection failed. Check Redis: 'systemctl status redis-server'"
+        ),
     },
     {
         "name": "disk_full",
         "pattern": r"(?:No space left on device|disk quota exceeded|ENOSPC)",
         "severity": "critical",
-        "suggestion_template": "Disk space exhausted. Check disk usage: 'df -h' and clean up old files",
+        "suggestion_template": (
+            "Disk space exhausted. Check disk usage: 'df -h' and clean up old files"
+        ),
     },
 ]
 
@@ -206,14 +237,20 @@ class DiagnosisService:
         if check_db:
             database_status = self._check_database(project)
             if not database_status.get("connected"):
-                patterns.append(FailurePattern(
-                    pattern_type="database_unreachable",
-                    severity="critical",
-                    occurrences=1,
-                    window="now",
-                    common_error=database_status.get("error", "Database connection failed"),
-                    suggestion="Check PostgreSQL: 'systemctl status postgresql' and verify DATABASE_URL",
-                ))
+                patterns.append(
+                    FailurePattern(
+                        pattern_type="database_unreachable",
+                        severity="critical",
+                        occurrences=1,
+                        window="now",
+                        common_error=database_status.get("error", "Database connection failed"),
+                        suggestion=(
+                            "Check PostgreSQL:"
+                            " 'systemctl status postgresql'"
+                            " and verify DATABASE_URL"
+                        ),
+                    )
+                )
                 recommendations.append("Check PostgreSQL: 'systemctl status postgresql'")
 
         # Get recent failure stats
@@ -224,7 +261,9 @@ class DiagnosisService:
 
         # Add recommendations based on patterns
         if not recommendations and patterns:
-            recommendations.append("Review the detected patterns and address them in priority order")
+            recommendations.append(
+                "Review the detected patterns and address them in priority order"
+            )
 
         if overall_health == "critical" and "auto-pause" not in " ".join(recommendations).lower():
             recommendations.append("Consider enabling auto-pause to prevent further thrashing")
@@ -286,6 +325,7 @@ class DiagnosisService:
         if error_messages:
             # Find most common error
             from collections import Counter
+
             error_counts = Counter(error_messages)
             common_error = error_counts.most_common(1)[0][0]
 
@@ -293,7 +333,9 @@ class DiagnosisService:
         evidence = []
         for d in deploys[:5]:  # Last 5 deploys
             status = "failed" if not d.get("success", True) else "success"
-            timestamp = d["deployed_at"].split("T")[1][:8] if "T" in d["deployed_at"] else d["deployed_at"]
+            timestamp = (
+                d["deployed_at"].split("T")[1][:8] if "T" in d["deployed_at"] else d["deployed_at"]
+            )
             evidence.append(f"Deploy at {timestamp}: {status}")
 
         # Determine severity based on failure rate
@@ -301,7 +343,11 @@ class DiagnosisService:
         severity = "critical" if failure_rate > 0.7 else "high" if failure_rate > 0.5 else "medium"
 
         suggestion = "Check logs for errors: 'hostkit service logs {project}'. "
-        if common_error and "ModuleNotFoundError" in common_error or "ImportError" in str(common_error):
+        if (
+            common_error
+            and "ModuleNotFoundError" in common_error
+            or "ImportError" in str(common_error)
+        ):
             suggestion += "Try: 'hostkit deploy {project} --install' to install dependencies"
         else:
             suggestion += "Fix the underlying issue before deploying again"
@@ -403,15 +449,17 @@ class DiagnosisService:
 
         # Convert to FailurePattern objects
         for pattern_name, data in detected.items():
-            patterns.append(FailurePattern(
-                pattern_type=pattern_name,
-                severity=data["severity"],
-                occurrences=data["occurrences"],
-                window="recent",
-                common_error=data["common_error"],
-                suggestion=data["suggestion"],
-                evidence=data["evidence"],
-            ))
+            patterns.append(
+                FailurePattern(
+                    pattern_type=pattern_name,
+                    severity=data["severity"],
+                    occurrences=data["occurrences"],
+                    window="recent",
+                    common_error=data["common_error"],
+                    suggestion=data["suggestion"],
+                    evidence=data["evidence"],
+                )
+            )
 
         # Sort by severity
         severity_order = {"critical": 0, "high": 1, "medium": 2, "low": 3}
@@ -452,8 +500,12 @@ class DiagnosisService:
             # If failed, get more details
             if status == "failed":
                 show_result = subprocess.run(
-                    ["systemctl", "show", f"{service_name}.service",
-                     "--property=ExecMainStatus,Result,ActiveEnterTimestamp"],
+                    [
+                        "systemctl",
+                        "show",
+                        f"{service_name}.service",
+                        "--property=ExecMainStatus,Result,ActiveEnterTimestamp",
+                    ],
                     capture_output=True,
                     text=True,
                     timeout=5,
@@ -471,15 +523,25 @@ class DiagnosisService:
 
             # Count recent restarts from journal
             restart_result = subprocess.run(
-                ["journalctl", "-u", f"{service_name}.service",
-                 "--since", "1 hour ago", "--no-pager", "-o", "cat"],
+                [
+                    "journalctl",
+                    "-u",
+                    f"{service_name}.service",
+                    "--since",
+                    "1 hour ago",
+                    "--no-pager",
+                    "-o",
+                    "cat",
+                ],
                 capture_output=True,
                 text=True,
                 timeout=10,
             )
             if restart_result.returncode == 0:
                 # Count "Started" entries
-                restarts = restart_result.stdout.count("Started") + restart_result.stdout.count("Stopped")
+                restarts = restart_result.stdout.count("Started") + restart_result.stdout.count(
+                    "Stopped"
+                )
                 result["recent_restarts"] = max(0, restarts - 1)  # Don't count initial start
 
         except (subprocess.SubprocessError, subprocess.TimeoutExpired):
@@ -540,7 +602,11 @@ class DiagnosisService:
                 result["connected"] = True
                 result["latency_ms"] = round(latency, 2)
             else:
-                result["error"] = check_result.stderr.strip()[:200] if check_result.stderr else "Connection failed"
+                result["error"] = (
+                    check_result.stderr.strip()[:200]
+                    if check_result.stderr
+                    else "Connection failed"
+                )
 
         except subprocess.TimeoutExpired:
             result["error"] = "Connection timeout"
@@ -578,8 +644,16 @@ class DiagnosisService:
         # Estimate service crashes from journal
         try:
             crash_result = subprocess.run(
-                ["journalctl", "-u", f"hostkit-{project}.service",
-                 "--since", "1 hour ago", "--no-pager", "-o", "cat"],
+                [
+                    "journalctl",
+                    "-u",
+                    f"hostkit-{project}.service",
+                    "--since",
+                    "1 hour ago",
+                    "--no-pager",
+                    "-o",
+                    "cat",
+                ],
                 capture_output=True,
                 text=True,
                 timeout=10,
@@ -588,9 +662,9 @@ class DiagnosisService:
                 # Count failure indicators
                 output = crash_result.stdout
                 crashes = (
-                    output.count("Failed to start") +
-                    output.count("failed with result") +
-                    output.count("Main process exited")
+                    output.count("Failed to start")
+                    + output.count("failed with result")
+                    + output.count("Main process exited")
                 )
                 stats["service_crashes_1h"] = crashes
         except (subprocess.SubprocessError, subprocess.TimeoutExpired):
@@ -731,6 +805,7 @@ class DiagnosisService:
                 )
                 # Give it a moment to fully stop
                 import time
+
                 time.sleep(1)
             except subprocess.SubprocessError:
                 pass

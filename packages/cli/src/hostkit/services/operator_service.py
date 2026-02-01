@@ -16,7 +16,6 @@ from jinja2 import Template
 from hostkit.config import get_config
 from hostkit.database import get_db
 
-
 # Default operator username
 DEFAULT_OPERATOR_NAME = "ai-operator"
 
@@ -24,6 +23,7 @@ DEFAULT_OPERATOR_NAME = "ai-operator"
 @dataclass
 class Operator:
     """Operator user information."""
+
     username: str
     ssh_keys: list[str]
     created_at: str
@@ -81,7 +81,10 @@ class OperatorService:
             raise OperatorServiceError(
                 code="OPERATOR_EXISTS",
                 message=f"Operator '{username}' already exists",
-                suggestion="Use 'hostkit operator add-key' to add SSH keys or 'hostkit operator revoke' to remove",
+                suggestion=(
+                    "Use 'hostkit operator add-key' to add SSH keys"
+                    " or 'hostkit operator revoke' to remove"
+                ),
             )
 
         # Check if Linux user already exists
@@ -89,7 +92,9 @@ class OperatorService:
             pwd.getpwnam(username)
             raise OperatorServiceError(
                 code="USER_EXISTS",
-                message=f"Linux user '{username}' already exists but is not registered as an operator",
+                message=(
+                    f"Linux user '{username}' already exists but is not registered as an operator"
+                ),
                 suggestion="Choose a different username or manually remove the existing user",
             )
         except KeyError:
@@ -377,9 +382,12 @@ class OperatorService:
             [
                 "useradd",
                 "--create-home",
-                "--home-dir", f"/home/{username}",
-                "--shell", "/bin/bash",
-                "--comment", "HostKit Operator",
+                "--home-dir",
+                f"/home/{username}",
+                "--shell",
+                "/bin/bash",
+                "--comment",
+                "HostKit Operator",
                 username,
             ],
             check=True,

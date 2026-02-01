@@ -1,7 +1,8 @@
 """Voice service management commands for HostKit."""
 
-import click
 import json
+
+import click
 
 from hostkit.access import project_access, project_owner
 from hostkit.output import OutputFormatter
@@ -121,7 +122,7 @@ def voice_status(ctx: click.Context, project: str) -> None:
                 click.echo("  Status: DISABLED")
                 click.echo(f"\n  Enable with: hostkit voice enable {project}")
             else:
-                click.echo(f"  Status: ENABLED")
+                click.echo("  Status: ENABLED")
                 click.echo(f"  Voice URL: {status['voice_url']}")
                 click.echo(f"  Default Agent: {status['default_agent']}")
                 click.echo(f"  Calls Today: {status['calls_today']}")
@@ -203,7 +204,8 @@ def voice_call(
 
     Example:
         hostkit voice call initiate myapp booking_assistant --to +15551234567
-        hostkit voice call initiate myapp booking_assistant --to +15551234567 --context '{"customer_id":"123"}'
+        hostkit voice call initiate myapp booking_assistant \\
+            --to +15551234567 --context '{"customer_id":"123"}'
     """
     formatter: OutputFormatter = ctx.obj["formatter"]
     service = VoiceService()

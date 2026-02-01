@@ -94,8 +94,12 @@ class ProjectService:
             raise ProjectServiceError(
                 code="INVALID_PROJECT_NAME",
                 message=f"Invalid project name '{name}'",
-                suggestion="Project names must be 3-32 characters, lowercase letters/numbers/hyphens, "
-                           "start with a letter, end with letter or number (not hyphen)",
+                suggestion=(
+                    "Project names must be 3-32 characters,"
+                    " lowercase letters/numbers/hyphens,"
+                    " start with a letter, end with"
+                    " letter or number (not hyphen)"
+                ),
             )
 
         # Check if project already exists
@@ -197,6 +201,7 @@ class ProjectService:
             if create_storage:
                 try:
                     from hostkit.services.storage_service import StorageService
+
                     storage = StorageService()
                     if storage.is_minio_running():
                         storage.create_bucket(f"{name}-storage", name)
@@ -261,6 +266,7 @@ class ProjectService:
         # 6. Clean up storage bucket if exists
         try:
             from hostkit.services.storage_service import StorageService
+
             storage = StorageService()
             if storage.is_minio_running():
                 storage.cleanup_project_bucket(name)
@@ -353,8 +359,7 @@ class ProjectService:
                 "log_size": log_size,
             },
             "domains": [
-                {"domain": d["domain"], "ssl": bool(d["ssl_provisioned"])}
-                for d in domains
+                {"domain": d["domain"], "ssl": bool(d["ssl_provisioned"])} for d in domains
             ],
             "backups": [
                 {"id": b["id"], "type": b["type"], "created_at": b["created_at"]}
@@ -508,7 +513,7 @@ class ProjectService:
             ProjectServiceError: If project doesn't exist
         """
         # Verify project exists
-        project = self.get_project(name)
+        self.get_project(name)
 
         # Regenerate sudoers rules
         self._create_sudoers_rules(name)
@@ -534,11 +539,13 @@ class ProjectService:
                 result["success"] = True
                 results.append(result)
             except Exception as e:
-                results.append({
-                    "name": project.name,
-                    "success": False,
-                    "error": str(e),
-                })
+                results.append(
+                    {
+                        "name": project.name,
+                        "success": False,
+                        "error": str(e),
+                    }
+                )
 
         return results
 
@@ -564,7 +571,9 @@ class ProjectService:
         port_lines = ["# Auto-generated project port mappings"]
         for p in projects:
             if p.get("port"):
-                port_lines.append(f'if ($project = "{p["name"]}") {{ set $project_port {p["port"]}; }}')
+                port_lines.append(
+                    f'if ($project = "{p["name"]}") {{ set $project_port {p["port"]}; }}'
+                )
 
         port_conf = Path("/etc/nginx/hostkit-ports.conf")
         port_conf.write_text("\n".join(port_lines) + "\n")
@@ -574,7 +583,10 @@ class ProjectService:
         for p in projects:
             auth_record = self.db.get_auth_service(p["name"])
             if auth_record and auth_record.get("auth_port"):
-                auth_lines.append(f'if ($project = "{p["name"]}") {{ set $auth_port {auth_record["auth_port"]}; }}')
+                auth_lines.append(
+                    f'if ($project = "{p["name"]}")'
+                    f" {{ set $auth_port {auth_record['auth_port']}; }}"
+                )
 
         auth_conf = Path("/etc/nginx/hostkit-auth-ports.conf")
         auth_conf.write_text("\n".join(auth_lines) + "\n")
@@ -586,11 +598,14 @@ class ProjectService:
             if project_port:
                 # Check if payment service is enabled for this project
                 from hostkit.services.payment_service import PaymentService
+
                 try:
                     payment_service = PaymentService()
                     if payment_service.payment_is_enabled(p["name"]):
                         payment_port = project_port + 2000
-                        payment_lines.append(f'if ($project = "{p["name"]}") {{ set $payment_port {payment_port}; }}')
+                        payment_lines.append(
+                            f'if ($project = "{p["name"]}") {{ set $payment_port {payment_port}; }}'
+                        )
                 except Exception:
                     pass  # Skip if payment service check fails
 
@@ -604,11 +619,14 @@ class ProjectService:
             if project_port:
                 # Check if SMS service is enabled for this project
                 from hostkit.services.sms_service import SMSService
+
                 try:
                     sms_service = SMSService()
                     if sms_service.sms_is_enabled(p["name"]):
                         sms_port = project_port + 3000
-                        sms_lines.append(f'if ($project = "{p["name"]}") {{ set $sms_port {sms_port}; }}')
+                        sms_lines.append(
+                            f'if ($project = "{p["name"]}") {{ set $sms_port {sms_port}; }}'
+                        )
                 except Exception:
                     pass  # Skip if SMS service check fails
 
@@ -622,11 +640,14 @@ class ProjectService:
             if project_port:
                 # Check if booking service is enabled for this project
                 from hostkit.services.booking_service import BookingService
+
                 try:
                     booking_service = BookingService()
                     if booking_service.booking_is_enabled(p["name"]):
                         booking_port = project_port + 4000
-                        booking_lines.append(f'if ($project = "{p["name"]}") {{ set $booking_port {booking_port}; }}')
+                        booking_lines.append(
+                            f'if ($project = "{p["name"]}") {{ set $booking_port {booking_port}; }}'
+                        )
                 except Exception:
                     pass  # Skip if booking service check fails
 
@@ -634,17 +655,23 @@ class ProjectService:
         booking_conf.write_text("\n".join(booking_lines) + "\n")
 
         # Generate chatbot port mappings
-        chatbot_lines = ["# Auto-generated chatbot port mappings", "# Format: if ($project = \"name\") { set $chatbot_port PORT; }"]
+        chatbot_lines = [
+            "# Auto-generated chatbot port mappings",
+            '# Format: if ($project = "name") { set $chatbot_port PORT; }',
+        ]
         for p in projects:
             project_port = p.get("port")
             if project_port:
                 # Check if chatbot service is enabled for this project
                 from hostkit.services.chatbot_service import ChatbotService
+
                 try:
                     chatbot_service = ChatbotService()
                     if chatbot_service.chatbot_is_enabled(p["name"]):
                         chatbot_port = project_port + 5000
-                        chatbot_lines.append(f'if ($project = "{p["name"]}") {{ set $chatbot_port {chatbot_port}; }}')
+                        chatbot_lines.append(
+                            f'if ($project = "{p["name"]}") {{ set $chatbot_port {chatbot_port}; }}'
+                        )
                 except Exception:
                     pass  # Skip if chatbot service check fails
 
@@ -664,8 +691,10 @@ class ProjectService:
                 "useradd",
                 "--system",
                 "--create-home",
-                "--home-dir", f"/home/{name}",
-                "--shell", "/bin/bash",
+                "--home-dir",
+                f"/home/{name}",
+                "--shell",
+                "/bin/bash",
                 name,
             ],
             check=True,
@@ -769,7 +798,9 @@ NODE_ENV=production
             start_command = start_command.format(project_name=name)
 
         # Get working directory for runtime
-        working_directory = DEFAULT_WORKING_DIRECTORIES.get(runtime, DEFAULT_WORKING_DIRECTORIES["python"])
+        working_directory = DEFAULT_WORKING_DIRECTORIES.get(
+            runtime, DEFAULT_WORKING_DIRECTORIES["python"]
+        )
         working_directory = working_directory.format(project_name=name)
 
         # Build resource limits section

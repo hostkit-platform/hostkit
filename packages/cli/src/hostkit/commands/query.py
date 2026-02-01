@@ -50,7 +50,7 @@ def query(ctx: click.Context, question: str, limit: int, raw: bool) -> None:
                 click.echo("=" * 60)
 
                 for i, chunk in enumerate(result.get("chunks", [])):
-                    click.echo(f"\n[{i+1}] Score: {chunk.get('score', 0):.2f}")
+                    click.echo(f"\n[{i + 1}] Score: {chunk.get('score', 0):.2f}")
                     click.echo(f"Source: {chunk.get('source', 'unknown')}")
                     click.echo("-" * 40)
                     content = chunk.get("content", "")[:500]
@@ -63,13 +63,13 @@ def query(ctx: click.Context, question: str, limit: int, raw: bool) -> None:
 
                 commands = result.get("commands", [])
                 if commands:
-                    click.echo(f"\nRelevant commands:")
+                    click.echo("\nRelevant commands:")
                     for cmd in commands:
                         click.echo(f"  {cmd}")
 
                 see_also = result.get("see_also", [])
                 if see_also:
-                    click.echo(f"\nSee also:")
+                    click.echo("\nSee also:")
                     for topic in see_also:
                         click.echo(f"  - {topic}")
 
