@@ -795,6 +795,73 @@ Query with `hostkit_search`. The hybrid search uses semantic understanding (70%)
 
 ---
 
+## CRITICAL: Next.js Deployment Rules
+
+> **Incorrect deployment is the #1 cause of crash loops.** Follow this exactly.
+
+### The Correct Deployment Flow
+
+```
+1. Build locally:     cd /path/to/project && npm run build
+2. Deploy:            hostkit_deploy_local with install=true, build=true, wait_healthy=true
+3. Verify:            Use Playwright to load the actual site — health checks are NOT enough
+```
+
+### Mandatory Flags
+
+When calling `hostkit_deploy_local` for ANY Node/Next.js project:
+
+```
+hostkit_deploy_local:
+  project: "my-project"
+  local_path: "/path/to/project"
+  install: true       # MANDATORY — skipping causes "module not found" crash loops
+  build: true         # MANDATORY — skipping serves stale/missing builds
+  wait_healthy: true  # MANDATORY — confirms service starts
+```
+
+**Never omit `install` or `build`.** There is no valid reason to skip them.
+
+### Next.js Requirements
+
+- Project MUST be created with `--nextjs` runtime. Runtime is immutable — wrong runtime means delete and recreate.
+- `next.config.js` MUST include `output: "standalone"` for HostKit deployment.
+- Project names: lowercase, hyphens only. No underscores, no uppercase.
+
+### Large Projects (rsync timeout)
+
+If `hostkit_deploy_local` times out, deploy manually:
+
+```bash
+rsync -avz --delete \
+  --exclude=node_modules --exclude=.git --exclude=.next \
+  /local/project/ ai-operator@{{VPS_IP}}:/tmp/project-deploy/
+```
+
+Then: `hostkit_execute: command="deploy project --source /tmp/project-deploy --install --build"`
+
+**IMPORTANT:** Use anchored rsync excludes (`--exclude=/images`) to avoid matching subdirectories at any depth.
+
+### Post-Deploy Verification
+
+Health checks pass even with broken assets, missing CSS, or 500 errors on actual pages. After every deploy:
+
+1. Use Playwright to navigate to the actual site URL
+2. Take a snapshot and verify content renders
+3. Check `browser_console_messages` for JavaScript errors
+4. If behind Cloudflare, bust cache with `?v={timestamp}`
+
+### Common Crash Loop Causes
+
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| Rapid restarts | Missing `install: true` | Redeploy with all flags |
+| "Module not found" | Missing `install: true` | Redeploy with all flags |
+| Stale content | Missing `build: true` | Redeploy with all flags |
+| "next: command not found" | Wrong runtime | Delete project, recreate with `--nextjs` |
+
+---
+
 ## Quick Reference
 
 ### Common Operations
