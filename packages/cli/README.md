@@ -101,11 +101,13 @@ Every command supports `--json` for machine-readable output.
 The CLI reads configuration from `/etc/hostkit/config.yaml`:
 
 ```yaml
-domain: hostkit.dev
+domain: yourdomain.com       # Your Cloudflare-managed domain
 data_dir: /var/lib/hostkit
 log_dir: /var/log/hostkit
 backup_dir: /backups
 ```
+
+> **Note:** The `domain` field controls automatic subdomain routing. Each project gets `{project}.{domain}`. This requires a wildcard DNS record (`*.yourdomain.com`) pointing to your VPS, managed through [Cloudflare](https://dash.cloudflare.com/) (free plan works). See the [root README](../../README.md#cloudflare-dns-setup) for setup instructions.
 
 ## Project layout on disk
 

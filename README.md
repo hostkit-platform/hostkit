@@ -42,6 +42,25 @@ AI coding agents can write code, but they can't deploy it. HostKit bridges that 
 | **MCP Server** | [`packages/mcp-server`](packages/mcp-server/) | TypeScript MCP server that runs locally. Gives AI agents 15 tools for managing the VPS over SSH. |
 | **Agent Template** | [`packages/agent`](packages/agent/) | Starter `CLAUDE.md` and permissions config for new projects. |
 
+## Prerequisites
+
+| Requirement | Why |
+|-------------|-----|
+| **Ubuntu 22.04+ VPS** (2+ GB RAM) | Hetzner, DigitalOcean, Vultr, Linode all work |
+| **Domain name on Cloudflare** | HostKit uses wildcard subdomains (`*.yourdomain.com`) so each project automatically gets `project.yourdomain.com`. This requires Cloudflare DNS with a wildcard A record pointing to your VPS. |
+| **Node.js 20+** (local machine) | Runs the MCP server |
+
+### Cloudflare DNS setup
+
+HostKit's automatic subdomain routing requires a wildcard DNS record managed by Cloudflare:
+
+1. Add your domain to [Cloudflare](https://dash.cloudflare.com/) (free plan works)
+2. Create a wildcard A record: `*.yourdomain.com → YOUR_VPS_IP` (proxied or DNS-only)
+3. Create a root A record: `yourdomain.com → YOUR_VPS_IP`
+4. Set the `domain` field in `/etc/hostkit/config.yaml` to your domain after bootstrap
+
+Without Cloudflare, you can still use HostKit — but you'll need to manually configure DNS for each project instead of getting automatic `project.yourdomain.com` subdomains.
+
 ## Quick Start
 
 ### 1. Provision a VPS
