@@ -2,15 +2,16 @@
 
 import { readFile, writeFile, mkdir } from 'fs/promises';
 import { existsSync } from 'fs';
-import { join } from 'path';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
 import { getDataPath } from '../config.js';
 import { createLogger } from '../utils/logger.js';
 import type { DocChunk, ChunkType } from '../types.js';
 
 const logger = createLogger('indexer:claudemd');
 
-// Paths to HostKit documentation
-const DOC_PATHS = [
+// Default paths to HostKit documentation (used by sync when no --docs provided)
+const DEFAULT_DOC_PATHS = [
   '/Users/ryanchappell/Agents/HostKit-Agent/CLAUDE.md',
   '/Users/ryanchappell/Agents/HostKit-Agent/docs/SERVICES.md',
 ];
@@ -232,14 +233,30 @@ export function buildTfidfIndex(chunks: DocChunk[]): Map<string, Map<string, num
 }
 
 /**
+ * Get the bundled index directory (shipped with package in data/index/).
+ */
+function getBundledIndexDir(): string {
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = dirname(__filename);
+  // src/indexers/claudemd.ts → ../../data/index
+  return join(__dirname, '..', '..', 'data', 'index');
+}
+
+/**
  * Load the search index from disk.
+ * Checks bundled index (data/index/) first, then user dir (~/.hostkit-context/index/).
  */
 export async function loadSearchIndex(): Promise<{
   chunks: DocChunk[];
   embeddings: number[][];
   tfidfIndex: Map<string, Map<string, number>>;
 } | null> {
-  const indexDir = getDataPath('index');
+  // Try bundled index first (shipped with package)
+  const bundledDir = getBundledIndexDir();
+  const userDir = getDataPath('index');
+
+  const indexDir = existsSync(join(bundledDir, 'chunks.json')) ? bundledDir : userDir;
+  logger.info(`Loading search index from: ${indexDir}`);
 
   const chunksPath = join(indexDir, 'chunks.json');
   const embeddingsPath = join(indexDir, 'embeddings.json');
@@ -247,7 +264,7 @@ export async function loadSearchIndex(): Promise<{
 
   // Check if index files exist
   if (!existsSync(chunksPath)) {
-    logger.warn('Chunks file not found');
+    logger.warn('Chunks file not found in bundled or user directory');
     return null;
   }
 
@@ -283,12 +300,14 @@ export async function loadSearchIndex(): Promise<{
 
 /**
  * Save the search index to disk.
+ * If outputDir is provided, saves there; otherwise saves to ~/.hostkit-context/index/.
  */
 export async function saveSearchIndex(
   chunks: DocChunk[],
-  tfidfIndex: Map<string, Map<string, number>>
+  tfidfIndex: Map<string, Map<string, number>>,
+  outputDir?: string
 ): Promise<void> {
-  const indexDir = getDataPath('index');
+  const indexDir = outputDir || getDataPath('index');
 
   // Ensure directory exists
   if (!existsSync(indexDir)) {
@@ -321,14 +340,21 @@ export async function saveSearchIndex(
 
 /**
  * Build the search index from all documentation files.
+ * @param docPaths - Override default doc paths. If not provided, uses DEFAULT_DOC_PATHS.
+ * @param outputDir - Override output directory. If not provided, saves to ~/.hostkit-context/index/.
+ * @returns The parsed chunks and TF-IDF index.
  */
-export async function buildIndex(): Promise<void> {
+export async function buildIndex(
+  docPaths?: string[],
+  outputDir?: string
+): Promise<{ chunks: DocChunk[]; tfidfIndex: Map<string, Map<string, number>> }> {
+  const paths = docPaths || DEFAULT_DOC_PATHS;
   logger.info('Building search index from documentation files...');
 
   const allChunks: DocChunk[] = [];
 
   // Read and parse all documentation files
-  for (const docPath of DOC_PATHS) {
+  for (const docPath of paths) {
     if (!existsSync(docPath)) {
       logger.warn(`Documentation file not found: ${docPath}`);
       continue;
@@ -345,7 +371,8 @@ export async function buildIndex(): Promise<void> {
   const tfidfIndex = buildTfidfIndex(allChunks);
 
   // Save to disk
-  await saveSearchIndex(allChunks, tfidfIndex);
+  await saveSearchIndex(allChunks, tfidfIndex, outputDir);
 
   logger.info(`Search index build complete: ${allChunks.length} total chunks`);
+  return { chunks: allChunks, tfidfIndex };
 }

@@ -22,11 +22,11 @@
     "start": "node dist/index.js",
     "test": "vitest --passWithNoTests",
     "typecheck": "tsc --noEmit",
-    "build-embeddings": "python3 embeddings/generator.py",
     "sync": "node dist/sync.js"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
+    "@huggingface/transformers": "^3.0.0",
     "ssh2": "^1.15.0",
     "better-sqlite3": "^11.0.0"
   },
@@ -41,6 +41,6 @@
     "node": ">=20.0.0"
   },
   "pnpm": {
-    "onlyBuiltDependencies": ["better-sqlite3", "cpu-features", "esbuild", "ssh2"]
+    "onlyBuiltDependencies": ["better-sqlite3", "cpu-features", "esbuild", "ssh2", "onnxruntime-node"]
   }
 }

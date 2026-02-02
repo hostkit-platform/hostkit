@@ -34,7 +34,7 @@ async function main() {
       initializeSearchIndex(searchIndex);
       logger.info('Search index loaded');
     } else {
-      logger.warn('Search index not found. Run `npm run build-embeddings` to generate.');
+      logger.warn('Search index not found. Run `npm run sync` to generate.');
     }
   } catch (error) {
     logger.warn('Failed to load search index', error);

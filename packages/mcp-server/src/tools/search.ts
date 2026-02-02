@@ -1,6 +1,7 @@
 // hostkit_search tool implementation
 
 import { createLogger } from '../utils/logger.js';
+import { embedQuery } from '../embeddings.js';
 import type { SearchParams, SearchResult, ToolResponse, DocChunk } from '../types.js';
 
 const logger = createLogger('tools:search');
@@ -85,43 +86,16 @@ function computeTfidfScores(
 }
 
 /**
- * Compute hybrid score.
- */
-function hybridScore(semantic: number, tfidf: number): number {
-  // 70% semantic, 30% keyword
-  return 0.7 * semantic + 0.3 * Math.min(tfidf / 10, 1);
-}
-
-/**
- * Get query embedding via Python subprocess.
+ * Get query embedding via Transformers.js.
  * Falls back to keyword-only search if embedding fails.
  */
 async function getQueryEmbedding(query: string): Promise<number[] | null> {
   try {
-    const { exec } = await import('child_process');
-    const { promisify } = await import('util');
-    const execAsync = promisify(exec);
-    const { join, dirname } = await import('path');
-    const { fileURLToPath } = await import('url');
-
-    const __filename = fileURLToPath(import.meta.url);
-    const __dirname = dirname(__filename);
-    const queryScript = join(__dirname, '..', '..', 'embeddings', 'query.py');
-
-    const escapedQuery = query.replace(/"/g, '\\"').replace(/\n/g, ' ');
-    const { stdout } = await execAsync(`python3 "${queryScript}" "${escapedQuery}"`, {
-      timeout: 30000,
-    });
-
-    const embedding = JSON.parse(stdout.trim());
-    if (Array.isArray(embedding) && embedding.length > 0) {
-      return embedding;
-    }
+    return await embedQuery(query);
   } catch (error) {
-    logger.warn('Failed to get query embedding, falling back to TF-IDF only', error);
+    logger.warn('Embedding failed, falling back to keyword search', error);
+    return null;
   }
-
-  return null;
 }
 
 /**
@@ -138,7 +112,7 @@ export async function handleSearch(params: SearchParams): Promise<ToolResponse> 
       error: {
         code: 'INDEX_NOT_READY',
         message:
-          'Search index not initialized. Run `npm run build-embeddings` to generate the index.',
+          'Search index not initialized. Run `npm run sync` to generate the index.',
       },
     };
   }
@@ -165,6 +139,7 @@ export async function handleSearch(params: SearchParams): Promise<ToolResponse> 
     }
 
     // Compute hybrid scores and filter
+    const semanticAvailable = queryEmbedding !== null && semanticScores.size > 0;
     const results: SearchResult[] = [];
 
     for (const chunk of searchIndex.chunks) {
@@ -193,8 +168,18 @@ export async function handleSearch(params: SearchParams): Promise<ToolResponse> 
         chunk,
         semanticScore: semantic,
         tfidfScore: tfidf,
-        hybridScore: hybridScore(semantic, tfidf),
+        hybridScore: 0, // computed after normalization below
       });
+    }
+
+    // Normalize TF-IDF scores per-query to 0-1 range
+    const maxTfidf = Math.max(...results.map((r) => r.tfidfScore), 0.001);
+
+    for (const result of results) {
+      const normTfidf = result.tfidfScore / maxTfidf;
+      result.hybridScore = semanticAvailable
+        ? 0.7 * result.semanticScore + 0.3 * normTfidf
+        : normTfidf; // full weight to TF-IDF when no semantic
     }
 
     // Sort by hybrid score and limit
@@ -210,7 +195,7 @@ export async function handleSearch(params: SearchParams): Promise<ToolResponse> 
       content: r.chunk.content.substring(0, 500) + (r.chunk.content.length > 500 ? '...' : ''),
       score: Math.round(r.hybridScore * 100) / 100,
       matchType:
-        r.semanticScore > r.tfidfScore / 10 ? 'semantic' : r.tfidfScore > 0 ? 'keyword' : 'none',
+        r.semanticScore > 0.3 ? 'semantic' : r.tfidfScore > 0 ? 'keyword' : 'none',
     }));
 
     return {
