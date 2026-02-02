@@ -104,8 +104,9 @@ def ssl_status(ctx: click.Context, domain: str) -> None:
 @ssl.command("provision")
 @click.argument("domain")
 @click.option("--email", help="Admin email for Let's Encrypt registration")
+@click.option("--skip-dns", is_flag=True, help="Skip DNS verification (use with Cloudflare proxy)")
 @click.pass_context
-def ssl_provision(ctx: click.Context, domain: str, email: str | None) -> None:
+def ssl_provision(ctx: click.Context, domain: str, email: str | None, skip_dns: bool) -> None:
     """Provision SSL certificate for a domain.
 
     Gets a Let's Encrypt certificate for DOMAIN and configures Nginx to use it.
@@ -115,12 +116,13 @@ def ssl_provision(ctx: click.Context, domain: str, email: str | None) -> None:
     Example:
         hostkit ssl provision example.com
         hostkit ssl provision example.com --email admin@example.com
+        hostkit ssl provision example.com --skip-dns
     """
     formatter: OutputFormatter = ctx.obj["formatter"]
     service = SSLService()
 
     try:
-        result = service.provision(domain, email)
+        result = service.provision(domain, email, skip_dns=skip_dns)
         formatter.success(
             data=result,
             message=f"SSL certificate provisioned for '{domain}'",

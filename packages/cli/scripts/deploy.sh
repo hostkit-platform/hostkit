@@ -4,20 +4,6 @@
 
 set -e
 
-# Configuration
-VPS_HOST="${VPS_HOST:-root@YOUR_VPS_IP}"
-VPS_PYTHON="${VPS_PYTHON:-python3}"
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
-
-# Guard against deploying with placeholder IP
-if [[ "$VPS_HOST" == *"YOUR_VPS_IP"* ]]; then
-    echo_error "VPS_HOST is not configured. Set VPS_HOST environment variable:"
-    echo_error "  export VPS_HOST=root@<your-vps-ip>"
-    echo_error "  $0"
-    exit 1
-fi
-
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -35,6 +21,20 @@ echo_warn() {
 echo_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
+
+# Configuration
+VPS_HOST="${VPS_HOST:-root@YOUR_VPS_IP}"
+VPS_PYTHON="${VPS_PYTHON:-python3}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
+
+# Guard against deploying with placeholder IP
+if [[ "$VPS_HOST" == *"YOUR_VPS_IP"* ]]; then
+    echo_error "VPS_HOST is not configured. Set VPS_HOST environment variable:"
+    echo_error "  export VPS_HOST=root@<your-vps-ip>"
+    echo_error "  $0"
+    exit 1
+fi
 
 # Check for required tools
 check_requirements() {

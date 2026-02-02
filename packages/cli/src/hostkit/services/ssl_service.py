@@ -284,7 +284,9 @@ class SSLService:
                 "key_path": None,
             }
 
-    def provision(self, domain: str, email: str | None = None) -> dict[str, Any]:
+    def provision(
+        self, domain: str, email: str | None = None, *, skip_dns: bool = False
+    ) -> dict[str, Any]:
         """Provision a new SSL certificate for a domain using Let's Encrypt."""
         # Verify domain is configured in HostKit
         domain_record = self.db.get_domain(domain)
@@ -301,7 +303,8 @@ class SSLService:
         self._check_rate_limit(project)
 
         # Validate DNS before attempting SSL (fail fast)
-        self._validate_dns_for_ssl(domain)
+        if not skip_dns:
+            self._validate_dns_for_ssl(domain)
 
         # Check if certificate already exists
         try:
