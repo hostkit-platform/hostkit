@@ -138,9 +138,22 @@ apt-get install -y -qq \
   rsync \
   acl \
   logrotate \
+  postfix \
+  dovecot-imapd \
+  dovecot-lmtpd \
+  opendkim \
+  opendkim-tools \
+  dnsutils \
   > /dev/null
 
 log_info "System packages installed"
+
+# Stop and disable mail services — installed but not configured until 'hostkit mail setup'
+for svc in postfix dovecot opendkim; do
+  systemctl stop "$svc" 2>/dev/null || true
+  systemctl disable "$svc" 2>/dev/null || true
+done
+log_info "Mail services installed but disabled (activate with 'hostkit mail setup')"
 
 # ─── System Users ───────────────────────────────────────────────────────────
 
@@ -178,6 +191,19 @@ if [[ -n "$SSH_PUBKEY" ]]; then
     log_info "SSH public key already present for ai-operator"
   fi
 fi
+
+# vmail user (UID 5000, GID 5000) for virtual mailboxes
+if ! getent group vmail &>/dev/null; then
+  groupadd -g 5000 vmail
+fi
+if ! id -u vmail &>/dev/null; then
+  useradd -u 5000 -g vmail -d /var/mail/vhosts -s /usr/sbin/nologin vmail
+  log_info "Created user: vmail (uid=5000)"
+else
+  log_info "User vmail already exists"
+fi
+mkdir -p /var/mail/vhosts
+chown 5000:5000 /var/mail/vhosts
 
 # ─── Sudoers for ai-operator ───────────────────────────────────────────────
 
@@ -286,6 +312,13 @@ if [[ -f "$PG_HBA" ]]; then
   else
     log_info "pg_hba.conf already configured for hostkit"
   fi
+fi
+
+# Install pgvector extension for vector/RAG service
+if apt-get install -y -qq "postgresql-${PG_VERSION}-pgvector" > /dev/null 2>&1; then
+  log_info "pgvector extension installed for PostgreSQL $PG_VERSION"
+else
+  log_warn "pgvector not available for PostgreSQL $PG_VERSION (may need PGDG repo)"
 fi
 
 # ─── Redis ──────────────────────────────────────────────────────────────────
@@ -406,6 +439,41 @@ fi
 nginx -t 2>/dev/null && systemctl enable --now nginx && systemctl reload nginx
 log_info "Nginx configured with /etc/nginx/hostkit/ include"
 
+# ─── MinIO Object Storage ─────────────────────────────────────────────────
+
+log_step "Installing MinIO binaries"
+
+# Download MinIO server binary
+if [[ ! -f /usr/local/bin/minio ]]; then
+  wget -q https://dl.min.io/server/minio/release/linux-amd64/minio -O /usr/local/bin/minio
+  chmod +x /usr/local/bin/minio
+  log_info "MinIO server binary installed"
+else
+  log_info "MinIO server binary already present"
+fi
+
+# Download MinIO client (mc)
+if [[ ! -f /usr/local/bin/mc ]]; then
+  wget -q https://dl.min.io/client/mc/release/linux-amd64/mc -O /usr/local/bin/mc
+  chmod +x /usr/local/bin/mc
+  log_info "MinIO client (mc) installed"
+else
+  log_info "MinIO client (mc) already present"
+fi
+
+# Create minio system user
+if ! id -u minio &>/dev/null; then
+  useradd --system --no-create-home --shell /bin/false minio
+  log_info "Created system user: minio"
+else
+  log_info "User minio already exists"
+fi
+
+# Create data directory (not started until 'hostkit storage setup')
+mkdir -p /var/lib/minio/data
+chown -R minio:minio /var/lib/minio
+log_info "MinIO installed but not started (activate with 'hostkit storage setup')"
+
 # ─── Install HostKit CLI ────────────────────────────────────────────────────
 
 log_step "Installing HostKit CLI"
@@ -491,8 +559,11 @@ echo -e "  Data:           $HOSTKIT_DATA_DIR/"
 echo -e "  Logs:           $HOSTKIT_LOG_DIR/"
 echo -e "  Backups:        $HOSTKIT_BACKUP_DIR/"
 echo -e "  PostgreSQL:     running (role: hostkit, password in $PG_PASSWORD_FILE)"
+echo -e "  pgvector:       $(dpkg -l "postgresql-${PG_VERSION}-pgvector" &>/dev/null && echo "installed" || echo "not available")"
 echo -e "  Redis:          running (localhost:6379)"
 echo -e "  Nginx:          running"
+echo -e "  Mail packages:  installed (disabled — activate with 'hostkit mail setup')"
+echo -e "  MinIO:          installed (activate with 'hostkit storage setup')"
 echo -e "  Firewall:       $(if [[ "$SKIP_FIREWALL" == false ]]; then echo "enabled (22, 80, 443)"; else echo "skipped"; fi)"
 echo -e "  ai-operator:    $(if [[ -n "$SSH_PUBKEY" ]]; then echo "SSH key configured"; else echo "created (add SSH key manually)"; fi)"
 echo ""

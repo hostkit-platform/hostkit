@@ -44,6 +44,12 @@ packages:
   - acl
   - logrotate
   - openssl
+  - postfix
+  - dovecot-imapd
+  - dovecot-lmtpd
+  - opendkim
+  - opendkim-tools
+  - dnsutils
 
 # ─── Users ──────────────────────────────────────────────────────────────────
 
@@ -57,10 +63,24 @@ users:
     system: true
     shell: /usr/sbin/nologin
     home: /var/lib/hostkit
+  - name: vmail
+    uid: "5000"
+    primary_group: vmail
+    shell: /usr/sbin/nologin
+    home: /var/mail/vhosts
+    no_create_home: true
 
 # ─── Filesystem ─────────────────────────────────────────────────────────────
 
 runcmd:
+  # ── Stop and disable mail services (installed but not configured) ──
+  - systemctl stop postfix 2>/dev/null || true
+  - systemctl disable postfix 2>/dev/null || true
+  - systemctl stop dovecot 2>/dev/null || true
+  - systemctl disable dovecot 2>/dev/null || true
+  - systemctl stop opendkim 2>/dev/null || true
+  - systemctl disable opendkim 2>/dev/null || true
+
   # ── Directories ──
   - mkdir -p /var/lib/hostkit/{templates,db,docs}
   - mkdir -p /var/log/hostkit
@@ -70,6 +90,11 @@ runcmd:
   - chown -R hostkit:hostkit /var/lib/hostkit
   - chown -R hostkit:hostkit /var/log/hostkit
   - chmod 755 /backups
+
+  # ── vmail user for virtual mailboxes ──
+  - groupadd -g 5000 vmail || true
+  - mkdir -p /var/mail/vhosts
+  - chown 5000:5000 /var/mail/vhosts
 
   # ── Sudoers for ai-operator ──
   - |
@@ -120,6 +145,11 @@ runcmd:
         systemctl reload postgresql
       fi
     fi
+
+  # ── pgvector extension for vector/RAG service ──
+  - |
+    PG_VERSION=$(pg_lsclusters -h | awk '{print $1}' | head -1)
+    apt-get install -y -qq "postgresql-${PG_VERSION}-pgvector" || echo "pgvector not available for PostgreSQL ${PG_VERSION}"
 
   # ── Redis ──
   - sed -i 's/^bind .*/bind 127.0.0.1 ::1/' /etc/redis/redis.conf
@@ -172,6 +202,15 @@ runcmd:
   - rm -f /etc/nginx/sites-enabled/default
   - grep -q 'include /etc/nginx/hostkit/' /etc/nginx/nginx.conf || sed -i '/http {/a \    include /etc/nginx/hostkit/*.conf;' /etc/nginx/nginx.conf
   - nginx -t && systemctl enable --now nginx && systemctl reload nginx
+
+  # ── MinIO Object Storage ──
+  - wget -q https://dl.min.io/server/minio/release/linux-amd64/minio -O /usr/local/bin/minio
+  - chmod +x /usr/local/bin/minio
+  - wget -q https://dl.min.io/client/mc/release/linux-amd64/mc -O /usr/local/bin/mc
+  - chmod +x /usr/local/bin/mc
+  - useradd --system --no-create-home --shell /bin/false minio || true
+  - mkdir -p /var/lib/minio/data
+  - chown -R minio:minio /var/lib/minio
 
   # ── Install HostKit CLI ──
   - pip3 install --break-system-packages hostkit || pip3 install hostkit || echo "HostKit not on PyPI yet — install manually"
