@@ -230,8 +230,19 @@ class ProjectService:
                 suggestion="Check system logs for details",
             )
 
-    def delete_project(self, name: str, force: bool = False) -> None:
-        """Delete a project and all its resources."""
+    def delete_project(self, name: str, force: bool = False) -> dict[str, Any]:
+        """Delete a project and all its resources.
+
+        Args:
+            name: Project name
+            force: Kept for backward compatibility (treated as confirmed)
+
+        Returns:
+            Dict summarizing what was deleted
+
+        Raises:
+            ProjectServiceError: If project doesn't exist or not confirmed
+        """
         # Check project exists
         project = self.db.get_project(name)
         if not project:
@@ -243,38 +254,69 @@ class ProjectService:
 
         if not force:
             raise ProjectServiceError(
-                code="FORCE_REQUIRED",
-                message="Deleting a project requires --force flag",
-                suggestion="Add --force to confirm deletion",
+                code="CONFIRMATION_REQUIRED",
+                message="Deletion requires confirmation",
+                suggestion="Use --confirm <name>, --yes, or interactive prompt",
             )
 
-        # 1. Stop service if running
+        port = project.get("port")
+        summary: dict[str, Any] = {"name": name, "port_freed": port}
+
+        # 1. Stop main service if running
         self._stop_systemd_service(name)
 
-        # 2. Remove systemd service
+        # 2. Stop and remove add-on service units
+        stopped_services = self._stop_enabled_services(name)
+        summary["stopped_services"] = stopped_services
+
+        # 3. Remove main systemd service
         self._remove_systemd_service(name)
 
-        # 3. Remove sudoers rules
+        # 4. Clean up nginx site config
+        nginx_cleaned = False
+        try:
+            from hostkit.services.nginx_service import NginxService
+
+            nginx = NginxService()
+            nginx._disable_site(name)
+            nginx._remove_site_config(name)
+            nginx_cleaned = True
+        except Exception:
+            pass  # Nginx config may not exist
+        summary["nginx_cleaned"] = nginx_cleaned
+
+        # 5. Remove sudoers rules
         self._remove_sudoers_rules(name)
 
-        # 4. Delete Linux user and home directory
+        # 6. Delete Linux user and home directory
         self._delete_linux_user(name)
 
-        # 5. Clean up log directory
+        # 7. Clean up log directory
         self._remove_log_directory(name)
 
-        # 6. Clean up storage bucket if exists
+        # 8. Clean up storage bucket if exists
+        storage_cleaned = False
         try:
             from hostkit.services.storage_service import StorageService
 
             storage = StorageService()
             if storage.is_minio_running():
                 storage.cleanup_project_bucket(name)
+                storage_cleaned = True
         except Exception:
             pass  # Best effort cleanup
+        summary["storage_cleaned"] = storage_cleaned
 
-        # 7. Remove from database (cascades to domains and backups)
+        # 9. Remove from database (cascades to domains and backups)
         self.db.delete_project(name)
+
+        # 10. Regenerate nginx port mappings so deleted project is removed
+        try:
+            self._regenerate_nginx_port_mappings()
+        except Exception:
+            pass  # Best effort
+
+        return summary
 
     def list_projects(self) -> list[ProjectInfo]:
         """List all projects."""
@@ -497,6 +539,104 @@ class ProjectService:
 
         return services
 
+    def get_delete_preview(self, name: str) -> dict[str, Any]:
+        """Get a preview of everything that would be deleted for a project.
+
+        Read-only operation — no state changes.
+
+        Args:
+            name: Project name
+
+        Returns:
+            Dict describing all resources that would be removed
+
+        Raises:
+            ProjectServiceError: If project doesn't exist
+        """
+        project = self.get_project(name)
+        domains = self.db.list_domains(name)
+        backups = self.db.list_backups(name)
+        enabled_services = self.get_project_enabled_services(name)
+
+        home_dir = f"/home/{name}"
+        home_size = self._get_directory_size(home_dir)
+        log_size = self._get_directory_size(f"/var/log/projects/{name}")
+
+        has_nginx_config = Path(f"/etc/nginx/sites-available/hostkit-{name}").exists()
+
+        return {
+            "name": name,
+            "runtime": project.runtime,
+            "port": project.port,
+            "status": project.status,
+            "created_at": project.created_at,
+            "resources": {
+                "home_directory": {"path": home_dir, "size": home_size},
+                "log_directory": {
+                    "path": f"/var/log/projects/{name}",
+                    "size": log_size,
+                },
+                "systemd_service": f"hostkit-{name}.service",
+                "linux_user": name,
+                "sudoers_file": f"/etc/sudoers.d/hostkit-{name}",
+            },
+            "domains": [d["domain"] for d in domains],
+            "enabled_services": enabled_services,
+            "has_database": "db" in enabled_services,
+            "has_storage": "minio" in enabled_services,
+            "has_nginx_config": has_nginx_config,
+            "backup_count": len(backups),
+        }
+
+    def backup_project_directory(self, name: str) -> dict[str, Any]:
+        """Create a tarball backup of a project's home directory.
+
+        Creates /var/backups/hostkit/{name}-{timestamp}.tar.gz.
+        Separate from BackupService (which requires project in DB and has
+        retention policies).
+
+        Args:
+            name: Project name
+
+        Returns:
+            Dict with backup_path, size_bytes, created_at
+
+        Raises:
+            ProjectServiceError: If backup fails
+        """
+        import tarfile
+        from datetime import UTC, datetime
+
+        home_dir = Path(f"/home/{name}")
+        if not home_dir.exists():
+            raise ProjectServiceError(
+                code="BACKUP_FAILED",
+                message=f"Home directory /home/{name} does not exist",
+            )
+
+        backup_dir = Path("/var/backups/hostkit")
+        backup_dir.mkdir(parents=True, exist_ok=True)
+
+        timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+        backup_path = backup_dir / f"{name}-{timestamp}.tar.gz"
+
+        try:
+            with tarfile.open(backup_path, "w:gz") as tar:
+                tar.add(str(home_dir), arcname=name)
+        except Exception as e:
+            raise ProjectServiceError(
+                code="BACKUP_FAILED",
+                message=f"Failed to create backup: {e}",
+            )
+
+        size_bytes = backup_path.stat().st_size
+
+        return {
+            "backup_path": str(backup_path),
+            "size_bytes": size_bytes,
+            "created_at": timestamp,
+        }
+
     def regenerate_sudoers(self, name: str) -> dict[str, Any]:
         """Regenerate sudoers rules for an existing project.
 
@@ -550,6 +690,59 @@ class ProjectService:
         return results
 
     # Private helper methods
+
+    def _stop_enabled_services(self, name: str) -> list[str]:
+        """Stop and remove systemd units for add-on services.
+
+        Iterates known service suffixes, stops each unit, removes the
+        service file, then does a single daemon-reload at the end.
+
+        Does NOT call service-level disable_*() methods — those validate
+        project existence and handle their own DB cleanup, which the
+        cascade delete already covers.
+
+        Args:
+            name: Project name
+
+        Returns:
+            List of stopped service suffix names (e.g. ["auth", "worker"])
+        """
+        suffixes = ["auth", "payment", "sms", "booking", "chatbot", "worker"]
+        stopped: list[str] = []
+
+        for suffix in suffixes:
+            service_name = f"hostkit-{name}-{suffix}"
+            service_path = Path(f"/etc/systemd/system/{service_name}.service")
+
+            if not service_path.exists():
+                continue
+
+            # Stop the service
+            try:
+                subprocess.run(
+                    ["systemctl", "stop", service_name],
+                    check=True,
+                    capture_output=True,
+                )
+            except subprocess.CalledProcessError:
+                pass  # May already be stopped
+
+            # Remove the service file
+            service_path.unlink(missing_ok=True)
+            stopped.append(suffix)
+
+        # Single daemon-reload if we removed any service files
+        if stopped:
+            try:
+                subprocess.run(
+                    ["systemctl", "daemon-reload"],
+                    check=True,
+                    capture_output=True,
+                )
+            except subprocess.CalledProcessError:
+                pass
+
+        return stopped
 
     def _regenerate_nginx_port_mappings(self) -> None:
         """Regenerate nginx port mapping files for wildcard routing.

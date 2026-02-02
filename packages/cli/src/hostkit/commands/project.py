@@ -350,37 +350,196 @@ def create(
         formatter.error(e.code, e.message, e.suggestion)
 
 
+def _display_preview(
+    formatter: OutputFormatter, name: str, preview: dict[str, Any], is_dry_run: bool
+) -> None:
+    """Render a delete-preview in human-readable or JSON format."""
+    if formatter.json_mode:
+        preview["dry_run"] = is_dry_run
+        if not is_dry_run:
+            preview["confirmation_required"] = True
+        formatter.success(preview, f"Delete preview for '{name}'")
+        return
+
+    from rich.console import Console
+    from rich.panel import Panel
+    from rich.table import Table
+
+    console = Console()
+
+    table = Table(show_header=False, box=None, padding=(0, 2))
+    table.add_column("Key", style="bold")
+    table.add_column("Value")
+
+    table.add_row("Project", name)
+    table.add_row("Runtime", preview["runtime"])
+    table.add_row("Port", str(preview["port"]))
+    table.add_row("Status", preview["status"])
+    table.add_row("Created", preview["created_at"][:10])
+
+    res = preview["resources"]
+    home = res["home_directory"]
+    table.add_row("Home directory", f"{home['path']} ({home['size']})")
+    logs = res["log_directory"]
+    table.add_row("Log directory", f"{logs['path']} ({logs['size']})")
+    table.add_row("Systemd service", res["systemd_service"])
+
+    if preview["domains"]:
+        table.add_row("Domains", ", ".join(preview["domains"]))
+
+    if preview["enabled_services"]:
+        table.add_row("Enabled services", ", ".join(preview["enabled_services"]))
+
+    if preview["has_database"]:
+        table.add_row("Database", f"PostgreSQL ({name})")
+
+    if preview["has_storage"]:
+        table.add_row("Storage bucket", f"hostkit-{name}")
+
+    if preview["has_nginx_config"]:
+        table.add_row("Nginx config", f"hostkit-{name}")
+
+    if preview["backup_count"] > 0:
+        table.add_row("Backup records", str(preview["backup_count"]))
+
+    title = "[bold yellow]DRY RUN[/] — " if is_dry_run else ""
+    title += f"[bold red]Delete preview: {name}[/bold red]"
+    console.print(Panel(table, title=title, border_style="red"))
+
+    if is_dry_run:
+        console.print("[yellow]No changes made (dry run).[/yellow]")
+
+
 @project.command("delete")
 @click.argument("name")
+@click.option(
+    "--confirm",
+    "confirm_name",
+    default=None,
+    help="Confirm by typing the project name exactly",
+)
+@click.option(
+    "--yes",
+    "-y",
+    is_flag=True,
+    help="Skip confirmation prompt",
+)
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    help="Show what would be deleted without deleting",
+)
+@click.option(
+    "--backup",
+    is_flag=True,
+    help="Create a tarball backup of the home directory before deleting",
+)
 @click.option(
     "--force",
     "-f",
     is_flag=True,
-    help="Confirm deletion (required)",
+    hidden=True,
+    help="(deprecated) Same as --yes",
 )
 @click.pass_context
 @operator_or_root
-def delete(ctx: click.Context, name: str, force: bool) -> None:
+def delete(
+    ctx: click.Context,
+    name: str,
+    confirm_name: str | None,
+    yes: bool,
+    dry_run: bool,
+    backup: bool,
+    force: bool,
+) -> None:
     """Delete a project and all its resources.
 
-    This will:
-    - Stop the project's service
-    - Remove the systemd service file
-    - Delete the Linux user and home directory
-    - Remove log files
-    - Delete PostgreSQL database if exists
-    - Delete database records (including domains and backups)
+    Shows a preview of everything that will be removed, then asks for
+    confirmation before proceeding.
 
-    Requires --force flag to confirm deletion.
+    This will remove:
+    - Systemd services (main + add-on services)
+    - Linux user and home directory
+    - Log files
+    - PostgreSQL database (if exists)
+    - Nginx site config
+    - Storage buckets
+    - Database records (domains, backups)
 
-    Example:
-        hostkit project delete myapp --force
+    Examples:
+        hostkit project delete myapp
+        hostkit project delete myapp --dry-run
+        hostkit project delete myapp --confirm myapp
+        hostkit project delete myapp --yes
+        hostkit project delete myapp --backup --yes
     """
     formatter: OutputFormatter = ctx.obj["formatter"]
     service = ProjectService()
 
+    # --force is hidden backward compat for --yes
+    if force:
+        yes = True
+
     try:
-        # Try to delete database if it exists (best effort)
+        # 1. Get preview (validates project exists)
+        preview = service.get_delete_preview(name)
+
+        # 2. Dry run — show preview and exit
+        if dry_run:
+            _display_preview(formatter, name, preview, is_dry_run=True)
+            return
+
+        # 3. Determine confirmation
+        confirmed = False
+        if confirm_name is not None:
+            if confirm_name != name:
+                formatter.error(
+                    "NAME_MISMATCH",
+                    f"--confirm value '{confirm_name}' does not match project name '{name}'",
+                    f"Use: --confirm {name}",
+                )
+                return  # error() calls sys.exit, but be defensive
+            confirmed = True
+        elif yes:
+            confirmed = True
+        elif formatter.json_mode:
+            # JSON callers must pass --yes or --confirm; show preview with flag
+            preview["confirmation_required"] = True
+            formatter.success(preview, f"Confirmation required to delete '{name}'")
+            return
+        else:
+            # Interactive prompt
+            _display_preview(formatter, name, preview, is_dry_run=False)
+            typed = click.prompt(
+                f"\nType '{name}' to confirm deletion",
+                default="",
+                show_default=False,
+            )
+            if typed != name:
+                click.echo("Aborted.")
+                return
+            confirmed = True
+
+        if not confirmed:
+            return
+
+        # 4. Backup if requested
+        backup_info = None
+        if backup:
+            try:
+                backup_info = service.backup_project_directory(name)
+                if not formatter.json_mode:
+                    click.echo(
+                        f"Backup created: {backup_info['backup_path']} "
+                        f"({backup_info['size_bytes']} bytes)"
+                    )
+            except ProjectServiceError as e:
+                click.echo(
+                    f"Warning: Backup failed ({e.message}), continuing with delete",
+                    err=True,
+                )
+
+        # 5. Delete database (best effort, before project delete)
         db_deleted = False
         try:
             from hostkit.services.database_service import (
@@ -390,19 +549,20 @@ def delete(ctx: click.Context, name: str, force: bool) -> None:
 
             db_service = DatabaseService()
             if db_service.database_exists(name):
-                db_service.delete_database(name, force=force)
+                db_service.delete_database(name, force=True)
                 db_deleted = True
         except DatabaseServiceError:
-            pass  # Database might not exist or can't connect, continue
+            pass  # Database might not exist or can't connect
         except Exception:
-            pass  # PostgreSQL not available, continue
+            pass  # PostgreSQL not available
 
-        # Note: Storage bucket cleanup is handled in project_service.delete_project()
-        service.delete_project(name, force)
-        formatter.success(
-            {"name": name, "database_deleted": db_deleted, "storage_cleaned": True},
-            f"Project '{name}' deleted successfully",
-        )
+        # 6. Delete project (returns summary)
+        summary = service.delete_project(name, force=True)
+        summary["database_deleted"] = db_deleted
+        if backup_info:
+            summary["backup"] = backup_info
+
+        formatter.success(summary, f"Project '{name}' deleted successfully")
 
     except ProjectServiceError as e:
         formatter.error(e.code, e.message, e.suggestion)
