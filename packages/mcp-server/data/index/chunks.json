@@ -1594,7 +1594,155 @@
     "source": "CLAUDE.md"
   },
   {
-    "id": "mental-model-19",
+    "id": "monorepo-structure-19",
+    "title": "Monorepo Structure",
+    "content": "This is a monorepo at `github.com/hostkit-platform/hostkit` with three packages:\n\n```\nHostKit-Agent/                    # Root (this repo)\n├── packages/\n│   ├── cli/                      # Python CLI (runs on VPS)\n│   │   ├── src/                  # Click-based CLI implementation\n│   │   ├── templates/            # Jinja2 templates for project types\n│   │   └── pyproject.toml        # Python package config (hostkit v0.2.33)\n│   ├── mcp-server/               # TypeScript MCP server (runs locally)\n│   │   ├── src/                  # MCP tools, SSH, search, indexers\n│   │   ├── data/index/           # Pre-built search index (committed)\n│   │   ├── package.json          # Node package (hostkit-context)\n│   │   └── tsconfig.json\n│   └── agent/                    # Claude Code agent template\n│       ├── CLAUDE.md.template    # Agent identity doc for project agents\n│       ├── claude-settings.json  # Permission config\n│       └── commands/             # Reusable skill workflows\n├── install/                      # VPS bootstrap scripts\n├── CLAUDE.md                     # This file (substrate agent identity)\n└── .mcp.json                     # MCP server config (points to packages/mcp-server/)\n```\n\n**Working on packages:**\n- **CLI:** `cd packages/cli` — Python with Poetry\n- **MCP Server:** `cd packages/mcp-server` — TypeScript, `pnpm install && pnpm build`\n- **Rebuild search index:** `cd packages/mcp-server && pnpm build && node dist/sync.js`",
+    "section": "Architecture",
+    "chunkType": "command",
+    "tokens": [
+      "monorepo",
+      "structure",
+      "this",
+      "monorepo",
+      "github",
+      "com",
+      "hostkit",
+      "platform",
+      "hostkit",
+      "with",
+      "three",
+      "packages",
+      "hostkit",
+      "agent",
+      "root",
+      "this",
+      "repo",
+      "packages",
+      "cli",
+      "python",
+      "cli",
+      "runs",
+      "vps",
+      "src",
+      "click",
+      "based",
+      "cli",
+      "implementation",
+      "templates",
+      "jinja2",
+      "templates",
+      "for",
+      "project",
+      "types",
+      "pyproject",
+      "toml",
+      "python",
+      "package",
+      "config",
+      "hostkit",
+      "mcp",
+      "server",
+      "typescript",
+      "mcp",
+      "server",
+      "runs",
+      "locally",
+      "src",
+      "mcp",
+      "tools",
+      "ssh",
+      "search",
+      "indexers",
+      "data",
+      "index",
+      "pre",
+      "built",
+      "search",
+      "index",
+      "committed",
+      "package",
+      "json",
+      "node",
+      "package",
+      "hostkit",
+      "context",
+      "tsconfig",
+      "json",
+      "agent",
+      "claude",
+      "code",
+      "agent",
+      "template",
+      "claude",
+      "template",
+      "agent",
+      "identity",
+      "doc",
+      "for",
+      "project",
+      "agents",
+      "claude",
+      "settings",
+      "json",
+      "permission",
+      "config",
+      "commands",
+      "reusable",
+      "skill",
+      "workflows",
+      "install",
+      "vps",
+      "bootstrap",
+      "scripts",
+      "claude",
+      "this",
+      "file",
+      "substrate",
+      "agent",
+      "identity",
+      "mcp",
+      "json",
+      "mcp",
+      "server",
+      "config",
+      "points",
+      "packages",
+      "mcp",
+      "server",
+      "working",
+      "packages",
+      "cli",
+      "packages",
+      "cli",
+      "python",
+      "with",
+      "poetry",
+      "mcp",
+      "server",
+      "packages",
+      "mcp",
+      "server",
+      "typescript",
+      "pnpm",
+      "install",
+      "pnpm",
+      "build",
+      "rebuild",
+      "search",
+      "index",
+      "packages",
+      "mcp",
+      "server",
+      "pnpm",
+      "build",
+      "node",
+      "dist",
+      "sync"
+    ],
+    "source": "CLAUDE.md"
+  },
+  {
+    "id": "mental-model-20",
     "title": "Mental Model",
     "content": "Each project = Linux user + home directory + systemd service + allocated port\n\n```\nProject \"myapp\":\n├── Linux user: myapp\n├── Home: /home/myapp/\n├── Service: hostkit-myapp (systemd)\n├── Port: 8001 (assigned by HostKit)\n└── URL: https://myapp.hostkit.dev\n```",
     "section": "Architecture",
@@ -1637,7 +1785,7 @@
     "source": "CLAUDE.md"
   },
   {
-    "id": "access-tiers-20",
+    "id": "access-tiers-21",
     "title": "Access Tiers",
     "content": "| Level | User | Access |\n|-------|------|--------|\n| Root | root | Full system (substrate only) |\n| Operator | ai-operator | All hostkit commands via sudo |\n| Project | myapp | Own project commands via sudo |\n\nAI agents never need root. Operator creates projects; project user manages their own.",
     "section": "Architecture",
@@ -1684,7 +1832,7 @@
     "source": "CLAUDE.md"
   },
   {
-    "id": "services-available-21",
+    "id": "services-available-22",
     "title": "Services Available",
     "content": "| Service | Port Offset | Technology |\n|---------|-------------|------------|\n| Auth | +1000 | FastAPI + JWT |\n| Payments | +2000 | Stripe Connect + FastAPI |\n| SMS | +3000 | Twilio + FastAPI |\n| Booking | +4000 | FastAPI |\n| Chatbot | +5000 | Anthropic/OpenAI + FastAPI |\n| Voice | 8900 (central) | Twilio + Deepgram + Cartesia |\n\nPlus: PostgreSQL, Redis, **MinIO storage** (`s3.hostkit.dev`), R2 storage, Vector/RAG, Mail, Secrets vault.\n\n**Every project gets `{project}.hostkit.dev` automatically** with SSL.",
     "section": "Architecture",
@@ -1749,7 +1897,7 @@
     "source": "CLAUDE.md"
   },
   {
-    "id": "central-oauth-proxy-auth-hostkit-dev-22",
+    "id": "central-oauth-proxy-auth-hostkit-dev-23",
     "title": "Central OAuth Proxy (`auth.hostkit.dev`)",
     "content": "All OAuth authentication flows through a central proxy at `https://auth.hostkit.dev`. This allows a **single callback URL** to be registered with Google/Apple, instead of per-project callbacks.\n\n**Why a proxy?**\n- Google/Apple OAuth requires pre-registered callback URLs\n- Adding each new project to OAuth console is manual and slow\n- Central proxy handles OAuth, signs identity, redirects to project\n\n**OAuth Flow (Web):**\n\n```\n┌─────────────┐    ┌─────────────────────┐    ┌────────────┐    ┌─────────────┐\n│   Frontend  │───>│  auth.hostkit.dev   │───>│   Google   │───>│   Project   │\n│             │    │  /oauth/google/start│    │            │    │  Auth Svc   │\n└─────────────┘    └─────────────────────┘    └────────────┘    └─────────────┘\n      │                     │                       │                  │\n      │ 1. Redirect         │                       │                  │\n      │─────────────────────>                       │                  │\n      │    ?project=myapp                           │                  │\n      │    &return_url=https://myapp.hostkit.dev/   │                  │\n      │     auth/callback                           │                  │\n      │                     │                       │                  │\n      │                     │ 2. Redirect to Google │                  │\n      │                     │───────────────────────>                  │\n      │                     │                       │                  │\n      │                     │ 3. User authenticates │                  │\n      │                     │<───────────────────────                  │\n      │                     │    ?code=xxx          │                  │\n      │                     │                       │                  │\n      │                     │ 4. Validate token,    │                  │\n      │                     │    create signed      │                  │\n      │ 5. Redirect         │    identity           │                  │\n      │<─────────────────────                       │                  │\n      │  ?identity={token}  │                       │                  │\n      │                     │                       │                  │\n      │ 6. POST /auth/identity/verify              │                  │\n      │───────────────────────────────────────────────────────────────>\n      │    {\"token\": identity_token}               │                  │\n      │                     │                       │                  │\n      │ 7. Session tokens   │                       │                  │\n      │<───────────────────────────────────────────────────────────────\n```\n\n**Step-by-step:**\n\n1. **Frontend redirects to proxy:**\n   ```\n   https://auth.hostkit.dev/oauth/google/start\n     ?project=myapp\n     &return_url=https://myapp.hostkit.dev/auth/callback\n     &state=optional_client_state\n   ```\n\n2. **Proxy redirects to Google** with central callback URL\n\n3. **User authenticates with Google**",
     "section": "Architecture",
@@ -1901,7 +2049,7 @@
     "source": "CLAUDE.md"
   },
   {
-    "id": "central-oauth-proxy-auth-hostkit-dev-23",
+    "id": "central-oauth-proxy-auth-hostkit-dev-24",
     "title": "Central OAuth Proxy (`auth.hostkit.dev`)",
     "content": "4. **Google redirects to proxy callback:**\n   ```\n   https://auth.hostkit.dev/oauth/google/callback?code=xxx&state=yyy\n   ```\n\n5. **Proxy validates Google token, creates signed identity payload, redirects to project:**\n   ```\n   https://myapp.hostkit.dev/auth/callback?identity={signed_token}&state=client_state\n   ```\n\n6. **Frontend extracts identity token and calls project auth service:**\n   ```javascript\n   // Frontend code\n   const params = new URLSearchParams(window.location.search);\n   const identityToken = params.get('identity');\n\n   const response = await fetch('/auth/identity/verify', {\n     method: 'POST',\n     headers: { 'Content-Type': 'application/json' },\n     body: JSON.stringify({ token: identityToken })\n   });\n\n   const { user, session } = await response.json();\n   // session contains access_token and refresh_token\n   ```\n\n7. **Project auth service verifies signature, creates/links user, returns session tokens**\n\n**Callback URLs (registered with Google/Apple):**\n- Google: `https://auth.hostkit.dev/oauth/google/callback`\n- Apple: `https://auth.hostkit.dev/oauth/apple/callback`\n\n**Proxy Endpoints:**\n| Endpoint | Method | Description |\n|----------|--------|-------------|\n| `/oauth/google/start` | GET | Initiate Google OAuth |\n| `/oauth/google/callback` | GET | Google callback (internal) |\n| `/oauth/apple/start` | GET | Initiate Apple Sign-In |\n| `/oauth/apple/callback` | POST | Apple callback (internal) |\n| `/keys/public` | GET | Get proxy's public key for verification |\n\n**Project Auth Endpoints:**\n| Endpoint | Method | Description |\n|----------|--------|-------------|\n| `/auth/identity/verify` | POST | Verify identity token, get session |\n| `/auth/oauth/google` | POST | Direct OAuth (not via proxy) |\n| `/auth/oauth/google/verify-token` | POST | Verify native app ID token |\n\n**Native App OAuth (iOS/Android):**\n\nNative apps can bypass the proxy and use direct token verification:\n\n```\n1. App uses Google Sign-In SDK to get ID token\n2. POST /auth/oauth/google/verify-token\n   {\"id_token\": \"...\", \"ios_client_id\": \"...\"}\n3. Auth service validates directly with Google\n4. Returns session tokens\n```\n\n**When to use proxy vs direct:**\n| Scenario | Use |\n|----------|-----|\n| Web OAuth (browser redirects) | Proxy (`auth.hostkit.dev`) |\n| Native iOS/Android apps | Direct (`/auth/oauth/google/verify-token`) |\n| Server-to-server | Direct with API key |\n\n---",
     "section": "Architecture",
@@ -2190,7 +2338,7 @@
     "source": "CLAUDE.md"
   },
   {
-    "id": "critical-auth-integration-fixes-24",
+    "id": "critical-auth-integration-fixes-25",
     "title": "CRITICAL: Auth Integration Fixes",
     "content": "> **STOP! Before implementing authentication, call `hostkit_auth_guide` with your project name.**\n> These issues will cause silent failures if not addressed.",
     "section": "CRITICAL: Auth Integration Fixes",
@@ -2224,7 +2372,7 @@
     "source": "CLAUDE.md"
   },
   {
-    "id": "issue-1-jwt-public-key-newline-encoding-high-sever-25",
+    "id": "issue-1-jwt-public-key-newline-encoding-high-sever-26",
     "title": "Issue #1: JWT Public Key Newline Encoding (HIGH SEVERITY)",
     "content": "**Problem:** `AUTH_JWT_PUBLIC_KEY` contains literal `\\n` strings instead of real newlines.\n\n**Symptom:** JWT verification fails with \"Invalid character\" error. Users complete auth but get redirected back to login with no error message.\n\n**REQUIRED FIX:**\n```javascript\n// JavaScript/TypeScript\nconst JWT_PUBLIC_KEY = (process.env.AUTH_JWT_PUBLIC_KEY || \"\").replace(/\\\\n/g, \"\\n\");\n```\n\n```python\n# Python\nJWT_PUBLIC_KEY = os.environ.get(\"AUTH_JWT_PUBLIC_KEY\", \"\").replace(\"\\\\n\", \"\\n\")\n```",
     "section": "CRITICAL: Auth Integration Fixes",
@@ -2300,7 +2448,7 @@
     "source": "CLAUDE.md"
   },
   {
-    "id": "issue-2-oauth-identity-verify-response-structure-h-26",
+    "id": "issue-2-oauth-identity-verify-response-structure-h-27",
     "title": "Issue #2: OAuth Identity Verify Response Structure (HIGH SEVERITY)",
     "content": "**Problem:** `/auth/identity/verify` returns tokens **nested under `session`**, not at top level.\n\n**Symptom:** OAuth flow completes but session creation fails because `access_token` is undefined.\n\n**Actual response structure:**\n```json\n{\n  \"user\": { \"id\": \"...\", \"email\": \"...\" },\n  \"session\": {\n    \"access_token\": \"eyJ...\",\n    \"refresh_token\": \"eyJ...\",\n    \"token_type\": \"bearer\",\n    \"expires_in\": 3600\n  },\n  \"is_new_user\": true\n}\n```\n\n**REQUIRED FIX:**\n```javascript\nconst data = await response.json();\nconst { access_token, refresh_token } = data.session || data;  // Handle both structures\n```",
     "section": "CRITICAL: Auth Integration Fixes",
@@ -2382,7 +2530,7 @@
     "source": "CLAUDE.md"
   },
   {
-    "id": "issue-3-apple-sign-in-chrome-incompatibility-mediu-27",
+    "id": "issue-3-apple-sign-in-chrome-incompatibility-mediu-28",
     "title": "Issue #3: Apple Sign In Chrome Incompatibility (MEDIUM SEVERITY)",
     "content": "**Problem:** Apple Sign In does NOT work in Chrome browsers (Apple policy restriction).\n\n**Symptom:** Apple Sign In button causes error or redirect loop in Chrome.\n\n**REQUIRED FIX:**\n```javascript\n// Detect Chrome and hide Apple Sign In\nconst userAgent = navigator.userAgent.toLowerCase();\nconst isChrome = userAgent.includes(\"chrome\") && !userAgent.includes(\"edg\") && !userAgent.includes(\"opr\");\nif (isChrome) {\n  // Hide Apple Sign In button\n}\n```",
     "section": "CRITICAL: Auth Integration Fixes",
@@ -2449,7 +2597,7 @@
     "source": "CLAUDE.md"
   },
   {
-    "id": "issue-4-token-delivery-differences-28",
+    "id": "issue-4-token-delivery-differences-29",
     "title": "Issue #4: Token Delivery Differences",
     "content": "**Magic Link:** Tokens delivered in URL **fragment** (hash):\n```\nhttps://myapp.hostkit.dev/auth/callback#access_token=...&refresh_token=...\n```\n\n**OAuth:** Tokens delivered via **API response** (nested under `session`):\n```javascript\nconst response = await fetch('/auth/identity/verify', { ... });\nconst { session } = await response.json();\nconst { access_token, refresh_token } = session;\n```\n\nYour callback handler must support BOTH patterns.",
     "section": "CRITICAL: Auth Integration Fixes",
@@ -2515,7 +2663,7 @@
     "source": "CLAUDE.md"
   },
   {
-    "id": "quick-checklist-29",
+    "id": "quick-checklist-30",
     "title": "Quick Checklist",
     "content": "- [ ] Applied newline fix to `AUTH_JWT_PUBLIC_KEY`\n- [ ] Extracting tokens from `data.session` (not top level)\n- [ ] Hiding Apple Sign In in Chrome browsers\n- [ ] Handling tokens in URL fragment (magic link) AND API response (OAuth)\n- [ ] Called `hostkit_auth_guide` for complete code examples\n\n---",
     "section": "CRITICAL: Auth Integration Fixes",
@@ -2565,7 +2713,7 @@
     "source": "CLAUDE.md"
   },
   {
-    "id": "minio-object-storage-30",
+    "id": "minio-object-storage-31",
     "title": "MinIO Object Storage",
     "content": "S3-compatible object storage at `https://s3.hostkit.dev` with per-project buckets.\n\n**Enable for a project:**\n```\nhostkit minio enable myapp              # Private bucket\nhostkit minio enable myapp --public     # Public-read bucket\n```\n\n**What you get:**\n- Bucket: `hostkit-{project}` (e.g., `hostkit-myapp`)\n- Isolated credentials (access key + secret key)\n- Public URL: `https://s3.hostkit.dev/hostkit-{project}/`\n- Env vars auto-set: `S3_ENDPOINT`, `S3_BUCKET`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_PUBLIC_URL`\n\n**Public vs Private:**\n| Mode | GET | PUT/DELETE | Use case |\n|------|-----|------------|----------|\n| Private | Presigned URLs | Credentials | User uploads, sensitive files |\n| Public | Direct URL | Credentials | Static assets, images, public media |\n\n**Commands:**\n```\nhostkit minio enable myapp              # Enable storage\nhostkit minio enable myapp --public     # Enable with public access\nhostkit minio disable myapp --force     # Disable and delete bucket\nhostkit minio status                    # Show MinIO status\nhostkit minio list                      # List all buckets\nhostkit minio credentials myapp         # View credentials\nhostkit minio policy myapp public-read  # Make bucket public\nhostkit minio policy myapp private      # Make bucket private\n```\n\n**Public file access:**\n```\nhttps://s3.hostkit.dev/hostkit-myapp/uploads/photo.jpg\n```\n\n**SDK usage (Python):**\n```python\nimport boto3\n\ns3 = boto3.client(\n    \"s3\",\n    endpoint_url=os.environ[\"S3_ENDPOINT\"],\n    aws_access_key_id=os.environ[\"S3_ACCESS_KEY\"],\n    aws_secret_access_key=os.environ[\"S3_SECRET_KEY\"],\n)\n\n# Upload\ns3.upload_file(\"local.jpg\", os.environ[\"S3_BUCKET\"], \"uploads/photo.jpg\")\n\n# Public URL (if bucket is public)\nurl = f\"{os.environ['S3_PUBLIC_URL']}/uploads/photo.jpg\"\n```",
     "section": "CRITICAL: Auth Integration Fixes",
@@ -2780,7 +2928,7 @@
     "source": "CLAUDE.md"
   },
   {
-    "id": "directory-layout-31",
+    "id": "directory-layout-32",
     "title": "Directory Layout",
     "content": "```\n/home/{project}/\n├── releases/           # Timestamped deploys\n├── app -> releases/x/  # Current release symlink\n├── shared/             # Persistent data\n├── .env                # Environment\n├── .auth/              # Auth service (if enabled)\n├── .payments/          # Payments service (if enabled)\n└── venv/ or node_modules/\n```\n\n---",
     "section": "CRITICAL: Auth Integration Fixes",
@@ -2818,7 +2966,7 @@
     "source": "CLAUDE.md"
   },
   {
-    "id": "recording-solutions-32",
+    "id": "recording-solutions-33",
     "title": "Recording Solutions",
     "content": "**Search before debugging:**\n```\nhostkit_solutions: action=\"search\", query=\"jwt token expired auth\"\n```\n\n**Record after solving:**\n```\nhostkit_solutions:\n  action: \"record\"\n  problem: \"Auth service returns 401 with 'token expired' even for fresh tokens\"\n  solution: \"Clock drift between VPS and auth service. Fixed with: timedatectl set-ntp true\"\n  project: \"myapp\"\n  tags: [\"auth\", \"jwt\", \"ntp\", \"clock\"]\n```\n\n**Good problem descriptions:**\n- Include the error message verbatim\n- Note what you were trying to do\n- Mention the service/context\n\n**Good solutions:**\n- Exact commands or code changes\n- Why it works, not just what you did\n- Alternative approaches if relevant\n\n---",
     "section": "Recording Solutions",
@@ -2915,7 +3063,7 @@
     "source": "CLAUDE.md"
   },
   {
-    "id": "what-s-searchable-33",
+    "id": "what-s-searchable-34",
     "title": "What's Searchable",
     "content": "The search index contains comprehensive documentation for:\n\n**Services:** auth, payments, sms, voice, booking, chatbot, minio, r2, vector, mail, backup, nginx, ssl\n\n**Commands:** Full CLI reference with examples\n\n**Concepts:** Architecture, security, deployment patterns\n\n**Examples:** Common workflows, integrations, troubleshooting\n\nQuery with `hostkit_search`. The hybrid search uses semantic understanding (70%) and keyword matching (30%) for accurate results.\n\n---",
     "section": "What's Searchable",
@@ -2979,7 +3127,7 @@
     "source": "CLAUDE.md"
   },
   {
-    "id": "the-correct-deployment-flow-34",
+    "id": "the-correct-deployment-flow-35",
     "title": "The Correct Deployment Flow",
     "content": "```\n1. Build locally:     cd /path/to/project && npm run build\n2. Deploy:            hostkit_deploy_local with install=true, build=true, wait_healthy=true\n3. Verify:            Use Playwright to load the actual site — health checks are NOT enough\n```",
     "section": "CRITICAL: Next.js Deployment Rules",
@@ -3024,7 +3172,7 @@
     "source": "CLAUDE.md"
   },
   {
-    "id": "mandatory-flags-35",
+    "id": "mandatory-flags-36",
     "title": "Mandatory Flags",
     "content": "When calling `hostkit_deploy_local` for ANY Node/Next.js project:\n\n```\nhostkit_deploy_local:\n  project: \"my-project\"\n  local_path: \"/path/to/project\"\n  install: true       # MANDATORY — skipping causes \"module not found\" crash loops\n  build: true         # MANDATORY — skipping serves stale/missing builds\n  wait_healthy: true  # MANDATORY — confirms service starts\n```\n\n**Never omit `install` or `build`.** There is no valid reason to skip them.",
     "section": "CRITICAL: Next.js Deployment Rules",
@@ -3089,7 +3237,7 @@
     "source": "CLAUDE.md"
   },
   {
-    "id": "next-js-requirements-36",
+    "id": "next-js-requirements-37",
     "title": "Next.js Requirements",
     "content": "- Project MUST be created with `--nextjs` runtime. Runtime is immutable — wrong runtime means delete and recreate.\n- `next.config.js` MUST include `output: \"standalone\"` for HostKit deployment.\n- Project names: lowercase, hyphens only. No underscores, no uppercase.",
     "section": "CRITICAL: Next.js Deployment Rules",
@@ -3131,7 +3279,7 @@
     "source": "CLAUDE.md"
   },
   {
-    "id": "large-projects-rsync-timeout-37",
+    "id": "large-projects-rsync-timeout-38",
     "title": "Large Projects (rsync timeout)",
     "content": "If `hostkit_deploy_local` times out, deploy manually:\n\n```bash\nrsync -avz --delete \\\n  --exclude=node_modules --exclude=.git --exclude=.next \\\n  /local/project/ ai-operator@145.223.74.213:/tmp/project-deploy/\n```\n\nThen: `hostkit_execute: command=\"deploy project --source /tmp/project-deploy --install --build\"`\n\n**IMPORTANT:** Use anchored rsync excludes (`--exclude=/images`) to avoid matching subdirectories at any depth.",
     "section": "CRITICAL: Next.js Deployment Rules",
@@ -3196,7 +3344,7 @@
     "source": "CLAUDE.md"
   },
   {
-    "id": "post-deploy-verification-38",
+    "id": "post-deploy-verification-39",
     "title": "Post-Deploy Verification",
     "content": "Health checks pass even with broken assets, missing CSS, or 500 errors on actual pages. After every deploy:\n\n1. Use Playwright to navigate to the actual site URL\n2. Take a snapshot and verify content renders\n3. Check `browser_console_messages` for JavaScript errors\n4. If behind Cloudflare, bust cache with `?v={timestamp}`",
     "section": "CRITICAL: Next.js Deployment Rules",
@@ -3251,7 +3399,7 @@
     "source": "CLAUDE.md"
   },
   {
-    "id": "common-crash-loop-causes-39",
+    "id": "common-crash-loop-causes-40",
     "title": "Common Crash Loop Causes",
     "content": "| Symptom | Cause | Fix |\n|---------|-------|-----|\n| Rapid restarts | Missing `install: true` | Redeploy with all flags |\n| \"Module not found\" | Missing `install: true` | Redeploy with all flags |\n| Stale content | Missing `build: true` | Redeploy with all flags |\n| \"next: command not found\" | Wrong runtime | Delete project, recreate with `--nextjs` |\n\n---",
     "section": "CRITICAL: Next.js Deployment Rules",
@@ -3307,7 +3455,7 @@
     "source": "CLAUDE.md"
   },
   {
-    "id": "common-operations-40",
+    "id": "common-operations-41",
     "title": "Common Operations",
     "content": "| Task | Command |\n|------|---------|\n| Create project | `project create myapp --python --with-db` |\n| Deploy | `deploy myapp --install` |\n| Rollback | `rollback myapp` |\n| Health check | `health myapp` |\n| View logs | `service logs myapp` |\n| Diagnose failures | `diagnose myapp` |\n| Test startup | `diagnose myapp --run-test` |\n| Enable service | `{service} enable myapp` |\n| Enable storage | `minio enable myapp --public` |\n| Backup | `backup create myapp --r2` |\n| Add domain | `nginx add myapp example.com` |\n| Disable rate limit | `ratelimit disable myapp` |\n| Enable rate limit | `ratelimit enable myapp` |\n| Show rate limit | `ratelimit show myapp` |",
     "section": "Quick Reference",
@@ -3394,7 +3542,7 @@
     "source": "CLAUDE.md"
   },
   {
-    "id": "service-ports-from-project-base-port-41",
+    "id": "service-ports-from-project-base-port-42",
     "title": "Service Ports (from project base port)",
     "content": "| Service | Offset | Example (base 8001) |\n|---------|--------|---------------------|\n| Auth | +1000 | 9001 |\n| Payments | +2000 | 10001 |\n| SMS | +3000 | 11001 |\n| Booking | +4000 | 12001 |\n| Chatbot | +5000 | 13001 |",
     "section": "Quick Reference",
@@ -3430,7 +3578,7 @@
     "source": "CLAUDE.md"
   },
   {
-    "id": "runtimes-42",
+    "id": "runtimes-43",
     "title": "Runtimes",
     "content": "| Flag | Start Command |\n|------|---------------|\n| `--python` | `venv/bin/python -m app` |\n| `--node` | `node app/index.js` |\n| `--nextjs` | `npm start` |\n| `--static` | Nginx serves directly |",
     "section": "Quick Reference",
