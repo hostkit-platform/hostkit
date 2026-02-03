@@ -182,7 +182,7 @@ export async function handlePermissions(params: PermissionsParams): Promise<Tool
                   'The `hostkit permissions` command is not yet installed on the VPS. ' +
                   'This command needs to be added to HostKit first.',
                 details: {
-                  requiredFile: '/Users/ryanchappell/Documents/**HostKit**/src/hostkit/commands/permissions.py',
+                  requiredFile: 'packages/cli/src/hostkit/commands/permissions.py',
                   workaround:
                     'Update sudoers.j2 template and manually regenerate sudoers for the project',
                 },

@@ -1,7 +1,7 @@
 // Documentation indexer for hostkit-context MCP server
 
 import { readFile, writeFile, mkdir } from 'fs/promises';
-import { existsSync } from 'fs';
+import { existsSync, readdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { getDataPath } from '../config.js';
@@ -10,11 +10,53 @@ import type { DocChunk, ChunkType } from '../types.js';
 
 const logger = createLogger('indexer:claudemd');
 
-// Default paths to HostKit documentation (used by sync when no --docs provided)
-const DEFAULT_DOC_PATHS = [
-  '/Users/ryanchappell/Agents/HostKit-Agent/CLAUDE.md',
-  '/Users/ryanchappell/Agents/HostKit-Agent/docs/SERVICES.md',
-];
+/**
+ * Resolve documentation paths for indexing.
+ * Priority: HOSTKIT_DOC_PATHS env var (colon-separated) > auto-discover from repo root.
+ */
+function resolveDocPaths(): string[] {
+  // 1. Explicit env var (colon-separated paths)
+  const envPaths = process.env.HOSTKIT_DOC_PATHS;
+  if (envPaths) {
+    const paths = envPaths.split(':').filter(Boolean);
+    logger.info(`Using HOSTKIT_DOC_PATHS: ${paths.join(', ')}`);
+    return paths;
+  }
+
+  // 2. Auto-discover from HOSTKIT_REPO_ROOT or relative to this package
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = dirname(__filename);
+  const repoRoot = process.env.HOSTKIT_REPO_ROOT || join(__dirname, '..', '..', '..', '..');
+
+  if (!existsSync(repoRoot)) {
+    logger.warn(`Repo root not found: ${repoRoot}. Set HOSTKIT_DOC_PATHS or HOSTKIT_REPO_ROOT.`);
+    return [];
+  }
+
+  const candidates = [
+    join(repoRoot, 'README.md'),
+    join(repoRoot, 'docs', 'cli-reference.md'),
+    join(repoRoot, 'packages', 'cli', 'README.md'),
+    join(repoRoot, 'packages', 'mcp-server', 'README.md'),
+    join(repoRoot, 'packages', 'agent', 'README.md'),
+    join(repoRoot, 'CONTRIBUTING.md'),
+    join(repoRoot, 'SECURITY.md'),
+  ];
+
+  // Also pick up any .md files in packages/agent/commands/
+  const agentCmdsDir = join(repoRoot, 'packages', 'agent', 'commands');
+  if (existsSync(agentCmdsDir)) {
+    try {
+      for (const f of readdirSync(agentCmdsDir)) {
+        if (f.endsWith('.md')) candidates.push(join(agentCmdsDir, f));
+      }
+    } catch { /* ignore */ }
+  }
+
+  const found = candidates.filter((p) => existsSync(p));
+  logger.info(`Auto-discovered ${found.length} doc files from repo root: ${repoRoot}`);
+  return found;
+}
 
 // Chunk size limits
 const MAX_CHUNK_SIZE = 3000;
@@ -348,7 +390,7 @@ export async function buildIndex(
   docPaths?: string[],
   outputDir?: string
 ): Promise<{ chunks: DocChunk[]; tfidfIndex: Map<string, Map<string, number>> }> {
-  const paths = docPaths || DEFAULT_DOC_PATHS;
+  const paths = docPaths || resolveDocPaths();
   logger.info('Building search index from documentation files...');
 
   const allChunks: DocChunk[] = [];
