@@ -1,6 +1,7 @@
 // hostkit_fix_permissions tool implementation
 
 import { getSSHManager } from '../services/ssh.js';
+import { getProjectContext } from '../config.js';
 import { createLogger } from '../utils/logger.js';
 import type { PermissionsParams, PermissionGap, ToolResponse } from '../types.js';
 
@@ -108,7 +109,8 @@ function parsePermissionError(errorOutput: string): string | null {
  * Handle hostkit_fix_permissions tool calls.
  */
 export async function handlePermissions(params: PermissionsParams): Promise<ToolResponse> {
-  const { action, project, error_output } = params;
+  const { action, error_output } = params;
+  const project = params.project || getProjectContext();
 
   logger.info('Permissions request', { action, project });
 

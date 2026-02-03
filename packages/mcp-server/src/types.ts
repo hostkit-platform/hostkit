@@ -11,6 +11,7 @@ export interface Config {
     user: string;
     keyPath: string;
   };
+  project?: string; // HOSTKIT_PROJECT — locks MCP server to a single project's SSH user
   dataDir: string;
   cache: {
     projectsTtl: number;
@@ -139,7 +140,6 @@ export interface StateParams {
 export interface ExecuteParams {
   command: string;
   project?: string;
-  user?: 'ai-operator' | 'project';
   json_mode?: boolean;
 }
 

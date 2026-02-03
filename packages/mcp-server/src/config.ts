@@ -6,17 +6,22 @@ import { join } from 'path';
 import { homedir } from 'os';
 import type { Config } from './types.js';
 
+// Project mode: when HOSTKIT_PROJECT is set, the MCP server is locked to
+// a single project and always SSHs as that project's Linux user.
+const hostkitProject = process.env.HOSTKIT_PROJECT || '';
+
 // Default configuration
 const DEFAULT_CONFIG: Config = {
   vps: {
     host: process.env.HOSTKIT_VPS_HOST || '',
     port: parseInt(process.env.HOSTKIT_VPS_PORT || '22', 10),
-    user: process.env.HOSTKIT_SSH_USER || 'ai-operator',
+    user: hostkitProject || process.env.HOSTKIT_SSH_USER || 'ai-operator',
     keyPath: (process.env.HOSTKIT_SSH_KEY_PATH || '~/.ssh/id_ed25519').replace(
       '~',
       homedir()
     ),
   },
+  project: hostkitProject || undefined,
   dataDir: (process.env.HOSTKIT_CONTEXT_DIR || '~/.hostkit-context').replace(
     '~',
     homedir()
@@ -117,6 +122,22 @@ function deepMerge<T extends Record<string, unknown>>(target: T, source: Partial
   }
 
   return result;
+}
+
+/**
+ * Check if the MCP server is running in project mode (locked to a single project).
+ */
+export function isProjectMode(): boolean {
+  const config = getConfig();
+  return !!config.project;
+}
+
+/**
+ * Get the configured project name, or undefined if in substrate mode.
+ */
+export function getProjectContext(): string | undefined {
+  const config = getConfig();
+  return config.project || undefined;
 }
 
 /**

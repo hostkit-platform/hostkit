@@ -150,14 +150,16 @@ export class SSHManager {
     command: string,
     options: {
       project?: string;
-      user?: 'ai-operator' | 'project';
       json?: boolean;
     } = {}
   ): Promise<unknown> {
-    const { project, user = 'ai-operator', json = true } = options;
+    const config = getConfig();
+    const { project, json = true } = options;
 
-    // Determine SSH user
-    const sshUser = user === 'project' && project ? project : 'ai-operator';
+    // Determine SSH user:
+    // - Project mode: always use the configured project name
+    // - Substrate mode: use config.vps.user (defaults to 'ai-operator')
+    const sshUser = config.project || config.vps.user;
 
     // Build command
     const jsonFlag = json ? '--json ' : '';

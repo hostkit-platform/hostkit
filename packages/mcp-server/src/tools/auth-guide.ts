@@ -6,6 +6,7 @@
 // (magic link, Google OAuth, Apple OAuth).
 
 import { getSSHManager } from '../services/ssh.js';
+import { getProjectContext } from '../config.js';
 import { createLogger } from '../utils/logger.js';
 import type { ToolResponse } from '../types.js';
 
@@ -744,7 +745,7 @@ getCurrentUser().then(user => {
 export async function handleAuthGuide(
   params: AuthGuideParams
 ): Promise<ToolResponse> {
-  const { project } = params;
+  const project = params.project || getProjectContext();
 
   if (!project) {
     return {

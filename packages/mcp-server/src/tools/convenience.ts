@@ -2,6 +2,7 @@
 // These wrap CLI commands with specialized interfaces for better UX
 
 import { getSSHManager } from '../services/ssh.js';
+import { getProjectContext } from '../config.js';
 import { createLogger } from '../utils/logger.js';
 import type { ToolResponse } from '../types.js';
 
@@ -261,7 +262,7 @@ const HOSTKIT_CAPABILITIES = {
 export async function handleCapabilities(
   params: CapabilitiesParams
 ): Promise<ToolResponse> {
-  const { project } = params;
+  const project = params.project || getProjectContext();
 
   logger.info('Capabilities request', { project });
 
@@ -307,7 +308,8 @@ export async function handleCapabilities(
 export async function handleWaitHealthy(
   params: WaitHealthyParams
 ): Promise<ToolResponse> {
-  const { project, timeout = 120000, interval = 5000 } = params;
+  const project = params.project || getProjectContext();
+  const { timeout = 120000, interval = 5000 } = params;
 
   if (!project) {
     return {
@@ -406,7 +408,8 @@ export async function handleWaitHealthy(
 export async function handleEnvSet(
   params: EnvSetParams
 ): Promise<ToolResponse> {
-  const { project, variables, restart = false } = params;
+  const project = params.project || getProjectContext();
+  const { variables, restart = false } = params;
 
   if (!project) {
     return {
@@ -475,7 +478,8 @@ export async function handleEnvSet(
 export async function handleEnvGet(
   params: EnvGetParams
 ): Promise<ToolResponse> {
-  const { project, keys } = params;
+  const project = params.project || getProjectContext();
+  const { keys } = params;
 
   if (!project) {
     return {
@@ -538,7 +542,7 @@ export async function handleEnvGet(
 export async function handleValidate(
   params: ValidateParams
 ): Promise<ToolResponse> {
-  const { project } = params;
+  const project = params.project || getProjectContext();
 
   if (!project) {
     return {

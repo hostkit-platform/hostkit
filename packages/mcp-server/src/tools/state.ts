@@ -1,6 +1,6 @@
 // hostkit_state tool implementation
 
-import { getConfig } from '../config.js';
+import { getConfig, getProjectContext } from '../config.js';
 import { getSSHManager } from '../services/ssh.js';
 import { getStateCache, getCachedOrFetch } from '../services/cache.js';
 import { createLogger } from '../utils/logger.js';
@@ -82,7 +82,8 @@ function hasAuthEnabled(projectData: unknown): boolean {
 export async function handleState(
   params: StateParams
 ): Promise<ToolResponse> {
-  const { scope = 'all', project, refresh = false } = params;
+  const { scope = 'all', refresh = false } = params;
+  const project = params.project || getProjectContext();
 
   logger.info('State request', { scope, project, refresh });
 

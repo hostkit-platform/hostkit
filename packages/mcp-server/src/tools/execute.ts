@@ -1,10 +1,19 @@
 // hostkit_execute tool implementation
 
 import { getSSHManager } from '../services/ssh.js';
+import { getProjectContext, isProjectMode } from '../config.js';
 import { createLogger } from '../utils/logger.js';
 import type { ExecuteParams, ToolResponse } from '../types.js';
 
 const logger = createLogger('tools:execute');
+
+// Commands that only work as ai-operator (cross-project or system-level)
+const OPERATOR_ONLY_PATTERNS = [
+  /^project\s+create\b/,
+  /^project\s+list\b/,
+  /^project\s+delete\b/,
+  /^status\b/,
+];
 
 // Commands that are explicitly forbidden for safety
 const FORBIDDEN_COMMANDS = [
@@ -90,9 +99,10 @@ function extractProjectFromCommand(command: string): string | undefined {
  * Handle hostkit_execute tool calls.
  */
 export async function handleExecute(params: ExecuteParams): Promise<ToolResponse> {
-  const { command, project, user = 'ai-operator', json_mode = true } = params;
+  const { command, project, json_mode = true } = params;
+  const configuredProject = getProjectContext();
 
-  logger.info('Execute request', { command, project, user, json_mode });
+  logger.info('Execute request', { command, project, json_mode, projectMode: isProjectMode() });
 
   // Validate command
   const validation = validateCommand(command);
@@ -106,15 +116,44 @@ export async function handleExecute(params: ExecuteParams): Promise<ToolResponse
     };
   }
 
-  // Determine project context
-  const projectContext = project || extractProjectFromCommand(command);
+  // Project mode safety checks
+  if (configuredProject) {
+    const normalizedCmd = command.trim();
+
+    // Block operator-only commands
+    for (const pattern of OPERATOR_ONLY_PATTERNS) {
+      if (pattern.test(normalizedCmd)) {
+        return {
+          success: false,
+          error: {
+            code: 'OPERATOR_ONLY',
+            message: `This command requires operator access and is not available in project mode. Ask the HostKit substrate agent to run this for you.`,
+          },
+        };
+      }
+    }
+
+    // Validate project-scoped commands target the configured project
+    const extractedProject = extractProjectFromCommand(command);
+    if (extractedProject && extractedProject !== configuredProject) {
+      return {
+        success: false,
+        error: {
+          code: 'CROSS_PROJECT_BLOCKED',
+          message: `Cannot target project '${extractedProject}' — this MCP server is scoped to '${configuredProject}'.`,
+        },
+      };
+    }
+  }
+
+  // Determine project context: explicit param > extracted from command > configured default
+  const projectContext = project || extractProjectFromCommand(command) || configuredProject;
 
   try {
     const ssh = getSSHManager();
 
     const result = await ssh.executeHostkit(command, {
       project: projectContext,
-      user,
       json: json_mode,
     });
 

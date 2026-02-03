@@ -5,7 +5,7 @@ import { spawn } from 'child_process';
 import { existsSync, statSync } from 'fs';
 import { basename, resolve } from 'path';
 import { getSSHManager } from '../services/ssh.js';
-import { getConfig } from '../config.js';
+import { getConfig, getProjectContext } from '../config.js';
 import { createLogger } from '../utils/logger.js';
 import type { DeployLocalParams, ToolResponse } from '../types.js';
 
@@ -242,8 +242,8 @@ async function waitForHealthy(
  * Handle hostkit_deploy_local tool calls.
  */
 export async function handleDeployLocal(params: DeployLocalParams): Promise<ToolResponse> {
+  const project = params.project || getProjectContext();
   const {
-    project,
     local_path,
     build = false,
     install = false,
@@ -251,6 +251,16 @@ export async function handleDeployLocal(params: DeployLocalParams): Promise<Tool
     cleanup = true,
     override_ratelimit = false,
   } = params;
+
+  if (!project) {
+    return {
+      success: false,
+      error: {
+        code: 'MISSING_PROJECT',
+        message: 'Project name is required',
+      },
+    };
+  }
 
   logger.info('Deploy local request', { project, local_path, build, install, wait_healthy });
 
@@ -302,7 +312,6 @@ export async function handleDeployLocal(params: DeployLocalParams): Promise<Tool
     try {
       deployResult = await ssh.executeHostkit(deployCommand, {
         project,
-        user: 'ai-operator',
         json: true,
       });
     } catch (error) {

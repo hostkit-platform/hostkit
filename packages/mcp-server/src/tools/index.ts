@@ -82,7 +82,7 @@ export const TOOLS: Tool[] = [
   {
     name: 'hostkit_execute',
     description:
-      'Execute a HostKit command on the VPS. Validates command is allowed before execution.',
+      'Execute a HostKit command on the VPS. Validates command is allowed before execution. SSH user is determined by server configuration (HOSTKIT_PROJECT env var).',
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -92,13 +92,7 @@ export const TOOLS: Tool[] = [
         },
         project: {
           type: 'string',
-          description: 'Project context (for project-scoped commands)',
-        },
-        user: {
-          type: 'string',
-          enum: ['ai-operator', 'project'],
-          description: 'Which SSH user to use',
-          default: 'ai-operator',
+          description: 'Project context (for project-scoped commands). Defaults to HOSTKIT_PROJECT if configured.',
         },
         json_mode: {
           type: 'boolean',
@@ -185,14 +179,13 @@ export const TOOLS: Tool[] = [
       properties: {
         project: {
           type: 'string',
-          description: 'Project name (required)',
+          description: 'Project name. Defaults to HOSTKIT_PROJECT if configured.',
         },
         table: {
           type: 'string',
           description: 'Specific table to inspect (optional, returns all tables if not specified)',
         },
       },
-      required: ['project'],
     },
   },
   {
@@ -204,7 +197,7 @@ export const TOOLS: Tool[] = [
       properties: {
         project: {
           type: 'string',
-          description: 'Project name (required)',
+          description: 'Project name. Defaults to HOSTKIT_PROJECT if configured.',
         },
         query: {
           type: 'string',
@@ -221,7 +214,7 @@ export const TOOLS: Tool[] = [
           default: false,
         },
       },
-      required: ['project', 'query'],
+      required: ['query'],
     },
   },
   {
@@ -233,7 +226,7 @@ export const TOOLS: Tool[] = [
       properties: {
         project: {
           type: 'string',
-          description: 'Project name (required)',
+          description: 'Project name. Defaults to HOSTKIT_PROJECT if configured.',
         },
         checks: {
           type: 'array',
@@ -245,7 +238,6 @@ export const TOOLS: Tool[] = [
           default: ['migrations', 'indexes', 'constraints'],
         },
       },
-      required: ['project'],
     },
   },
   {
@@ -257,7 +249,7 @@ export const TOOLS: Tool[] = [
       properties: {
         project: {
           type: 'string',
-          description: 'Project name to deploy to (required)',
+          description: 'Project name to deploy to. Defaults to HOSTKIT_PROJECT if configured.',
         },
         local_path: {
           type: 'string',
@@ -289,7 +281,7 @@ export const TOOLS: Tool[] = [
           default: false,
         },
       },
-      required: ['project', 'local_path'],
+      required: ['local_path'],
     },
   },
   {
@@ -315,7 +307,7 @@ export const TOOLS: Tool[] = [
       properties: {
         project: {
           type: 'string',
-          description: 'Project name (required)',
+          description: 'Project name. Defaults to HOSTKIT_PROJECT if configured.',
         },
         timeout: {
           type: 'number',
@@ -328,7 +320,6 @@ export const TOOLS: Tool[] = [
           default: 5000,
         },
       },
-      required: ['project'],
     },
   },
   {
@@ -340,7 +331,7 @@ export const TOOLS: Tool[] = [
       properties: {
         project: {
           type: 'string',
-          description: 'Project name (required)',
+          description: 'Project name. Defaults to HOSTKIT_PROJECT if configured.',
         },
         variables: {
           type: 'object',
@@ -353,7 +344,7 @@ export const TOOLS: Tool[] = [
           default: false,
         },
       },
-      required: ['project', 'variables'],
+      required: ['variables'],
     },
   },
   {
@@ -365,7 +356,7 @@ export const TOOLS: Tool[] = [
       properties: {
         project: {
           type: 'string',
-          description: 'Project name (required)',
+          description: 'Project name. Defaults to HOSTKIT_PROJECT if configured.',
         },
         keys: {
           type: 'array',
@@ -373,7 +364,6 @@ export const TOOLS: Tool[] = [
           description: 'Specific variable names to get. If omitted, returns all variables.',
         },
       },
-      required: ['project'],
     },
   },
   {
@@ -385,10 +375,9 @@ export const TOOLS: Tool[] = [
       properties: {
         project: {
           type: 'string',
-          description: 'Project name (required)',
+          description: 'Project name. Defaults to HOSTKIT_PROJECT if configured.',
         },
       },
-      required: ['project'],
     },
   },
   {
@@ -400,10 +389,9 @@ export const TOOLS: Tool[] = [
       properties: {
         project: {
           type: 'string',
-          description: 'Project name (required)',
+          description: 'Project name. Defaults to HOSTKIT_PROJECT if configured.',
         },
       },
-      required: ['project'],
     },
   },
 ];

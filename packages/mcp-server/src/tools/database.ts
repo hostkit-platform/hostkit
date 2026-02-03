@@ -1,6 +1,7 @@
 // Database introspection tools for hostkit-context MCP server
 
 import { getSSHManager } from '../services/ssh.js';
+import { getProjectContext } from '../config.js';
 import { createLogger } from '../utils/logger.js';
 import type { ToolResponse } from '../types.js';
 
@@ -212,7 +213,8 @@ function escapeSql(str: string): string {
 export async function handleDbSchema(
   params: DbSchemaParams
 ): Promise<ToolResponse<SchemaResult>> {
-  const { project, table } = params;
+  const project = params.project || getProjectContext();
+  const { table } = params;
 
   if (!project) {
     return {
@@ -393,7 +395,8 @@ export async function handleDbSchema(
 export async function handleDbQuery(
   params: DbQueryParams
 ): Promise<ToolResponse<QueryResult>> {
-  const { project, query, limit = 100, allow_write = false } = params;
+  const project = params.project || getProjectContext();
+  const { query, limit = 100, allow_write = false } = params;
 
   if (!project) {
     return {
@@ -512,7 +515,8 @@ export async function handleDbQuery(
 export async function handleDbVerify(
   params: DbVerifyParams
 ): Promise<ToolResponse<VerifyResult>> {
-  const { project, checks = ['migrations', 'indexes', 'constraints'] } = params;
+  const project = params.project || getProjectContext();
+  const { checks = ['migrations', 'indexes', 'constraints'] } = params;
 
   if (!project) {
     return {
