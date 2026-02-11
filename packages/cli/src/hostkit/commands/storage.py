@@ -690,6 +690,67 @@ def minio(ctx: click.Context) -> None:
     pass
 
 
+@storage.command("upload")
+@click.argument("project")
+@click.argument("local_path")
+@click.option("--key", help="Object key/path in bucket. Default: uploads/<timestamp>-<filename>")
+@click.option("--content-type", help="MIME type override. Auto-detected if omitted")
+@click.option("--public", is_flag=True, help="Return public URL instead of endpoint URL")
+@click.pass_context
+def storage_upload(
+    ctx: click.Context,
+    project: str,
+    local_path: str,
+    key: str | None,
+    content_type: str | None,
+    public: bool,
+) -> None:
+    """Upload a file to a project's MinIO bucket.
+
+    Uploads a local file from the VPS to the project's S3 bucket.
+    By default, files are placed in uploads/<timestamp>-<filename>.
+
+    \b
+    Examples:
+        hostkit storage upload myapp /path/to/file.jpg
+        hostkit storage upload myapp /path/to/file.pdf --key documents/file.pdf
+        hostkit storage upload myapp /path/to/image.png --content-type image/png --public
+        hostkit minio upload myapp /tmp/backup.tar.gz --key backups/latest.tar.gz
+    """
+    formatter: OutputFormatter = ctx.obj["formatter"]
+    service = StorageService()
+
+    try:
+        result = service.upload_file(
+            project=project,
+            local_path=local_path,
+            object_key=key,
+            content_type=content_type,
+        )
+
+        formatter.success(
+            message=f"File uploaded to '{project}' bucket",
+            data=result,
+        )
+
+        if not ctx.obj["json_mode"]:
+            click.echo(f"\nUpload successful!")
+            click.echo("-" * 50)
+            click.echo(f"  Bucket:       {result['bucket']}")
+            click.echo(f"  Object Key:   {result['object_key']}")
+            click.echo(f"  Size:         {result['size_bytes']} bytes")
+            click.echo(f"  Content-Type: {result['content_type']}")
+
+            if public:
+                click.echo(f"\n  Public URL: {result['public_url']}")
+            else:
+                click.echo(f"\n  URL: {result['url']}")
+
+    except StorageServiceError as e:
+        formatter.error(code=e.code, message=e.message, suggestion=e.suggestion)
+        raise SystemExit(1)
+
+
 # Register the same commands under 'minio' alias
 minio.add_command(storage_enable, "enable")
 minio.add_command(storage_disable, "disable")
@@ -698,3 +759,4 @@ minio.add_command(storage_list, "list")
 minio.add_command(storage_credentials, "credentials")
 minio.add_command(storage_usage, "usage")
 minio.add_command(storage_policy, "policy")
+minio.add_command(storage_upload, "upload")

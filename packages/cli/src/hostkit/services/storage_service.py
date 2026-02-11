@@ -31,7 +31,9 @@ CapabilitiesRegistry.register_service(
             "minio disable",
             "minio status",
             "minio policy",
+            "minio upload",
             "storage list",
+            "storage upload",
         ],
     )
 )
@@ -1286,4 +1288,117 @@ WantedBy=multi-user.target
             "policy": policy_info.get("policy", "private"),
             "public_url": public_url if policy_info.get("policy") != "private" else None,
             "endpoint": self._get_minio_endpoint(),
+        }
+
+    def upload_file(
+        self,
+        project: str,
+        local_path: str,
+        object_key: str | None = None,
+        content_type: str | None = None,
+    ) -> dict[str, Any]:
+        """Upload a file to a project's bucket.
+
+        Args:
+            project: Project name (must have storage enabled).
+            local_path: Absolute path to file on VPS.
+            object_key: Object key/path in bucket. Default: uploads/<timestamp>-<filename>.
+            content_type: MIME type override. Auto-detected if omitted.
+
+        Returns:
+            Dict with url, bucket, object_key, size_bytes, content_type.
+
+        Raises:
+            StorageServiceError: If validation fails or upload fails.
+        """
+        # Validate file exists and is a file
+        local_file = Path(local_path)
+        if not local_file.exists():
+            raise StorageServiceError(
+                code="FILE_NOT_FOUND",
+                message=f"File not found: {local_path}",
+                suggestion="Verify the file path is correct",
+            )
+
+        if not local_file.is_file():
+            raise StorageServiceError(
+                code="NOT_A_FILE",
+                message=f"Path is not a file: {local_path}",
+                suggestion="Ensure the path points to a file, not a directory",
+            )
+
+        # Get project bucket
+        config = self._get_storage_config()
+        bucket_name = None
+        for bucket, proj in config.get("buckets", {}).items():
+            if proj == project:
+                bucket_name = bucket
+                break
+
+        if not bucket_name:
+            raise StorageServiceError(
+                code="STORAGE_NOT_ENABLED",
+                message=f"Storage not enabled for project '{project}'",
+                suggestion=f"Enable storage with: hostkit storage enable {project}",
+            )
+
+        # Get credentials for the bucket
+        cred_info = config.get("credentials", {}).get(bucket_name, {})
+        if not cred_info:
+            raise StorageServiceError(
+                code="CREDENTIALS_NOT_FOUND",
+                message=f"Credentials not found for bucket '{bucket_name}'",
+                suggestion="The bucket may have been created manually",
+            )
+
+        # Ensure mc alias is configured
+        self._ensure_mc_alias()
+
+        # Generate object key if not provided
+        if not object_key:
+            import time
+            timestamp = int(time.time())
+            filename = local_file.name
+            object_key = f"uploads/{timestamp}-{filename}"
+
+        # Get file size
+        file_size = local_file.stat().st_size
+
+        # Build mc cp command
+        target = f"{MC_ALIAS}/{bucket_name}/{object_key}"
+
+        # Run upload command
+        cmd = ["cp"]
+        if content_type:
+            cmd.extend(["--attr", f"Content-Type={content_type}"])
+        cmd.extend([str(local_file), target])
+
+        result = self._mc_command(cmd, check=False)
+
+        if result.returncode != 0:
+            raise StorageServiceError(
+                code="UPLOAD_FAILED",
+                message=f"Upload failed: {result.stderr or result.stdout}",
+                suggestion="Check file permissions and bucket access",
+            )
+
+        # Build URL response
+        public_endpoint = self._get_minio_endpoint(public=True)
+        internal_endpoint = self._get_minio_endpoint(public=False)
+
+        # Determine which URL to use
+        if public_endpoint:
+            url = f"{public_endpoint}/{bucket_name}/{object_key}"
+            public_url = url
+        else:
+            url = f"{internal_endpoint}/{bucket_name}/{object_key}"
+            public_url = url
+
+        return {
+            "url": url,
+            "public_url": public_url,
+            "bucket": bucket_name,
+            "object_key": object_key,
+            "size_bytes": file_size,
+            "content_type": content_type or "application/octet-stream",
         }
