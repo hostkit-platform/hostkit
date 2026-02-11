@@ -1,9 +1,9 @@
 {
   "version": "1.0.0",
-  "generatedAt": "2026-02-03T04:58:02.534Z",
+  "generatedAt": "2026-02-11T20:16:38.288Z",
   "chunkCount": 156,
   "termCount": 1519,
-  "embeddingsGeneratedAt": "2026-02-03T04:58:12.101Z",
+  "embeddingsGeneratedAt": "2026-02-11T20:16:42.157Z",
   "modelId": "Xenova/all-MiniLM-L6-v2",
   "embeddingDimension": 384,
   "embeddingCount": 156
