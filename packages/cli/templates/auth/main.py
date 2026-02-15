@@ -38,16 +38,18 @@ async def run_migrations():
     Currently handles the one-time migration of adding last_used_at to sessions.
     This runs on startup to ensure the schema is up-to-date.
     """
+    logger.info("Starting database migrations...")
     try:
         async with engine.begin() as conn:
             # Add last_used_at column if it doesn't exist
+            logger.debug("Adding last_used_at column to sessions table if needed...")
             await conn.execute("""
                 ALTER TABLE sessions
                 ADD COLUMN IF NOT EXISTS last_used_at TIMESTAMP WITH TIME ZONE
             """)
-            logger.info("Database migrations completed successfully")
+            logger.info("✓ Database migrations completed successfully")
     except Exception as e:
-        logger.error(f"Error running migrations: {e}")
+        logger.error(f"✗ Error running migrations: {e}", exc_info=True)
         raise
 
 
@@ -78,7 +80,14 @@ async def lifespan(app: FastAPI):
     logger.info(f"Log level: {log_level}")
 
     # Run database migrations
-    await run_migrations()
+    try:
+        logger.info("LIFESPAN: About to run migrations...")
+        await run_migrations()
+        logger.info("LIFESPAN: Migrations completed")
+    except Exception as e:
+        logger.error(f"LIFESPAN: Migration failed: {e}", exc_info=True)
+        # Don't re-raise - continue startup even if migration fails
+        # The migration will be retried on next restart
 
     yield
 
