@@ -2,18 +2,17 @@
 
 ## Quick Navigation
 
-| Use Case | Go To |
-|----------|-------|
-| **First time?** | [Architecture & Lifecycle →](ARCHITECTURE.md) |
-| **Adding authentication?** | [Auth System →](AUTH.md) |
-| **OAuth or Magic Links?** | [Provider Details →](AUTH-PROVIDERS.md) |
-| **Auth not working?** | [Auth Troubleshooting →](AUTH-TROUBLESHOOTING.md) |
-| **Deploying Next.js?** | [Next.js Complete Guide →](NEXTJS.md) |
-| **Deployment failing?** | [Troubleshooting →](TROUBLESHOOTING.md) |
-| **How does deploy work?** | [Deployment Pipeline →](DEPLOYMENT.md) |
-| **Managing environment?** | [Environment Variables →](ENVIRONMENT.md) |
-| **MCP tools reference?** | [See below](#mcp-tools---primary-interface) |
-| **Need example?** | [Project Template →](NEXTJS.md#recommended-project-structure) |
+| Task | Document | What You'll Learn |
+|------|----------|-------------------|
+| **Need a tool to do X?** | [MCP Tools Reference →](MCP-TOOLS.md) | All 14 MCP tools: parameters, returns, examples |
+| **Deploying an app?** | [Deployment Workflow →](DEPLOYMENT-WORKFLOW.md) | Phase-by-phase guide: setup → health check → rollback |
+| **Deployment failed?** | [Deployment Failures →](DEPLOYMENT-FAILURES.md) | Solutions for timeouts, 502 errors, build failures |
+| **First time?** | [Architecture & Lifecycle →](ARCHITECTURE.md) | How HostKit works internally |
+| **Deploying Next.js?** | [Next.js Guide →](NEXTJS.md) | `output: 'standalone'`, config, health check |
+| **Adding auth?** | [Auth System →](AUTH.md) | Authentication architecture and integration |
+| **Setting up OAuth?** | [Auth Providers →](AUTH-PROVIDERS.md) | Google, Apple, magic links, email/password |
+| **Auth broken?** | [Auth Troubleshooting →](AUTH-TROUBLESHOOTING.md) | Fix email, tokens, sessions, OAuth sign-in |
+| **Managing config?** | [Environment Variables →](ENVIRONMENT.md) | Secrets, env var format, per-project config |
 
 ---
 
@@ -59,224 +58,40 @@ Project "myapp":
 
 All HostKit operations go through MCP tools. **Never construct SSH commands manually.**
 
+**→ [Full MCP Tools Reference →](MCP-TOOLS.md)** (Complete documentation of all 14 tools)
+
+Quick reference of core tools:
+
 ### hostkit_search
-
-**Semantic search over HostKit documentation.**
-
-```python
-hostkit_search(
-  query="how do I enable payments",
-  limit=5,
-  filter="services"  # all | commands | services | concepts | examples
-)
-```
-
-Use this to:
-- Learn how services work
-- Find the right command
-- Understand configuration options
-- Find troubleshooting patterns
-
----
+Semantic search over HostKit documentation. Find how to do things.
 
 ### hostkit_state
-
-**Live VPS state with intelligent caching.**
-
-```python
-hostkit_state(
-  scope="projects",     # all | projects | health | resources | project
-  project="myapp",      # required when scope is "project"
-  refresh=False         # force cache bypass
-)
-```
-
-**Scopes:**
-| Scope | Returns |
-|-------|---------|
-| `all` | Projects + health + resources |
-| `projects` | All projects with status, services, URLs |
-| `health` | VPS CPU, memory, disk |
-| `resources` | Detailed resource breakdown |
-| `project` | Single project info + health |
-
-Use before any operation to check current state.
-
----
+Query current VPS/project state. Always use before operations.
 
 ### hostkit_execute
-
-**Execute any HostKit command.**
-
-```python
-hostkit_execute(
-  command="deploy myapp --install --build",
-  project="myapp",           # optional, auto-detected
-  json_mode=True             # add --json flag (default)
-)
-```
-
-**Common commands:**
-
-```python
-# Project lifecycle
-hostkit_execute(command="project create myapp --nextjs --with-db")
-hostkit_execute(command="project list")
-hostkit_execute(command="deploy myapp --install --build --restart")
-hostkit_execute(command="rollback myapp")
-
-# Services
-hostkit_execute(command="auth enable myapp")
-hostkit_execute(command="payments enable myapp")
-hostkit_execute(command="minio enable myapp --public")
-
-# Operations
-hostkit_execute(command="health myapp")
-hostkit_execute(command="service logs myapp --follow")
-hostkit_execute(command="env set myapp DEBUG=true --restart")
-
-# Database
-hostkit_execute(command="db create myapp")
-hostkit_execute(command="db query myapp 'SELECT * FROM users'")
-```
-
----
+Run any HostKit CLI command: deploy, rollback, service management, etc.
 
 ### hostkit_deploy_local
+Deploy from local filesystem (rsync + build + health check).
+- Strategy A: Pre-built (2-5 min)
+- Strategy B: Build on VPS (15-25 min)
 
-**Deploy from local filesystem** (rsync + build + health check).
-
-```python
-hostkit_deploy_local(
-  project="my-app",
-  local_path="/path/to/project",
-  install=True,          # npm install in target
-  build=True,            # npm run build before deploy
-  wait_healthy=True,     # poll health for 2 min
-  cleanup=True,          # remove temp files
-  override_ratelimit=False
-)
-```
-
-Automatically:
-1. Rsyncs files to VPS
-2. Builds (if build=True)
-3. Installs dependencies
-4. Activates release (atomic)
-5. Restarts service
-6. Polls health check
-
-**Read more**: [Deployment Pipeline →](DEPLOYMENT.md)
-
----
-
-### hostkit_validate
-
-**Pre-flight checks for deployment.**
-
-```python
-hostkit_validate(project="myapp")
-```
-
-Checks:
-- Entry point exists
-- Dependencies installed
-- Required env vars set
-- Database connection (if DB)
-- Port availability
-- Service status
-
----
-
-### hostkit_env_set / hostkit_env_get
-
-**Manage environment variables.**
-
-```python
-# Get all or specific vars
-hostkit_env_get(project="myapp")
-hostkit_env_get(project="myapp", keys=["PORT", "DATABASE_URL"])
-
-# Set variables
-hostkit_env_set(
-  project="myapp",
-  variables={"DEBUG": "true", "LOG_LEVEL": "debug"},
-  restart=True  # restart service after setting
-)
-```
-
-**Read more**: [Environment Variables →](ENVIRONMENT.md)
-
----
+### hostkit_env_get / hostkit_env_set
+Read and write environment variables.
 
 ### hostkit_db_schema / hostkit_db_query
-
-**Database operations.**
-
-```python
-# Get schema
-hostkit_db_schema(project="myapp")
-hostkit_db_schema(project="myapp", table="users")
-
-# Query database
-hostkit_db_query(project="myapp", query="SELECT * FROM users LIMIT 10")
-hostkit_db_query(
-  project="myapp",
-  query="UPDATE users SET active=true WHERE id=1",
-  allow_write=True  # required for write operations
-)
-```
-
----
+Inspect and query databases.
 
 ### hostkit_wait_healthy
+Poll health check endpoint until healthy.
 
-**Poll until service is healthy.**
+### hostkit_validate
+Pre-flight validation before deployment.
 
-```python
-hostkit_wait_healthy(
-  project="myapp",
-  timeout=120000,  # 2 minutes (in ms)
-  interval=5000    # check every 5 seconds
-)
-```
+### hostkit_solutions / hostkit_fix_permissions
+Diagnostics and cross-project learning.
 
-Useful after deployments/restarts.
-
----
-
-### hostkit_fix_permissions
-
-**Detect and fix sudoers gaps** (self-healing permission system).
-
-```python
-hostkit_fix_permissions(action="analyze")
-hostkit_fix_permissions(action="fix", project="myapp")
-hostkit_fix_permissions(action="sync")  # fix all projects
-```
-
----
-
-### hostkit_solutions
-
-**Cross-project learning database** (problems solved once, benefit all).
-
-```python
-# Search for similar issues
-hostkit_solutions(
-  action="search",
-  query="nginx 502 error"
-)
-
-# Record a solution you discovered
-hostkit_solutions(
-  action="record",
-  problem="Deployment timeout on npm install",
-  solution="Removed large @types/* packages",
-  project="myapp",
-  tags=["npm", "timeout", "performance"]
-)
-```
+**→ [Full details in MCP-TOOLS.md →](MCP-TOOLS.md)**
 
 ---
 
@@ -304,30 +119,22 @@ hostkit_execute(command="project create myapp --nextjs --with-db")
 ### Deployment Flow
 
 ```
-Source code
-    ↓
-[Optional: npm install + npm run build]
-    ↓
-Create release directory (timestamped)
-    ↓
-Rsync files (smart detection: Next.js standalone vs standard)
-    ↓
-[Optional: npm install]
-    ↓
-Activate release (atomic symlink swap)
-    ↓
-Restart service
-    ↓
-Poll health check (/api/health) for 2 minutes
-    ↓
-Cleanup old releases (keep 5)
-    ↓
-Success or rollback
+Phase 0: Setup       → Create project, verify
+Phase 1: Prepare     → Build locally (Strategy A) or prepare source (Strategy B)
+Phase 2: Validate    → Check VPS health, rate limits
+Phase 3: Env Setup   → Set environment variables
+Phase 4: Database    → Migrations, schema setup
+Phase 5: Deploy      → Rsync → Install/Build → Activate → Restart
+Phase 6: Health      → Poll /api/health until ready
+Phase 7: Verify      → Check env vars, test database, review logs
+Phase 8: Rollback    → If needed: instant symlink swap to previous
 ```
 
-**Timeline**: 5-25 minutes depending on flags
+**Timeline**:
+- Pre-built deploy: 2-5 minutes
+- Build on VPS: 15-25 minutes
 
-**Read more**: [Deployment Pipeline →](DEPLOYMENT.md)
+**Full details**: [Deployment Workflow →](DEPLOYMENT-WORKFLOW.md) | [Troubleshooting →](DEPLOYMENT-FAILURES.md)
 
 ---
 
@@ -390,27 +197,27 @@ KEY="value with spaces"
 
 ### Deploy Next.js App
 
+**→ [Full Deployment Workflow →](DEPLOYMENT-WORKFLOW.md)** (8-phase guide)
+
 ```python
-# Option 1: Deploy local build (fastest)
+# Strategy A: Deploy pre-built (fastest, 2-5 min)
 hostkit_deploy_local(
   project="my-app",
-  local_path="/path/to/built/app",  # Contains .next/, public/, node_modules/
+  local_path="/path/to/built/app",
   install=True,
-  build=False,  # Already built
+  build=False,
   wait_healthy=True
 )
 
-# Option 2: Deploy source & build on VPS
+# Strategy B: Deploy source & build on VPS (15-25 min)
 hostkit_deploy_local(
   project="my-app",
   local_path="/path/to/source",
   install=True,
-  build=True,  # Build on VPS
+  build=True,
   wait_healthy=True
 )
 ```
-
-**Timeline**: 2-5 min (option 1) or 15-25 min (option 2)
 
 ---
 
@@ -538,34 +345,65 @@ hostkit_execute(command="service logs myapp --follow")
 
 ## Troubleshooting Quick Links
 
-- **Auth issues** → [Auth Troubleshooting →](AUTH-TROUBLESHOOTING.md)
-  - Email not sending → [Solution →](AUTH-TROUBLESHOOTING.md#email-not-sending)
-  - Token refresh failing → [Solution →](AUTH-TROUBLESHOOTING.md#token-refresh-failing)
-  - OAuth sign-in fails → [Solution →](AUTH-TROUBLESHOOTING.md#oauth-provider-sign-in-fails)
-  - Multi-tab logout issues → [Solution →](AUTH-TROUBLESHOOTING.md#multi-tab-session-issues)
-- **Deploy fails** → [Troubleshooting →](TROUBLESHOOTING.md)
-- **App won't start** → [Runtime Errors →](TROUBLESHOOTING.md#common-runtime-errors)
-- **Health check fails** → [Health Check Issues →](TROUBLESHOOTING.md#health-check-fails)
-- **Environment vars undefined** → [Env Vars →](TROUBLESHOOTING.md#environment-variables-undefined)
-- **npm install timeout** → [Build Timeout →](TROUBLESHOOTING.md#npm-install-timeout-10-minutes)
-- **Next.js specific** → [NEXTJS.md →](NEXTJS.md#common-nextjs-issues-on-hostkit)
+**Deployment Issues** → [Deployment Failures →](DEPLOYMENT-FAILURES.md)
+- npm install timeout (10 min) → [Category A1](DEPLOYMENT-FAILURES.md#a1-npm-install-timeout-10-minutes)
+- npm build timeout (10 min) → [Category A2](DEPLOYMENT-FAILURES.md#a2-npm-build-timeout-10-minutes)
+- Health check timeout (2 min) → [Category A3](DEPLOYMENT-FAILURES.md#a3-health-check-timeout-2-minutes)
+- Missing `output: 'standalone'` → [Category B1](DEPLOYMENT-FAILURES.md#b1-nextjs-missing-output-standalone)
+- 502 Bad Gateway → [Category G1](DEPLOYMENT-FAILURES.md#g1-502-bad-gateway)
+- 504 Gateway Timeout → [Category G2](DEPLOYMENT-FAILURES.md#g2-504-gateway-timeout)
+
+**Authentication Issues** → [Auth Troubleshooting →](AUTH-TROUBLESHOOTING.md)
+- Email not sending → [Solution](AUTH-TROUBLESHOOTING.md#email-not-sending)
+- OAuth sign-in fails → [Solution](AUTH-TROUBLESHOOTING.md#oauth-provider-sign-in-fails)
+- Session/cookie issues → [Category C3](DEPLOYMENT-FAILURES.md#c3-sessioncookie-issues)
+
+**Database Issues** → [Deployment Failures](DEPLOYMENT-FAILURES.md)
+- DATABASE_URL not set → [Category D1](DEPLOYMENT-FAILURES.md#d1-database_url-not-set)
+- Migrations failed → [Category D2](DEPLOYMENT-FAILURES.md#d2-database-migrations-failed)
+- Connection pool exhausted → [Category D3](DEPLOYMENT-FAILURES.md#d3-connection-pool-exhausted)
+
+**Quick Diagnostic** → [Checklist](DEPLOYMENT-FAILURES.md#quick-diagnostic-checklist)
 
 ---
 
 ## Documentation Structure
 
 ```
-CLAUDE.md                    ← You are here (index + MCP reference)
-├── ARCHITECTURE.md          ← System design, provisioning, directory layout
-├── DEPLOYMENT.md            ← Full deploy pipeline, modes, timeouts
-├── NEXTJS.md                ← Next.js specifics, config, build output
-├── ENVIRONMENT.md           ← Env vars, secrets, configuration
-├── TROUBLESHOOTING.md       ← Common issues & solutions
+CLAUDE.md                          ← You are here (quick reference + navigation)
 │
-├── AUTH.md                  ← Authentication system overview
-├── AUTH-PROVIDERS.md        ← Email/password, OAuth, magic links, providers
-└── AUTH-TROUBLESHOOTING.md  ← Auth-specific issues & solutions
+├─ MCP TOOLS & DEPLOYMENT
+├── MCP-TOOLS.md                   ← Complete reference (14 tools, parameters, returns)
+├── DEPLOYMENT-WORKFLOW.md         ← Step-by-step deployment guide (Phase 0-8)
+├── DEPLOYMENT-FAILURES.md         ← Troubleshooting (timeout, build, auth, DB, etc.)
+│
+├─ PLATFORM ARCHITECTURE
+├── ARCHITECTURE.md                ← System design, provisioning, directory layout
+├── NEXTJS.md                      ← Next.js specifics, config, build output
+├── ENVIRONMENT.md                 ← Env vars, secrets, configuration
+│
+├─ AUTHENTICATION
+├── AUTH.md                        ← Auth system overview
+├── AUTH-PROVIDERS.md              ← OAuth, magic links, email/password providers
+├── AUTH-TROUBLESHOOTING.md        ← Auth-specific issues & solutions
+│
+└─ GENERAL
+    ├── TROUBLESHOOTING.md         ← General troubleshooting (legacy, see DEPLOYMENT-FAILURES.md)
+    └── DEPLOYMENT.md              ← Legacy deployment docs (see DEPLOYMENT-WORKFLOW.md)
 ```
+
+**Document Purposes**:
+
+| Document | Purpose | Best For |
+|----------|---------|----------|
+| **MCP-TOOLS.md** | Complete tool reference | Looking up tool parameters, return values |
+| **DEPLOYMENT-WORKFLOW.md** | Deployment lifecycle (8 phases) | Deploying an app, step-by-step guide |
+| **DEPLOYMENT-FAILURES.md** | Troubleshooting failures | Debugging 502 errors, timeouts, crashes |
+| **ARCHITECTURE.md** | System design | Understanding HostKit internals |
+| **NEXTJS.md** | Next.js specifics | Next.js config, standalone mode |
+| **AUTH.md** | Auth system | Understanding auth architecture |
+| **AUTH-PROVIDERS.md** | OAuth/email details | Setting up specific auth providers |
+| **ENVIRONMENT.md** | Env variable management | Configuration and secrets |
 
 Each document is designed to be:
 - **Standalone**: Can be read independently
@@ -573,25 +411,32 @@ Each document is designed to be:
 - **Detailed**: Includes examples and exact commands
 - **Searchable**: Tables, clear headings, grep-friendly
 
-**Auth Documents**:
-- **AUTH.md**: System architecture, token management, session handling, integration
-- **AUTH-PROVIDERS.md**: Request/response formats for each provider (Google, Apple, email, magic links, anonymous)
-- **AUTH-TROUBLESHOOTING.md**: Common auth issues with step-by-step solutions
-
 ---
 
 ## For Project Agents
 
 If you're a Claude Code agent running on HostKit:
 
-1. **Read**: [Architecture →](ARCHITECTURE.md) to understand your environment
-2. **Learn**: [Next.js Guide →](NEXTJS.md) for app-specific requirements
-3. **Add Auth** (optional): [AUTH →](AUTH.md) for authentication setup
-   - [Provider Details →](AUTH-PROVIDERS.md) for OAuth, magic links, etc.
-4. **Deploy**: [Deployment →](DEPLOYMENT.md) for detailed pipeline
-5. **Troubleshoot**: [Troubleshooting →](TROUBLESHOOTING.md) when things break
-   - [Auth Issues →](AUTH-TROUBLESHOOTING.md) for authentication problems
-6. **Reference**: [Environment →](ENVIRONMENT.md) for config & secrets
+**Getting Started:**
+1. **Tools**: [MCP Tools Reference →](MCP-TOOLS.md) - Understand what tools are available
+2. **Architecture**: [Architecture →](ARCHITECTURE.md) - Understand your environment
+
+**Deploying Your App:**
+3. **Deployment Guide**: [Deployment Workflow →](DEPLOYMENT-WORKFLOW.md) - Step-by-step (Phase 0-8)
+4. **Next.js Specifics**: [Next.js Guide →](NEXTJS.md) - Config, health check, build output
+
+**Adding Features:**
+5. **Authentication**: [Auth System →](AUTH.md) with [Providers →](AUTH-PROVIDERS.md)
+6. **Configuration**: [Environment Variables →](ENVIRONMENT.md) for secrets & config
+
+**When Things Break:**
+7. **Troubleshooting**: [Deployment Failures →](DEPLOYMENT-FAILURES.md) - Timeouts, 502, crashes
+8. **Auth Issues**: [Auth Troubleshooting →](AUTH-TROUBLESHOOTING.md) - Login, sessions, OAuth
+
+**Quick Reference:**
+- Deployment failing? → [Deployment Failures →](DEPLOYMENT-FAILURES.md)
+- Need a specific tool? → [MCP Tools →](MCP-TOOLS.md)
+- Can't remember a command? → Use `hostkit_search()` or [Search docs →](MCP-TOOLS.md#1-hostkit_search)
 
 ---
 
