@@ -5,6 +5,9 @@
 | Use Case | Go To |
 |----------|-------|
 | **First time?** | [Architecture & Lifecycle →](ARCHITECTURE.md) |
+| **Adding authentication?** | [Auth System →](AUTH.md) |
+| **OAuth or Magic Links?** | [Provider Details →](AUTH-PROVIDERS.md) |
+| **Auth not working?** | [Auth Troubleshooting →](AUTH-TROUBLESHOOTING.md) |
 | **Deploying Next.js?** | [Next.js Complete Guide →](NEXTJS.md) |
 | **Deployment failing?** | [Troubleshooting →](TROUBLESHOOTING.md) |
 | **How does deploy work?** | [Deployment Pipeline →](DEPLOYMENT.md) |
@@ -449,6 +452,29 @@ hostkit_execute(command="db create myapp")
 
 ---
 
+### Manage Authentication
+
+```python
+# Enable auth with OAuth providers
+hostkit_execute(command="auth enable myapp --google-client-id=xxx --google-client-secret=yyy")
+
+# View auth configuration
+hostkit_execute(command="auth config myapp --show")
+
+# List authenticated users
+hostkit_execute(command="auth users myapp")
+
+# Check auth service logs
+hostkit_execute(command="auth logs myapp --follow")
+
+# Disable auth (be careful!)
+hostkit_execute(command="auth disable myapp --force")
+```
+
+**See also**: [Authentication System →](AUTH.md)
+
+---
+
 ### Rollback to Previous Release
 
 ```python
@@ -512,6 +538,11 @@ hostkit_execute(command="service logs myapp --follow")
 
 ## Troubleshooting Quick Links
 
+- **Auth issues** → [Auth Troubleshooting →](AUTH-TROUBLESHOOTING.md)
+  - Email not sending → [Solution →](AUTH-TROUBLESHOOTING.md#email-not-sending)
+  - Token refresh failing → [Solution →](AUTH-TROUBLESHOOTING.md#token-refresh-failing)
+  - OAuth sign-in fails → [Solution →](AUTH-TROUBLESHOOTING.md#oauth-provider-sign-in-fails)
+  - Multi-tab logout issues → [Solution →](AUTH-TROUBLESHOOTING.md#multi-tab-session-issues)
 - **Deploy fails** → [Troubleshooting →](TROUBLESHOOTING.md)
 - **App won't start** → [Runtime Errors →](TROUBLESHOOTING.md#common-runtime-errors)
 - **Health check fails** → [Health Check Issues →](TROUBLESHOOTING.md#health-check-fails)
@@ -529,7 +560,11 @@ CLAUDE.md                    ← You are here (index + MCP reference)
 ├── DEPLOYMENT.md            ← Full deploy pipeline, modes, timeouts
 ├── NEXTJS.md                ← Next.js specifics, config, build output
 ├── ENVIRONMENT.md           ← Env vars, secrets, configuration
-└── TROUBLESHOOTING.md       ← Common issues & solutions
+├── TROUBLESHOOTING.md       ← Common issues & solutions
+│
+├── AUTH.md                  ← Authentication system overview
+├── AUTH-PROVIDERS.md        ← Email/password, OAuth, magic links, providers
+└── AUTH-TROUBLESHOOTING.md  ← Auth-specific issues & solutions
 ```
 
 Each document is designed to be:
@@ -537,6 +572,11 @@ Each document is designed to be:
 - **Linked**: Cross-references to related docs
 - **Detailed**: Includes examples and exact commands
 - **Searchable**: Tables, clear headings, grep-friendly
+
+**Auth Documents**:
+- **AUTH.md**: System architecture, token management, session handling, integration
+- **AUTH-PROVIDERS.md**: Request/response formats for each provider (Google, Apple, email, magic links, anonymous)
+- **AUTH-TROUBLESHOOTING.md**: Common auth issues with step-by-step solutions
 
 ---
 
@@ -546,9 +586,12 @@ If you're a Claude Code agent running on HostKit:
 
 1. **Read**: [Architecture →](ARCHITECTURE.md) to understand your environment
 2. **Learn**: [Next.js Guide →](NEXTJS.md) for app-specific requirements
-3. **Deploy**: [Deployment →](DEPLOYMENT.md) for detailed pipeline
-4. **Troubleshoot**: [Troubleshooting →](TROUBLESHOOTING.md) when things break
-5. **Reference**: [Environment →](ENVIRONMENT.md) for config & secrets
+3. **Add Auth** (optional): [AUTH →](AUTH.md) for authentication setup
+   - [Provider Details →](AUTH-PROVIDERS.md) for OAuth, magic links, etc.
+4. **Deploy**: [Deployment →](DEPLOYMENT.md) for detailed pipeline
+5. **Troubleshoot**: [Troubleshooting →](TROUBLESHOOTING.md) when things break
+   - [Auth Issues →](AUTH-TROUBLESHOOTING.md) for authentication problems
+6. **Reference**: [Environment →](ENVIRONMENT.md) for config & secrets
 
 ---
 
