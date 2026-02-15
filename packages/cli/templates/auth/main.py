@@ -31,7 +31,28 @@ logging.getLogger("uvicorn.access").setLevel(getattr(logging, log_level, logging
 
 logger = logging.getLogger(__name__)
 
+
+async def run_migrations():
+    """Run any pending database migrations.
+
+    Currently handles the one-time migration of adding last_used_at to sessions.
+    This runs on startup to ensure the schema is up-to-date.
+    """
+    try:
+        async with engine.begin() as conn:
+            # Add last_used_at column if it doesn't exist
+            await conn.execute("""
+                ALTER TABLE sessions
+                ADD COLUMN IF NOT EXISTS last_used_at TIMESTAMP WITH TIME ZONE
+            """)
+            logger.info("Database migrations completed successfully")
+    except Exception as e:
+        logger.error(f"Error running migrations: {e}")
+        raise
+
+
 from config import get_settings
+from database import engine
 from routers import (
     auth_router,
     oauth_router,
@@ -55,6 +76,9 @@ async def lifespan(app: FastAPI):
     logger.info(f"Starting auth service for project: {settings.project_name}")
     logger.info(f"Listening on port: {settings.auth_service_port}")
     logger.info(f"Log level: {log_level}")
+
+    # Run database migrations
+    await run_migrations()
 
     yield
 

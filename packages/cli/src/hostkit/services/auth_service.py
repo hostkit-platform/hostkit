@@ -77,7 +77,8 @@ CREATE TABLE IF NOT EXISTS sessions (
     user_agent TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     expires_at TIMESTAMPTZ NOT NULL,
-    revoked_at TIMESTAMPTZ
+    revoked_at TIMESTAMPTZ,
+    last_used_at TIMESTAMPTZ
 );
 
 -- Magic links
