@@ -40,6 +40,7 @@ class CommandScope(Enum):
     """Scope of commands - determines who can run them."""
 
     ROOT_ONLY = "root_only"  # Only root can run
+    ROOT_OR_OPERATOR = "root_or_operator"  # Root or operator can run
     PROJECT_SCOPED = "project_scoped"  # Project user can run for own project
     PROJECT_READ = "project_read"  # Read-only for own project
     GLOBAL_READ = "global_read"  # Any user can read (system status)
@@ -528,8 +529,8 @@ COMMAND_SCOPES: dict[str, CommandScope] = {
     "db delete": CommandScope.ROOT_ONLY,
     "redis create": CommandScope.ROOT_ONLY,
     "redis delete": CommandScope.ROOT_ONLY,
-    "auth enable": CommandScope.ROOT_ONLY,
-    "auth disable": CommandScope.ROOT_ONLY,
+    "auth enable": CommandScope.ROOT_OR_OPERATOR,
+    "auth disable": CommandScope.ROOT_OR_OPERATOR,
     "service create-worker": CommandScope.ROOT_ONLY,
     "service delete-worker": CommandScope.ROOT_ONLY,
     "log setup": CommandScope.ROOT_ONLY,
