@@ -4,7 +4,7 @@ import subprocess
 
 import click
 
-from hostkit.access import project_access, root_only
+from hostkit.access import operator_or_root, project_access, root_only
 from hostkit.output import OutputFormatter
 from hostkit.services.auth_service import AuthService, AuthServiceError
 from hostkit.services.secrets_service import SecretsServiceError, get_secrets_service
@@ -33,7 +33,7 @@ def auth(ctx: click.Context) -> None:
 @click.option("--no-magic-link", is_flag=True, help="Disable magic link auth")
 @click.option("--no-anonymous", is_flag=True, help="Disable anonymous sessions")
 @click.pass_context
-@root_only
+@operator_or_root
 def auth_enable(
     ctx: click.Context,
     project: str,
@@ -141,7 +141,7 @@ def auth_enable(
 @click.argument("project")
 @click.option("--force", is_flag=True, help="Confirm deletion")
 @click.pass_context
-@root_only
+@operator_or_root
 def auth_disable(ctx: click.Context, project: str, force: bool) -> None:
     """Disable authentication service for a project.
 

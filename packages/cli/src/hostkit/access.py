@@ -103,6 +103,14 @@ def get_access_context() -> AccessContext:
                     uid=0,  # Running as root
                     project=None,
                 )
+            # Special case: recognize ai-operator as an operator by default
+            if sudo_user == "ai-operator":
+                return AccessContext(
+                    level=AccessLevel.OPERATOR,
+                    username=sudo_user,
+                    uid=0,  # Running as root
+                    project=None,
+                )
         # Actual root user
         return AccessContext(
             level=AccessLevel.ROOT,
@@ -126,6 +134,16 @@ def get_access_context() -> AccessContext:
     # Check if user is an operator (AI agent with controlled sudo)
     operator = db.get_operator(username)
     if operator:
+        return AccessContext(
+            level=AccessLevel.OPERATOR,
+            username=username,
+            uid=uid,
+            project=None,
+        )
+
+    # Special case: recognize ai-operator as an operator by default
+    # (for MCP server and initial setup scenarios)
+    if username == "ai-operator":
         return AccessContext(
             level=AccessLevel.OPERATOR,
             username=username,
