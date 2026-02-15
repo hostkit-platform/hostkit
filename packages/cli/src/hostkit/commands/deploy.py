@@ -62,6 +62,11 @@ from hostkit.services.event_service import EventService
     help="Install dependencies after sync",
 )
 @click.option(
+    "--force-install",
+    is_flag=True,
+    help="Force dependency installation even if already present (implies --install)",
+)
+@click.option(
     "--build",
     is_flag=True,
     help="Build the app before deploying (runs npm install && npm run build for Node/Next.js)",
@@ -93,6 +98,7 @@ def deploy(
     tag: str | None,
     commit: str | None,
     install: bool,
+    force_install: bool,
     build: bool,
     with_secrets: bool,
     restart: bool,
@@ -112,6 +118,9 @@ def deploy(
     for Node.js/Next.js projects). The build runs on the VPS in a temporary directory,
     and the built artifacts are then deployed.
 
+    Use --install to install dependencies. By default, dependencies are skipped if
+    already valid. Use --force-install to reinstall even if already present.
+
     Examples:
 
         hostkit deploy myapp
@@ -130,10 +139,16 @@ def deploy(
 
         hostkit deploy myapp --build --install  # Build and install deps
 
+        hostkit deploy myapp --force-install  # Force reinstall deps
+
         hostkit deploy myapp --no-restart
     """
     formatter: OutputFormatter = ctx.obj["formatter"]
     db = get_db()
+
+    # --force-install implies --install
+    if force_install:
+        install = True
 
     # Resolve target (project or environment)
     deploy_target = project
@@ -236,6 +251,7 @@ def deploy(
                 inject_secrets=with_secrets,
                 restart=restart,
                 override_ratelimit=override_ratelimit,
+                force_install=force_install,
             )
         else:
             # Local source deployment
@@ -247,6 +263,7 @@ def deploy(
                 inject_secrets=with_secrets,
                 restart=restart,
                 override_ratelimit=override_ratelimit,
+                force_install=force_install,
             )
 
         data = {

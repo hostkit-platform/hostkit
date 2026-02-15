@@ -8,6 +8,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import click
+
 from hostkit.config import get_config
 from hostkit.database import get_db
 from hostkit.services.build_detector import BuildDetector, BuildType
@@ -15,6 +17,11 @@ from hostkit.services.release_service import Release, ReleaseService
 
 if TYPE_CHECKING:
     from hostkit.services.git_service import GitInfo
+
+# Deployment timeouts (in seconds)
+NPM_INSTALL_TIMEOUT = 600  # 10 minutes for npm install
+PIP_INSTALL_TIMEOUT = 300  # 5 minutes for pip install
+NPM_BUILD_TIMEOUT = 600  # 10 minutes for npm build
 
 
 @dataclass
@@ -74,6 +81,7 @@ class DeployService:
         inject_secrets: bool = False,
         restart: bool = True,
         override_ratelimit: bool = False,
+        force_install: bool = False,
     ) -> DeployResult:
         """
         Deploy code to a project using release-based deployment.
@@ -102,6 +110,7 @@ class DeployService:
             inject_secrets: Whether to inject secrets from vault into .env
             restart: Whether to restart the service after deploy
             override_ratelimit: Whether to bypass rate limit checks
+            force_install: Force install dependencies even if already present
 
         Returns:
             DeployResult with deployment details including release info
@@ -225,6 +234,7 @@ class DeployService:
                 start_time=start_time,
                 rate_limit_service=rate_limit_service,
                 app_built=app_built,
+                force_install=force_install,
             )
         finally:
             # Cleanup build temp dir if we created one
@@ -246,6 +256,7 @@ class DeployService:
         start_time: float,
         rate_limit_service,
         app_built: bool = False,
+        force_install: bool = False,
     ) -> DeployResult:
         """Inner deployment logic after optional build step."""
 
@@ -340,7 +351,7 @@ class DeployService:
         # Step 6 (continued): Now install dependencies with symlink active
         iron_session_installed = False
         if install_deps:
-            deps_installed, iron_session_installed = self._install_dependencies(project, runtime)
+            deps_installed, iron_session_installed = self._install_dependencies(project, runtime, force=force_install)
 
         # Step 9: Inject secrets if requested
         secrets_injected = False
@@ -408,6 +419,7 @@ class DeployService:
         inject_secrets: bool = False,
         restart: bool = True,
         override_ratelimit: bool = False,
+        force_install: bool = False,
     ) -> DeployResult:
         """
         Deploy code to a project from a Git repository.
@@ -624,7 +636,7 @@ class DeployService:
             iron_session_installed = False
             if install_deps:
                 deps_installed, iron_session_installed = self._install_dependencies(
-                    project, runtime
+                    project, runtime, force=force_install
                 )
 
             # Step 10: Inject secrets if requested
@@ -763,7 +775,68 @@ class DeployService:
 
         return file_count
 
-    def _install_dependencies(self, project: str, runtime: str) -> tuple[bool, bool]:
+    def _validate_dependencies(
+        self,
+        project: str,
+        runtime: str,
+        app_dir: Path
+    ) -> tuple[bool, str | None]:
+        """
+        Validate if dependencies are already installed and valid.
+
+        Returns:
+            Tuple of (valid, reason) - reason is None if valid, or a string explaining why invalid
+        """
+        home_dir = Path(f"/home/{project}")
+
+        if runtime == "python":
+            venv_dir = home_dir / "venv"
+            venv_pip = venv_dir / "bin" / "pip"
+            requirements = app_dir / "requirements.txt"
+
+            if not requirements.exists():
+                return True, None
+            if not venv_pip.exists():
+                return False, "venv not found"
+            return True, None
+
+        elif runtime in ("node", "nextjs"):
+            node_modules = app_dir / "node_modules"
+            package_json = app_dir / "package.json"
+            package_lock = app_dir / "package-lock.json"
+
+            if not package_json.exists():
+                return True, None
+
+            # Check node_modules exists and is populated
+            if not node_modules.exists():
+                return False, "node_modules not found"
+
+            try:
+                has_modules = any(node_modules.iterdir())
+                if not has_modules:
+                    return False, "node_modules is empty"
+            except Exception:
+                return False, "node_modules not accessible"
+
+            # Check package-lock.json exists
+            if not package_lock.exists():
+                return False, "package-lock.json missing"
+
+            # Check if package.json modified after package-lock
+            try:
+                pkg_mtime = package_json.stat().st_mtime
+                lock_mtime = package_lock.stat().st_mtime
+                if pkg_mtime > lock_mtime:
+                    return False, "package.json modified after last npm install"
+            except Exception:
+                return False, "Cannot verify dependency freshness"
+
+            return True, None
+
+        return True, None
+
+    def _install_dependencies(self, project: str, runtime: str, force: bool = False) -> tuple[bool, bool]:
         """Install dependencies based on runtime.
 
         For Next.js projects with auth enabled, also installs iron-session
@@ -777,6 +850,24 @@ class DeployService:
         iron_session_installed = False
 
         try:
+            # Check if dependencies are already valid (unless force=True)
+            if not force:
+                deps_valid, invalid_reason = self._validate_dependencies(project, runtime, app_dir)
+
+                if deps_valid:
+                    # Dependencies already present and valid - skip installation
+                    click.echo(
+                        click.style(
+                            "✓ Dependencies already installed, skipping reinstall",
+                            fg="green"
+                        ),
+                        err=True  # stderr doesn't break JSON mode
+                    )
+                    if runtime == "nextjs":
+                        iron_session_installed = self._install_iron_session_if_needed(
+                            project, app_dir
+                        )
+                    return True, iron_session_installed
             if runtime == "python":
                 venv_dir = home_dir / "venv"
                 venv_pip = venv_dir / "bin" / "pip"
@@ -801,20 +892,32 @@ class DeployService:
 
                 # Now install requirements if they exist
                 if requirements.exists() and venv_pip.exists():
-                    subprocess.run(
-                        [
-                            "sudo",
-                            "-u",
-                            project,
-                            str(venv_pip),
-                            "install",
-                            "-r",
-                            str(requirements),
-                        ],
-                        check=True,
-                        cwd=str(app_dir),
+                    click.echo(
+                        click.style(
+                            f"⏳ Installing dependencies (timeout: {PIP_INSTALL_TIMEOUT // 60} min)...",
+                            fg="cyan"
+                        ),
+                        err=True
                     )
-                    return True, False
+                    try:
+                        subprocess.run(
+                            [
+                                "sudo",
+                                "-u",
+                                project,
+                                str(venv_pip),
+                                "install",
+                                "-r",
+                                str(requirements),
+                            ],
+                            check=True,
+                            cwd=str(app_dir),
+                            capture_output=True,
+                            timeout=PIP_INSTALL_TIMEOUT,
+                        )
+                        return True, False
+                    except subprocess.TimeoutExpired:
+                        return False, False
                 elif venv_pip.exists():
                     # Venv created but no requirements.txt - still counts as success
                     return True, False
@@ -824,11 +927,23 @@ class DeployService:
                 # npm install must run where package.json lives
                 package_json = app_dir / "package.json"
                 if package_json.exists():
-                    subprocess.run(
-                        ["sudo", "-u", project, "npm", "install"],
-                        check=True,
-                        cwd=str(app_dir),
+                    click.echo(
+                        click.style(
+                            f"⏳ Installing npm dependencies (timeout: {NPM_INSTALL_TIMEOUT // 60} min)...",
+                            fg="cyan"
+                        ),
+                        err=True
                     )
+                    try:
+                        subprocess.run(
+                            ["sudo", "-u", project, "npm", "install"],
+                            check=True,
+                            cwd=str(app_dir),
+                            capture_output=True,
+                            timeout=NPM_INSTALL_TIMEOUT,
+                        )
+                    except subprocess.TimeoutExpired:
+                        return False, False
 
                     # For Next.js with auth, auto-install iron-session
                     if runtime == "nextjs":
@@ -1263,12 +1378,12 @@ class DeployService:
                     check=True,
                     cwd=str(build_dir),
                     capture_output=True,
-                    timeout=300,  # 5 minute timeout for npm install
+                    timeout=NPM_INSTALL_TIMEOUT,
                 )
             except subprocess.TimeoutExpired:
                 raise DeployServiceError(
                     code="BUILD_TIMEOUT",
-                    message="npm install timed out after 5 minutes",
+                    message=f"npm install timed out after {NPM_INSTALL_TIMEOUT // 60} minutes",
                     suggestion="Check your network connection and package.json dependencies",
                 )
             except subprocess.CalledProcessError as e:
@@ -1286,12 +1401,12 @@ class DeployService:
                     check=True,
                     cwd=str(build_dir),
                     capture_output=True,
-                    timeout=600,  # 10 minute timeout for build
+                    timeout=NPM_BUILD_TIMEOUT,
                 )
             except subprocess.TimeoutExpired:
                 raise DeployServiceError(
                     code="BUILD_TIMEOUT",
-                    message="npm run build timed out after 10 minutes",
+                    message=f"npm run build timed out after {NPM_BUILD_TIMEOUT // 60} minutes",
                     suggestion="Check your build configuration for performance issues",
                 )
             except subprocess.CalledProcessError as e:
