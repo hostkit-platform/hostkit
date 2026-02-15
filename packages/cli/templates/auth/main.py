@@ -43,15 +43,17 @@ async def run_migrations():
         async with engine.begin() as conn:
             # Add last_used_at column if it doesn't exist
             logger.debug("Adding last_used_at column to sessions table if needed...")
-            await conn.execute("""
+            await conn.execute(text("""
                 ALTER TABLE sessions
                 ADD COLUMN IF NOT EXISTS last_used_at TIMESTAMP WITH TIME ZONE
-            """)
+            """))
             logger.info("✓ Database migrations completed successfully")
     except Exception as e:
         logger.error(f"✗ Error running migrations: {e}", exc_info=True)
         raise
 
+
+from sqlalchemy import text
 
 from config import get_settings
 from database import engine
