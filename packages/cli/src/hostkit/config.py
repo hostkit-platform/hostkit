@@ -23,7 +23,7 @@ class HostKitConfig:
     db_path: Path = field(default_factory=lambda: Path("/var/lib/hostkit/hostkit.db"))
 
     # Services
-    postgres_host: str = "localhost"
+    postgres_host: str = "127.0.0.1"
     postgres_port: int = 5432
     redis_host: str = "localhost"
     redis_port: int = 6379

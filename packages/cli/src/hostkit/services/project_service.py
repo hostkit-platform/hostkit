@@ -1351,6 +1351,90 @@ NODE_ENV=production
 
 # Send test email
 {name} ALL=(root) NOPASSWD: /usr/local/bin/hostkit mail send-test {name} *
+
+# =============================================================================
+# Payments service management (project-scoped)
+# =============================================================================
+
+# Payments enable/disable (their isolated payments instance)
+{name} ALL=(root) NOPASSWD: /usr/local/bin/hostkit payments enable {name}
+{name} ALL=(root) NOPASSWD: /usr/local/bin/hostkit payments enable {name} *
+{name} ALL=(root) NOPASSWD: /usr/local/bin/hostkit payments disable {name}
+{name} ALL=(root) NOPASSWD: /usr/local/bin/hostkit payments disable {name} *
+{name} ALL=(root) NOPASSWD: /usr/local/bin/hostkit payments config {name}
+{name} ALL=(root) NOPASSWD: /usr/local/bin/hostkit payments config {name} *
+
+# =============================================================================
+# SMS service management (project-scoped)
+# =============================================================================
+
+# SMS enable/disable (their isolated SMS instance)
+{name} ALL=(root) NOPASSWD: /usr/local/bin/hostkit sms enable {name}
+{name} ALL=(root) NOPASSWD: /usr/local/bin/hostkit sms enable {name} *
+{name} ALL=(root) NOPASSWD: /usr/local/bin/hostkit sms disable {name}
+{name} ALL=(root) NOPASSWD: /usr/local/bin/hostkit sms disable {name} *
+{name} ALL=(root) NOPASSWD: /usr/local/bin/hostkit sms config {name}
+{name} ALL=(root) NOPASSWD: /usr/local/bin/hostkit sms config {name} *
+
+# =============================================================================
+# Voice service management (project-scoped)
+# =============================================================================
+
+# Voice enable/disable (their isolated voice instance)
+{name} ALL=(root) NOPASSWD: /usr/local/bin/hostkit voice enable {name}
+{name} ALL=(root) NOPASSWD: /usr/local/bin/hostkit voice enable {name} *
+{name} ALL=(root) NOPASSWD: /usr/local/bin/hostkit voice disable {name}
+{name} ALL=(root) NOPASSWD: /usr/local/bin/hostkit voice disable {name} *
+{name} ALL=(root) NOPASSWD: /usr/local/bin/hostkit voice config {name}
+{name} ALL=(root) NOPASSWD: /usr/local/bin/hostkit voice config {name} *
+
+# =============================================================================
+# Booking service management (project-scoped)
+# =============================================================================
+
+# Booking enable/disable (their isolated booking instance)
+{name} ALL=(root) NOPASSWD: /usr/local/bin/hostkit booking enable {name}
+{name} ALL=(root) NOPASSWD: /usr/local/bin/hostkit booking enable {name} *
+{name} ALL=(root) NOPASSWD: /usr/local/bin/hostkit booking disable {name}
+{name} ALL=(root) NOPASSWD: /usr/local/bin/hostkit booking disable {name} *
+{name} ALL=(root) NOPASSWD: /usr/local/bin/hostkit booking config {name}
+{name} ALL=(root) NOPASSWD: /usr/local/bin/hostkit booking config {name} *
+
+# =============================================================================
+# Vector service management (project-scoped)
+# =============================================================================
+
+# Vector enable/disable (their isolated vector instance)
+{name} ALL=(root) NOPASSWD: /usr/local/bin/hostkit vector enable {name}
+{name} ALL=(root) NOPASSWD: /usr/local/bin/hostkit vector enable {name} *
+{name} ALL=(root) NOPASSWD: /usr/local/bin/hostkit vector disable {name}
+{name} ALL=(root) NOPASSWD: /usr/local/bin/hostkit vector disable {name} *
+{name} ALL=(root) NOPASSWD: /usr/local/bin/hostkit vector config {name}
+{name} ALL=(root) NOPASSWD: /usr/local/bin/hostkit vector config {name} *
+
+# =============================================================================
+# Chatbot service management (project-scoped)
+# =============================================================================
+
+# Chatbot enable/disable (their isolated chatbot instance)
+{name} ALL=(root) NOPASSWD: /usr/local/bin/hostkit chatbot enable {name}
+{name} ALL=(root) NOPASSWD: /usr/local/bin/hostkit chatbot enable {name} *
+{name} ALL=(root) NOPASSWD: /usr/local/bin/hostkit chatbot disable {name}
+{name} ALL=(root) NOPASSWD: /usr/local/bin/hostkit chatbot disable {name} *
+{name} ALL=(root) NOPASSWD: /usr/local/bin/hostkit chatbot config {name}
+{name} ALL=(root) NOPASSWD: /usr/local/bin/hostkit chatbot config {name} *
+
+# =============================================================================
+# R2 storage management (project-scoped)
+# =============================================================================
+
+# R2 enable/disable (their isolated R2 storage)
+{name} ALL=(root) NOPASSWD: /usr/local/bin/hostkit r2 enable {name}
+{name} ALL=(root) NOPASSWD: /usr/local/bin/hostkit r2 enable {name} *
+{name} ALL=(root) NOPASSWD: /usr/local/bin/hostkit r2 disable {name}
+{name} ALL=(root) NOPASSWD: /usr/local/bin/hostkit r2 disable {name} *
+{name} ALL=(root) NOPASSWD: /usr/local/bin/hostkit r2 config {name}
+{name} ALL=(root) NOPASSWD: /usr/local/bin/hostkit r2 config {name} *
 """
 
     def _remove_sudoers_rules(self, name: str) -> None:
