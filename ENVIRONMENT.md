@@ -35,11 +35,22 @@ REDIS_URL=redis://localhost:6379/{db_number}
 CELERY_BROKER_URL=redis://localhost:6379/{db_number}
 CELERY_RESULT_BACKEND=redis://localhost:6379/{db_number}
 
-# PostgreSQL (added when --with-db used)
-# DATABASE_URL=postgresql://...
+# PostgreSQL (auto-set by provision, or when --with-db used with project create)
+DATABASE_URL=postgresql://{user}:{password}@localhost:5432/{project}_db
+
+# Auth (auto-set by provision, or when --with-auth used)
+AUTH_ENABLED=true
+AUTH_URL=http://127.0.0.1:{port+1000}
+NEXT_PUBLIC_AUTH_URL=https://{project}.hostkit.dev
+AUTH_JWT_PUBLIC_KEY="..."
+
+# Storage (auto-set by provision, or when --with-storage used)
+S3_ENDPOINT=http://localhost:9000
+S3_BUCKET=hostkit-{project}
+S3_ACCESS_KEY={generated}
+S3_SECRET_KEY={generated}
 
 # Other services added as enabled
-# AUTH_URL=http://127.0.0.1:9001
 # STRIPE_SECRET_KEY=sk_...
 # etc.
 ```

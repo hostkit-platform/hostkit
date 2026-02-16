@@ -117,7 +117,9 @@ hostkit_state(scope="project", project="myapp", refresh=True)
 
 ```python
 # PROJECT LIFECYCLE
-hostkit_execute(command="project create myapp --nextjs --with-db")
+hostkit_execute(command="provision myapp")  # Creates project with db + auth + storage
+hostkit_execute(command="provision myapp --python --no-auth")  # Python, no auth
+hostkit_execute(command="project create myapp --nextjs --with-db")  # Low-level (opt-in flags)
 hostkit_execute(command="project list")
 hostkit_execute(command="project info myapp")
 hostkit_execute(command="project delete myapp --force")
@@ -182,7 +184,7 @@ hostkit_execute(
 
 ### 4. `hostkit_deploy_local`
 
-**Purpose**: Deploy from local filesystem to HostKit (rsync + build + health check)
+**Purpose**: Deploy from local filesystem to HostKit (rsync + build + health check). Auto-provisions the project if it doesn't exist.
 
 **Parameters:**
 - `local_path` (string, required): Path to local directory to deploy
@@ -194,10 +196,12 @@ hostkit_execute(
 - `wait_healthy` (boolean, optional, default=true): Poll health check for up to 2 minutes
 - `cleanup` (boolean, optional, default=true): Remove temporary files on VPS after deploy
 - `override_ratelimit` (boolean, optional, default=false): Bypass deploy rate limiting (10/hour)
+- `auto_provision` (boolean, optional, default=true): Auto-provision project if it doesn't exist (creates project with db, auth, storage). Runtime is auto-detected from local path contents.
 
-**Returns**: `{success: boolean, deployment_id: string, url: string, duration_ms: number}`
+**Returns**: `{success: boolean, deployed: boolean, healthy: boolean, auto_provisioned: boolean, provision_result?: {...}}`
 
 **Deployment Steps:**
+0. Check if project exists — if not, auto-detect runtime and run `provision` (idempotent)
 1. Validate local path exists and is readable
 2. Rsync files to VPS (`/home/{project}/releases/{timestamp}/`)
 3. Smart detection: Next.js standalone vs standard mode
@@ -208,6 +212,13 @@ hostkit_execute(
 8. Poll health check (if `wait_healthy=true`) - timeout: 2 minutes
 9. Cleanup old releases (keep 5 most recent)
 10. Return results
+
+**Runtime Auto-Detection** (when auto-provisioning):
+- `next.config.*` → nextjs
+- `package.json` (no next.config) → node
+- `requirements.txt` / `pyproject.toml` → python
+- `index.html` (no package.json) → static
+- fallback → nextjs
 
 **Timeline:**
 - Pre-built deploy (install=false, build=false): 2-5 minutes
@@ -603,7 +614,7 @@ hostkit_capabilities(project="myapp")
 | `hostkit_search` | Documentation search | query, limit, filter | None |
 | `hostkit_state` | Live VPS state | scope, project, refresh | 30s |
 | `hostkit_execute` | Run HostKit commands | command, project, json_mode | Varies |
-| `hostkit_deploy_local` | Deploy from filesystem | local_path, install, build, wait_healthy | 25min |
+| `hostkit_deploy_local` | Deploy from filesystem (auto-provisions) | local_path, install, build, auto_provision | 25min |
 | `hostkit_env_get` | Get env variables | project, keys | 10s |
 | `hostkit_env_set` | Set env variables | project, variables, restart | 30s |
 | `hostkit_db_schema` | Get DB schema | project, table | 10s |
@@ -655,4 +666,4 @@ hostkit_capabilities(project="myapp")
 
 ---
 
-**Last updated**: February 2025 · HostKit v1.0.0
+**Last updated**: February 2026 · HostKit v0.2.34

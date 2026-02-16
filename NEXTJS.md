@@ -304,7 +304,7 @@ All vars from `/home/{project}/.env` are available:
 // In your Next.js app
 const port = process.env.PORT;           // "8001"
 const projectName = process.env.PROJECT_NAME;  // "my-app"
-const dbUrl = process.env.DATABASE_URL;   // Set if --with-db
+const dbUrl = process.env.DATABASE_URL;   // Auto-set by provision
 
 // Public vars (visible to client)
 const apiUrl = process.env.NEXT_PUBLIC_API_URL;  // If defined in .env
@@ -383,7 +383,7 @@ if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = db;
 
 ### Option A: HostKit Auth Service (Recommended)
 
-Enable with `--with-auth` flag at project creation.
+Enabled by default with `provision`. Auth env vars (AUTH_URL, AUTH_JWT_PUBLIC_KEY, etc.) are auto-set.
 
 ```typescript
 // app/api/auth/verify/route.ts
@@ -527,12 +527,12 @@ const url = process.env.NEXT_PUBLIC_API_URL;  // ✅ Works
 **Symptom**: `ECONNREFUSED` when connecting to DATABASE_URL
 
 **Cause**:
-- Database not created (`--with-db` not used)
+- Database not created (project created with `project create` without `--with-db`, or `provision --no-db`)
 - Wrong DATABASE_URL format
 - PostgreSQL not running
 
 **Fix**:
-1. Create project with `--with-db` flag
+1. Create database: `hostkit db create {project}` (or re-run `provision` which is idempotent)
 2. Verify DATABASE_URL: `hostkit env get {project} DATABASE_URL`
 3. Test locally: `psql $DATABASE_URL`
 

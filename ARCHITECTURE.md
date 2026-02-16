@@ -93,16 +93,20 @@ Project "myapp":
 
 13. **Regenerate Nginx port mappings** for wildcard routing
 
-### Optional Steps (if flags provided)
+### Service Steps (default ON with `provision`, opt-in with `project create`)
 
-| Flag | Action |
-|------|--------|
-| `--with-db` | Create PostgreSQL database, set `DATABASE_URL` |
-| `--with-auth` | Enable auth service on port `{base_port}+1000` |
-| `--with-secrets` | Inject secrets from vault into `.env` |
-| `--domain {domain}` | Add custom domain via Nginx |
-| `--ssl` | Provision Let's Encrypt certificate |
-| `--source {path}` | Deploy initial code on creation |
+The `provision` command enables these by default. Use `--no-db`, `--no-auth`, `--no-storage` to opt out.
+The low-level `project create` command still requires `--with-db`, `--with-auth`, `--with-storage` flags.
+
+| Service | `provision` default | `project create` flag | Action |
+|---------|--------------------|-----------------------|--------|
+| PostgreSQL | ON | `--with-db` | Create database, set `DATABASE_URL` |
+| Auth | ON | `--with-auth` | Enable auth service on port `{base_port}+1000` |
+| Storage | ON | `--with-storage` | Create MinIO bucket, set `S3_*` vars |
+| Secrets | OFF | `--with-secrets` | Inject secrets from vault into `.env` |
+| Domain | OFF | `--domain {domain}` | Add custom domain via Nginx |
+| SSL | OFF | `--ssl` | Provision Let's Encrypt certificate |
+| Source | OFF | `--source {path}` | Deploy initial code on creation |
 
 ---
 

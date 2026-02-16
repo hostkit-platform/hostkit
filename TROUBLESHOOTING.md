@@ -41,7 +41,7 @@ npm start
 | `Cannot find module 'X'` | Missing dependency | Add to package.json, redeploy with --install |
 | `EADDRINUSE: address already in use :{port}` | Port conflict | Check lsof output, kill process, redeploy |
 | `ENOENT: no such file or directory` | Missing file | Check .next structure, rebuild locally |
-| `Error: Cannot find database` | DB not created | Use --with-db flag to create database |
+| `Error: Cannot find database` | DB not created | Run `hostkit db create {project}` or re-run `provision` (idempotent) |
 | `TypeError: Cannot read property of undefined` | Logic error | Check app code, test locally, fix and redeploy |
 
 ---
@@ -245,7 +245,7 @@ systemctl restart hostkit-{project}
 **Symptom**: "ECONNREFUSED" when connecting to DATABASE_URL
 
 **Possible Causes**:
-1. Database not created (`--with-db` not used)
+1. Database not created (project created without database, or `provision --no-db` used)
 2. Wrong DATABASE_URL
 3. PostgreSQL not running
 4. User permissions issue
@@ -272,9 +272,8 @@ systemctl status postgresql
 # Create database if missing
 hostkit db create {project}
 
-# Or recreate project with --with-db
-hostkit project delete {project} --force
-hostkit project create {project} --nextjs --with-db
+# Or re-run provision (idempotent — adds missing services without destroying anything)
+hostkit provision {project}
 
 # Test connection
 psql -U {project} -d {project}_db -h localhost

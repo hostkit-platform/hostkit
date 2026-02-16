@@ -22,23 +22,30 @@ This document covers the full deployment lifecycle for Next.js applications on H
 
 ## Phase 0: Pre-Deployment Setup
 
-Before deploying, ensure the project exists and is configured:
+> **Note**: `hostkit_deploy_local` auto-provisions projects that don't exist yet
+> (with db, auth, and storage). For most deployments, you can skip Phase 0 entirely
+> and go straight to Phase 1.
+
+If you want to provision manually or customize services:
 
 ```python
-# Step 0.1: Create the project (if new)
+# Step 0.1: Provision the project (idempotent — safe to call multiple times)
 hostkit_execute(
-  command="project create my-app --nextjs --with-db",
+  command="provision my-app",
   json_mode=True
 )
-# Returns: {project_name, port, domain, database_url, redis_url, ...}
+# Defaults: nextjs runtime, db + auth + storage ON
+# Returns: {project, url, port, runtime, services: {database, auth, storage}, env_vars_set, ...}
+
+# Or with customization:
+hostkit_execute(command="provision my-app --python --no-auth")  # Python, no auth
+hostkit_execute(command="provision my-app --no-db --no-auth --no-storage")  # Bare project
 
 # Step 0.2: Verify project status
 hostkit_state(scope="project", project="my-app")
-# Returns: Current service status, port, domains, enabled services
 
 # Step 0.3: Get current environment variables
 current_env = hostkit_env_get(project="my-app")
-# Returns all current env vars for inspection
 ```
 
 ---
@@ -120,16 +127,13 @@ hostkit_env_set(
 
 ### For Next.js + Authentication:
 ```python
-# First, enable auth service
-hostkit_execute(command="auth enable my-app")
-
-# Then set auth env vars
+# Auth is enabled by default when using provision.
+# AUTH_URL, AUTH_JWT_PUBLIC_KEY etc. are auto-set.
+# Only set additional vars if needed:
 hostkit_env_set(
   project="my-app",
   variables={
-    "AUTH_URL": "https://my-app.hostkit.dev",
     "AUTH_TRUST_HOST": "true",
-    "AUTH_JWT_PUBLIC_KEY": "your-jwt-public-key",
   },
   restart=False
 )
@@ -592,4 +596,4 @@ hostkit_deploy_local(
 
 ---
 
-**Last updated**: February 2025 · HostKit v1.0.0
+**Last updated**: February 2026 · HostKit v0.2.34

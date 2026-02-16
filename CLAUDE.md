@@ -40,8 +40,9 @@ Project "myapp":
 ├── Service: hostkit-myapp (systemd)
 ├── Port: 8001 (assigned)
 ├── Domain: myapp.hostkit.dev (auto, SSL included)
-├── Database: PostgreSQL (optional)
-└── Storage: Redis + MinIO (automatic)
+├── Database: PostgreSQL (auto with provision)
+├── Auth: OAuth service (auto with provision)
+└── Storage: Redis + MinIO (auto with provision)
 ```
 
 **Key characteristics**:
@@ -74,6 +75,7 @@ Run any HostKit CLI command: deploy, rollback, service management, etc.
 
 ### hostkit_deploy_local
 Deploy from local filesystem (rsync + build + health check).
+Auto-provisions the project if it doesn't exist (with db, auth, storage).
 - Strategy A: Pre-built (2-5 min)
 - Strategy B: Build on VPS (15-25 min)
 
@@ -98,20 +100,29 @@ Diagnostics and cross-project learning.
 
 ## Key Concepts
 
-### Project Creation Flow
+### Project Provisioning Flow
+
+The `provision` command is the recommended "it just works" path. It defaults to
+Next.js with database, auth, and storage ON. It is idempotent (safe to call multiple times).
 
 ```
-hostkit_execute(command="project create myapp --nextjs --with-db")
+hostkit_execute(command="provision myapp")
     ↓
 1. Validate project name (lowercase, hyphens only)
-2. Create Linux user & home directory
+2. Create Linux user & home directory (or skip if exists)
 3. Create directory structure (/home/myapp/releases, /home/myapp/app)
 4. Assign port (8001+) and Redis DB
-5. Create .env with defaults (PORT, HOST, REDIS_URL, etc.)
+5. Create .env with defaults (PORT, HOST, REDIS_URL, NODE_ENV, etc.)
 6. Generate systemd service file
 7. Register in database
 8. Auto-register myapp.hostkit.dev domain with SSL
+9. Create PostgreSQL database + inject DATABASE_URL (default ON, --no-db to skip)
+10. Enable auth service + inject AUTH_URL, AUTH_JWT_PUBLIC_KEY (default ON, --no-auth to skip)
+11. Create MinIO storage bucket + inject S3_* vars (default ON, --no-storage to skip)
 ```
+
+`hostkit_deploy_local` also auto-provisions if the project doesn't exist, so agents
+can deploy in a single tool call without manual project creation.
 
 **Read more**: [Full Lifecycle →](ARCHITECTURE.md#project-provisioning-lifecycle)
 
@@ -120,10 +131,10 @@ hostkit_execute(command="project create myapp --nextjs --with-db")
 ### Deployment Flow
 
 ```
-Phase 0: Setup       → Create project, verify
+Phase 0: Setup       → Auto-provisioned by deploy_local (or manual provision)
 Phase 1: Prepare     → Build locally (Strategy A) or prepare source (Strategy B)
 Phase 2: Validate    → Check VPS health, rate limits
-Phase 3: Env Setup   → Set environment variables
+Phase 3: Env Setup   → Set environment variables (most auto-set by provision)
 Phase 4: Database    → Migrations, schema setup
 Phase 5: Deploy      → Rsync → Install/Build → Activate → Restart
 Phase 6: Health      → Poll /api/health until ready
@@ -202,6 +213,7 @@ KEY="value with spaces"
 
 ```python
 # Strategy A: Deploy pre-built (fastest, 2-5 min)
+# If project doesn't exist, auto-provisions with db + auth + storage
 hostkit_deploy_local(
   project="my-app",
   local_path="/path/to/built/app",
@@ -216,6 +228,15 @@ hostkit_deploy_local(
   local_path="/path/to/source",
   install=True,
   build=True,
+  wait_healthy=True
+)
+
+# Disable auto-provisioning (project must already exist)
+hostkit_deploy_local(
+  project="my-app",
+  local_path="/path/to/built/app",
+  auto_provision=False,
+  install=True,
   wait_healthy=True
 )
 ```
@@ -244,17 +265,20 @@ hostkit_execute(command="service logs myapp --stderr-only")
 
 ### Enable a Service
 
-```python
-# Auth service (handles OAuth)
-hostkit_execute(command="auth enable myapp")
+> **Note**: `provision` enables database, auth, and storage by default.
+> These commands are for adding services individually or adding extra services.
 
-# Payments (Stripe integration)
+```python
+# Payments (Stripe integration) — not included in provision defaults
 hostkit_execute(command="payments enable myapp")
 
-# Storage (MinIO S3-compatible)
+# Auth service (handles OAuth) — enabled by default in provision
+hostkit_execute(command="auth enable myapp")
+
+# Storage (MinIO S3-compatible) — enabled by default in provision
 hostkit_execute(command="minio enable myapp --public")
 
-# Database (PostgreSQL, if not created at project creation)
+# Database (PostgreSQL) — enabled by default in provision
 hostkit_execute(command="db create myapp")
 ```
 
@@ -487,4 +511,4 @@ packages/
 
 ---
 
-**Last updated**: February 2025 · HostKit v0.2.33
+**Last updated**: February 2026 · HostKit v0.2.34
