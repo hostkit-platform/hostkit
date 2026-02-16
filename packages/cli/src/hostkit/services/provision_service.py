@@ -1,6 +1,8 @@
 """Full provisioning service for HostKit projects.
 
 Provides one-command project provisioning with all supporting services.
+Supports idempotent operation: safe to call multiple times without
+destroying or recreating existing resources.
 """
 
 import subprocess
@@ -27,10 +29,18 @@ class ProvisionResult:
     success: bool
     steps_completed: list[str] = field(default_factory=list)
     steps_failed: list[str] = field(default_factory=list)
+    # Idempotency flags
+    project_already_existed: bool = False
+    database_already_existed: bool = False
+    auth_already_enabled: bool = False
+    storage_already_existed: bool = False
+    # New creation flags
     database_created: bool = False
     database_name: str | None = None
     auth_enabled: bool = False
     auth_port: int | None = None
+    storage_created: bool = False
+    storage_bucket: str | None = None
     secrets_injected: bool = False
     secrets_count: int = 0
     ssh_keys_added: int = 0
@@ -45,28 +55,82 @@ class ProvisionResult:
     suggestion: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary for JSON output."""
+        """Convert to consolidated JSON output.
+
+        Returns the structured summary format expected by both CLI (--json)
+        and MCP tools that trigger provision.
+        """
+        url = f"https://{self.project}.hostkit.dev"
+
+        # Build services summary
+        services: dict[str, Any] = {}
+
+        if self.database_created or self.database_already_existed:
+            services["database"] = {
+                "status": "already_existed" if self.database_already_existed else "created",
+                "database_name": self.database_name,
+                "env_var": "DATABASE_URL",
+            }
+
+        if self.auth_enabled or self.auth_already_enabled:
+            services["auth"] = {
+                "status": "already_enabled" if self.auth_already_enabled else "enabled",
+                "port": self.auth_port,
+                "url": f"{url}/auth",
+                "env_vars": ["AUTH_URL", "NEXT_PUBLIC_AUTH_URL", "AUTH_JWT_PUBLIC_KEY"],
+            }
+
+        if self.storage_created or self.storage_already_existed:
+            services["storage"] = {
+                "status": "already_existed" if self.storage_already_existed else "created",
+                "bucket": self.storage_bucket,
+                "env_vars": ["S3_ENDPOINT", "S3_ACCESS_KEY", "S3_SECRET_KEY", "S3_BUCKET"],
+            }
+
+        # Collect all env vars that were set
+        env_vars_set = ["PROJECT_NAME", "PORT", "HOST", "REDIS_URL"]
+        if self.runtime == "nextjs":
+            env_vars_set.append("NODE_ENV")
+        if self.database_created or self.database_already_existed:
+            env_vars_set.append("DATABASE_URL")
+        if self.auth_enabled or self.auth_already_enabled:
+            env_vars_set.extend(["AUTH_ENABLED", "AUTH_URL", "NEXT_PUBLIC_AUTH_URL",
+                                 "AUTH_SERVICE_PORT", "AUTH_DB_URL", "AUTH_JWT_PUBLIC_KEY"])
+        if self.storage_created or self.storage_already_existed:
+            env_vars_set.extend(["S3_ENDPOINT", "S3_BUCKET", "S3_ACCESS_KEY",
+                                 "S3_SECRET_KEY", "S3_REGION", "AWS_ACCESS_KEY_ID",
+                                 "AWS_SECRET_ACCESS_KEY"])
+
+        # Next step guidance
+        if self.deployed:
+            next_step = f"Service is deployed. Check: hostkit health {self.project}"
+        else:
+            next_step = (
+                f"Deploy code with: hostkit deploy {self.project} "
+                f"--source ./app --build --install"
+            )
+
         return {
             "project": self.project,
-            "runtime": self.runtime,
+            "url": url,
             "port": self.port,
+            "runtime": self.runtime,
             "success": self.success,
+            "idempotent": {
+                "project_already_existed": self.project_already_existed,
+                "database_already_existed": self.database_already_existed,
+                "auth_already_enabled": self.auth_already_enabled,
+                "storage_already_existed": self.storage_already_existed,
+            },
+            "services": services,
+            "env_vars_set": env_vars_set,
             "steps_completed": self.steps_completed,
             "steps_failed": self.steps_failed,
-            "database_created": self.database_created,
-            "database_name": self.database_name,
-            "auth_enabled": self.auth_enabled,
-            "auth_port": self.auth_port,
-            "secrets_injected": self.secrets_injected,
-            "secrets_count": self.secrets_count,
-            "ssh_keys_added": self.ssh_keys_added,
-            "ssh_keys_failed": self.ssh_keys_failed,
-            "domain_configured": self.domain_configured,
-            "ssl_provisioned": self.ssl_provisioned,
             "deployed": self.deployed,
             "release_name": self.release_name,
             "service_started": self.service_started,
             "health_status": self.health_status,
+            "next_step": next_step,
             "error": self.error,
             "suggestion": self.suggestion,
         }
@@ -83,7 +147,11 @@ class ProvisionServiceError(Exception):
 
 
 class ProvisionService:
-    """Service for one-command project provisioning."""
+    """Service for one-command project provisioning.
+
+    Supports idempotent operation: if a project already exists,
+    skips creation and enables only missing services.
+    """
 
     def __init__(self) -> None:
         self.db = get_db()
@@ -96,9 +164,10 @@ class ProvisionService:
     def provision(
         self,
         name: str,
-        runtime: str = "python",
-        with_db: bool = False,
-        with_auth: bool = False,
+        runtime: str = "nextjs",
+        with_db: bool = True,
+        with_auth: bool = True,
+        with_storage: bool = True,
         with_secrets: bool = False,
         ssh_keys: list[str] | None = None,
         github_users: list[str] | None = None,
@@ -108,26 +177,33 @@ class ProvisionService:
         source: Path | None = None,
         install_deps: bool = True,
         start: bool = True,
+        google_client_id: str | None = None,
+        google_client_secret: str | None = None,
     ) -> ProvisionResult:
         """Provision a complete project with all supporting services.
 
+        Idempotent: if the project already exists, skips creation and
+        enables only services that aren't already enabled.
+
         Steps:
-        1. Create project
-        2. Create database (if with_db)
-        3. Enable auth (if with_auth)
-        4. Inject secrets (if with_secrets)
-        5. Add SSH keys (if ssh_keys or github_users)
-        6. Add domain to nginx (if domain)
-        7. Provision SSL (if ssl and domain)
-        8. Deploy code (if source)
-        9. Start service (if start)
-        10. Health check
+        1. Create project (or verify existing)
+        2. Create database (if with_db and not already created)
+        3. Enable auth (if with_auth and not already enabled)
+        4. Create storage bucket (if with_storage and not already created)
+        5. Inject secrets (if with_secrets)
+        6. Add SSH keys (if ssh_keys or github_users)
+        7. Add domain to nginx (if domain)
+        8. Provision SSL (if ssl and domain)
+        9. Deploy code (if source)
+        10. Start service (if start)
+        11. Health check
 
         Args:
             name: Project name
             runtime: Runtime type (python, node, nextjs, static)
             with_db: Create a PostgreSQL database
             with_auth: Enable authentication service
+            with_storage: Create MinIO storage bucket
             with_secrets: Inject secrets from vault into .env
             ssh_keys: List of SSH public keys to add for project user access
             github_users: List of GitHub usernames to fetch SSH keys from
@@ -137,6 +213,8 @@ class ProvisionService:
             source: Source directory to deploy
             install_deps: Install dependencies during deploy
             start: Start the service after provisioning
+            google_client_id: Google OAuth client ID for auth service
+            google_client_secret: Google OAuth client secret for auth service
 
         Returns:
             ProvisionResult with all step outcomes
@@ -148,51 +226,93 @@ class ProvisionService:
             success=False,
         )
 
-        # Step 1: Create project
-        try:
-            project_info = self.project_service.create_project(
-                name=name,
-                runtime=runtime,
-            )
-            result.port = project_info.port
-            result.steps_completed.append("project_create")
-        except ProjectServiceError as e:
-            result.error = f"Failed to create project: {e.message}"
-            result.suggestion = e.suggestion
-            result.steps_failed.append("project_create")
-            return result
-        except Exception as e:
-            result.error = f"Failed to create project: {e}"
-            result.steps_failed.append("project_create")
-            return result
+        # Step 1: Create project (or verify existing)
+        existing_project = self.db.get_project(name)
 
-        # Step 2: Create database (if requested)
+        if existing_project:
+            # Project already exists — idempotent path
+            result.project_already_existed = True
+            result.port = existing_project.get("port", 0)
+            result.runtime = existing_project.get("runtime", runtime)
+            result.steps_completed.append("project_exists")
+        else:
+            # Create new project
+            try:
+                project_info = self.project_service.create_project(
+                    name=name,
+                    runtime=runtime,
+                )
+                result.port = project_info.port
+                result.steps_completed.append("project_create")
+            except ProjectServiceError as e:
+                result.error = f"Failed to create project: {e.message}"
+                result.suggestion = e.suggestion
+                result.steps_failed.append("project_create")
+                return result
+            except Exception as e:
+                result.error = f"Failed to create project: {e}"
+                result.steps_failed.append("project_create")
+                return result
+
+        # Step 2: Create database (if requested and not already created)
         if with_db:
             try:
-                db_result = self._create_database(name)
-                result.database_created = True
-                result.database_name = db_result["database"]
-                result.steps_completed.append("db_create")
+                db_exists = self._database_exists(name)
+                if db_exists:
+                    result.database_already_existed = True
+                    result.database_name = f"{name}_db"
+                    result.steps_completed.append("db_exists")
+                else:
+                    db_result = self._create_database(name)
+                    result.database_created = True
+                    result.database_name = db_result["database"]
+                    result.steps_completed.append("db_create")
             except Exception as e:
                 result.database_created = False
                 result.steps_failed.append("db_create")
                 result.error = f"Failed to create database: {e}"
-                # Continue with other steps
 
-        # Step 3: Enable auth (if requested)
+        # Step 3: Enable auth (if requested and not already enabled)
         if with_auth:
             try:
-                auth_result = self._enable_auth(name)
-                result.auth_enabled = True
-                result.auth_port = auth_result.get("auth_port")
-                result.steps_completed.append("auth_enable")
+                auth_enabled = self._auth_is_enabled(name)
+                if auth_enabled:
+                    result.auth_already_enabled = True
+                    result.auth_port = self._get_auth_port(name)
+                    result.steps_completed.append("auth_exists")
+                else:
+                    auth_result = self._enable_auth(
+                        name,
+                        google_client_id=google_client_id,
+                        google_client_secret=google_client_secret,
+                    )
+                    result.auth_enabled = True
+                    result.auth_port = auth_result.get("auth_port")
+                    result.steps_completed.append("auth_enable")
             except Exception as e:
                 result.auth_enabled = False
                 result.steps_failed.append("auth_enable")
                 result.error = f"Failed to enable auth: {e}"
-                # Continue with other steps
 
-        # Step 4: Inject secrets (if requested)
+        # Step 4: Create storage bucket (if requested and not already created)
+        if with_storage:
+            try:
+                storage_enabled = self._storage_is_enabled(name)
+                if storage_enabled:
+                    result.storage_already_existed = True
+                    result.storage_bucket = f"hostkit-{name}"
+                    result.steps_completed.append("storage_exists")
+                else:
+                    storage_result = self._enable_storage(name)
+                    result.storage_created = True
+                    result.storage_bucket = storage_result.get("bucket", f"hostkit-{name}")
+                    result.steps_completed.append("storage_create")
+            except Exception as e:
+                result.storage_created = False
+                result.steps_failed.append("storage_create")
+                result.error = f"Failed to create storage: {e}"
+
+        # Step 5: Inject secrets (if requested)
         if with_secrets:
             try:
                 secrets_result = self._inject_secrets(name)
@@ -203,9 +323,8 @@ class ProvisionService:
                 result.secrets_injected = False
                 result.steps_failed.append("secrets_inject")
                 result.error = f"Failed to inject secrets: {e}"
-                # Continue with other steps
 
-        # Step 5: Add SSH keys (if provided)
+        # Step 6: Add SSH keys (if provided)
         if ssh_keys or github_users:
             try:
                 keys_added, keys_failed = self._add_ssh_keys(
@@ -221,9 +340,8 @@ class ProvisionService:
             except Exception as e:
                 result.steps_failed.append("ssh_keys")
                 result.error = f"Failed to add SSH keys: {e}"
-                # Continue with other steps
 
-        # Step 6: Add domain to nginx (if provided)
+        # Step 7: Add domain to nginx (if provided)
         if domain:
             try:
                 self.nginx_service.add_domain(name, domain)
@@ -232,12 +350,11 @@ class ProvisionService:
             except NginxError as e:
                 result.steps_failed.append("nginx_add")
                 result.error = f"Failed to configure domain: {e.message}"
-                # Continue with other steps
             except Exception as e:
                 result.steps_failed.append("nginx_add")
                 result.error = f"Failed to configure domain: {e}"
 
-        # Step 7: Provision SSL (if requested and domain configured)
+        # Step 8: Provision SSL (if requested and domain configured)
         if ssl and result.domain_configured:
             try:
                 self.ssl_service.provision(result.domain_configured, email=ssl_email)
@@ -247,13 +364,12 @@ class ProvisionService:
                 result.ssl_provisioned = False
                 result.steps_failed.append("ssl_provision")
                 result.error = f"Failed to provision SSL: {e.message}"
-                # Continue with other steps
             except Exception as e:
                 result.ssl_provisioned = False
                 result.steps_failed.append("ssl_provision")
                 result.error = f"Failed to provision SSL: {e}"
 
-        # Step 8: Deploy code (if source provided)
+        # Step 9: Deploy code (if source provided)
         if source:
             try:
                 deploy_result = self.deploy_service.deploy(
@@ -275,7 +391,7 @@ class ProvisionService:
                 result.steps_failed.append("deploy")
                 result.error = f"Failed to deploy: {e}"
 
-        # Step 9: Start service (if requested)
+        # Step 10: Start service (if requested)
         if start and runtime != "static":
             try:
                 subprocess.run(
@@ -300,10 +416,9 @@ class ProvisionService:
                 result.steps_failed.append("service_start")
                 result.error = f"Failed to start service: {e}"
 
-        # Step 10: Health check (if service was started)
+        # Step 11: Health check (if service was started)
         if result.service_started:
             try:
-                # Give the service a moment to start
                 time.sleep(2)
                 health = self.health_service.check_health(name)
                 result.health_status = health.overall
@@ -316,8 +431,11 @@ class ProvisionService:
                 result.steps_failed.append("health_check")
 
         # Determine overall success
-        # Critical failures: project_create, deploy (if source provided)
-        critical_failures = {"project_create"}
+        # Critical failures: project_create (only if project didn't already exist),
+        # deploy (if source provided)
+        critical_failures = set()
+        if not result.project_already_existed:
+            critical_failures.add("project_create")
         if source:
             critical_failures.add("deploy")
 
@@ -331,6 +449,46 @@ class ProvisionService:
             )
 
         return result
+
+    def _database_exists(self, project: str) -> bool:
+        """Check if a PostgreSQL database already exists for the project."""
+        try:
+            from hostkit.services.database_service import DatabaseService
+
+            db_service = DatabaseService()
+            return db_service.database_exists(project)
+        except Exception:
+            return False
+
+    def _auth_is_enabled(self, project: str) -> bool:
+        """Check if auth service is already enabled for the project."""
+        try:
+            from hostkit.services.auth_service import AuthService
+
+            auth_service = AuthService()
+            return auth_service.auth_is_enabled(project)
+        except Exception:
+            return False
+
+    def _get_auth_port(self, project: str) -> int | None:
+        """Get the auth service port for an existing project."""
+        try:
+            project_info = self.db.get_project(project)
+            if project_info:
+                return project_info.get("port", 0) + 1000
+        except Exception:
+            pass
+        return None
+
+    def _storage_is_enabled(self, project: str) -> bool:
+        """Check if MinIO storage is already enabled for the project."""
+        try:
+            from hostkit.services.storage_service import StorageService
+
+            storage_service = StorageService()
+            return storage_service.storage_is_enabled(project)
+        except Exception:
+            return False
 
     def _create_database(self, project: str) -> dict[str, Any]:
         """Create a PostgreSQL database for the project.
@@ -361,14 +519,23 @@ class ProvisionService:
                 suggestion="Check PostgreSQL is running and has sufficient permissions",
             )
 
-    def _enable_auth(self, project: str) -> dict[str, Any]:
+    def _enable_auth(
+        self,
+        project: str,
+        google_client_id: str | None = None,
+        google_client_secret: str | None = None,
+    ) -> dict[str, Any]:
         """Enable authentication service for the project."""
         from hostkit.services.auth_service import AuthService, AuthServiceError
 
         auth_service = AuthService()
 
         try:
-            config = auth_service.enable_auth(project)
+            config = auth_service.enable_auth(
+                project,
+                google_client_id=google_client_id,
+                google_client_secret=google_client_secret,
+            )
             return {
                 "enabled": True,
                 "auth_port": config.port,
@@ -381,6 +548,25 @@ class ProvisionService:
                 code="AUTH_ENABLE_FAILED",
                 message=f"Failed to enable auth: {e}",
                 suggestion="Check PostgreSQL is running and templates are installed",
+            )
+
+    def _enable_storage(self, project: str) -> dict[str, Any]:
+        """Create MinIO storage bucket for the project."""
+        from hostkit.services.storage_service import StorageService
+
+        storage_service = StorageService()
+
+        try:
+            result = storage_service.enable_for_project(project)
+            return {
+                "enabled": True,
+                "bucket": result.get("bucket", f"hostkit-{project}"),
+            }
+        except Exception as e:
+            raise ProvisionServiceError(
+                code="STORAGE_CREATE_FAILED",
+                message=f"Failed to create storage bucket: {e}",
+                suggestion="Check MinIO is running and accessible",
             )
 
     def _inject_secrets(self, project: str) -> dict[str, Any]:

@@ -1,9 +1,10 @@
 // hostkit_deploy_local tool implementation
 // Deploys local files to VPS via rsync, then executes hostkit deploy
+// Auto-provisions projects that don't exist yet (with db, auth, storage)
 
 import { spawn } from 'child_process';
 import { existsSync, statSync } from 'fs';
-import { basename, resolve } from 'path';
+import { resolve, join } from 'path';
 import { getSSHManager } from '../services/ssh.js';
 import { getConfig, getProjectContext } from '../config.js';
 import { createLogger } from '../utils/logger.js';
@@ -42,9 +43,6 @@ const AUTH_INTEGRATION_WARNING = {
 
 // Timeout for rsync (5 minutes)
 const RSYNC_TIMEOUT = 300000;
-
-// Timeout for deploy command (3 minutes)
-const DEPLOY_TIMEOUT = 180000;
 
 // Timeout for health check (2 minutes)
 const HEALTH_TIMEOUT = 120000;
@@ -114,6 +112,105 @@ function validateLocalPath(localPath: string): { valid: boolean; error?: string;
   }
 
   return { valid: true, resolvedPath: resolved };
+}
+
+/**
+ * Detect project runtime from local directory contents.
+ *
+ * Priority:
+ *   1. next.config.* → nextjs
+ *   2. package.json (no next.config) → node
+ *   3. requirements.txt or pyproject.toml → python
+ *   4. index.html (no package.json) → static
+ *   5. fallback → nextjs
+ */
+function detectRuntime(localPath: string): string {
+  const hasNextConfig =
+    existsSync(join(localPath, 'next.config.js')) ||
+    existsSync(join(localPath, 'next.config.mjs')) ||
+    existsSync(join(localPath, 'next.config.ts'));
+
+  if (hasNextConfig) return 'nextjs';
+
+  const hasPackageJson = existsSync(join(localPath, 'package.json'));
+  if (hasPackageJson) return 'node';
+
+  if (
+    existsSync(join(localPath, 'requirements.txt')) ||
+    existsSync(join(localPath, 'pyproject.toml'))
+  ) {
+    return 'python';
+  }
+
+  if (existsSync(join(localPath, 'index.html'))) return 'static';
+
+  return 'nextjs';
+}
+
+/**
+ * Check if a project exists on the VPS.
+ */
+async function projectExists(project: string): Promise<boolean> {
+  try {
+    const ssh = getSSHManager();
+    const result = await ssh.executeHostkit(`project info ${project}`, { json: true });
+    // If we get a result without error, project exists
+    const info = result as Record<string, unknown>;
+    return info.success !== false;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Auto-provision a project with defaults (db + auth + storage).
+ * Uses the provision command which is idempotent.
+ */
+async function autoProvision(
+  project: string,
+  runtime: string
+): Promise<{ success: boolean; provision_result?: Record<string, unknown>; error?: string }> {
+  try {
+    const ssh = getSSHManager();
+
+    // Build provision command with runtime flag
+    const runtimeFlag = runtime === 'nextjs' ? '--nextjs'
+      : runtime === 'python' ? '--python'
+      : runtime === 'node' ? '--node'
+      : runtime === 'static' ? '--static'
+      : '--nextjs';
+
+    // provision defaults to db + auth + storage ON, and --no-start
+    // (we don't want to start the service before code is deployed)
+    const command = `provision ${project} ${runtimeFlag} --no-start`;
+
+    logger.info('Auto-provisioning project', { project, runtime, command });
+
+    const result = await ssh.executeHostkit(command, { json: true });
+    const data = result as Record<string, unknown>;
+
+    // Check if provision succeeded
+    if (data.success === false) {
+      const errorData = data as { error?: { message?: string } };
+      return {
+        success: false,
+        provision_result: data,
+        error: errorData.error?.message || 'Provision failed',
+      };
+    }
+
+    return {
+      success: true,
+      provision_result: data,
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    logger.error('Auto-provision failed', { project, error: message });
+    return {
+      success: false,
+      error: message,
+    };
+  }
 }
 
 /**
@@ -250,6 +347,7 @@ export async function handleDeployLocal(params: DeployLocalParams): Promise<Tool
     wait_healthy = true,
     cleanup = true,
     override_ratelimit = false,
+    auto_provision = true,
   } = params;
 
   if (!project) {
@@ -262,7 +360,7 @@ export async function handleDeployLocal(params: DeployLocalParams): Promise<Tool
     };
   }
 
-  logger.info('Deploy local request', { project, local_path, build, install, wait_healthy });
+  logger.info('Deploy local request', { project, local_path, build, install, wait_healthy, auto_provision });
 
   // Validate local path
   const pathValidation = validateLocalPath(local_path);
@@ -278,8 +376,35 @@ export async function handleDeployLocal(params: DeployLocalParams): Promise<Tool
 
   const config = getConfig();
   let remotePath: string | undefined;
+  let provisionResult: Record<string, unknown> | undefined;
+  let autoProvisioned = false;
 
   try {
+    // Step 0: Check if project exists, auto-provision if needed
+    if (auto_provision) {
+      const exists = await projectExists(project);
+      if (!exists) {
+        const detectedRuntime = detectRuntime(pathValidation.resolvedPath!);
+        logger.info('Project does not exist, auto-provisioning', { project, detectedRuntime });
+
+        const provision = await autoProvision(project, detectedRuntime);
+        if (!provision.success) {
+          return {
+            success: false,
+            error: {
+              code: 'AUTO_PROVISION_FAILED',
+              message: `Project '${project}' does not exist and auto-provisioning failed: ${provision.error}`,
+              details: { provision_result: provision.provision_result },
+            },
+          };
+        }
+
+        autoProvisioned = true;
+        provisionResult = provision.provision_result;
+        logger.info('Auto-provision complete', { project });
+      }
+    }
+
     // Step 1: rsync files to VPS
     const rsyncResult = await rsyncToVPS(pathValidation.resolvedPath!, project, config);
     if (!rsyncResult.success) {
@@ -326,7 +451,7 @@ export async function handleDeployLocal(params: DeployLocalParams): Promise<Tool
         error: {
           code: 'DEPLOY_FAILED',
           message,
-          details: { remotePath },
+          details: { remotePath, auto_provisioned: autoProvisioned },
         },
       };
     }
@@ -348,6 +473,8 @@ export async function handleDeployLocal(params: DeployLocalParams): Promise<Tool
           data: {
             deployed: true,
             healthy: false,
+            auto_provisioned: autoProvisioned,
+            ...(provisionResult ? { provision_result: provisionResult } : {}),
             warning: 'Service deployed but not healthy within timeout',
             deploy_result: deployResult,
             health: healthResult.health,
@@ -379,6 +506,8 @@ export async function handleDeployLocal(params: DeployLocalParams): Promise<Tool
       data: {
         deployed: true,
         healthy: healthResult?.healthy ?? 'not_checked',
+        auto_provisioned: autoProvisioned,
+        ...(provisionResult ? { provision_result: provisionResult } : {}),
         source: pathValidation.resolvedPath,
         rsync_stats: rsyncResult.stats,
         deploy_result: deployResult,

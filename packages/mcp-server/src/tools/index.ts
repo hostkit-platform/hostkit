@@ -243,7 +243,7 @@ export const TOOLS: Tool[] = [
   {
     name: 'hostkit_deploy_local',
     description:
-      'Deploy local files to a HostKit project. Rsyncs files to VPS, runs deploy, and optionally waits for healthy status.',
+      'Deploy local files to a HostKit project. Rsyncs files to VPS, runs deploy, and optionally waits for healthy status. If the project does not exist, auto-provisions it with database, auth, and storage by default.',
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -279,6 +279,11 @@ export const TOOLS: Tool[] = [
           type: 'boolean',
           description: 'Bypass rate limit checks (use during active development)',
           default: false,
+        },
+        auto_provision: {
+          type: 'boolean',
+          description: 'Auto-provision project if it does not exist (creates project with db, auth, storage). Set to false to skip auto-provisioning.',
+          default: true,
         },
       },
       required: ['local_path'],

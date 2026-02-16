@@ -183,6 +183,7 @@ export interface DeployLocalParams {
   wait_healthy?: boolean;
   cleanup?: boolean;
   override_ratelimit?: boolean;
+  auto_provision?: boolean;
 }
 
 export interface CapabilitiesParams {
