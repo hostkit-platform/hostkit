@@ -1054,3 +1054,110 @@ def auth_export_key(
     except AuthServiceError as e:
         formatter.error(code=e.code, message=e.message, suggestion=e.suggestion)
         raise SystemExit(1)
+
+
+@auth.command("diagnose")
+@click.argument("project")
+@click.option("--verbose", "-v", is_flag=True, help="Include detailed diagnostics")
+@click.option("--test-endpoints", is_flag=True, help="Test auth endpoints")
+@click.pass_context
+@project_access("project")
+def auth_diagnose(
+    ctx: click.Context,
+    project: str,
+    verbose: bool,
+    test_endpoints: bool,
+) -> None:
+    """Diagnose authentication service issues.
+
+    Runs comprehensive health checks on the auth service including:
+    - Service status (systemd)
+    - Database connectivity
+    - JWT configuration
+    - OAuth provider setup
+    - Email/SMTP configuration
+    - Log analysis for error patterns
+
+    Shows actionable suggestions for any issues found.
+
+    Example:
+        hostkit auth diagnose myapp
+        hostkit auth diagnose myapp --verbose
+        hostkit auth diagnose myapp --test-endpoints
+    """
+    from hostkit.services.auth_diagnosis_service import AuthDiagnosisService
+
+    formatter: OutputFormatter = ctx.obj["formatter"]
+
+    try:
+        service = AuthDiagnosisService()
+        result = service.diagnose(
+            project=project,
+            verbose=verbose,
+            test_endpoints=test_endpoints,
+        )
+
+        if ctx.obj["json_mode"]:
+            formatter.success(
+                message=f"Auth diagnostic report for '{project}'",
+                data=result.to_dict(),
+            )
+        else:
+            # Pretty print for humans
+            _print_auth_diagnosis(result, formatter)
+
+    except Exception as e:
+        formatter.error(
+            code="AUTH_DIAGNOSIS_FAILED",
+            message=f"Error running diagnostics: {str(e)}",
+            suggestion="Check service logs: hostkit service logs {project}-auth",
+        )
+        raise SystemExit(1)
+
+
+def _print_auth_diagnosis(result, formatter) -> None:
+    """Pretty print auth diagnosis result."""
+    import click
+
+    click.echo(f"\n{'='*60}")
+    click.echo(f"Auth Service Diagnostics: {result.project}")
+    click.echo(f"{'='*60}")
+
+    # Overall health
+    if result.overall_health == "healthy":
+        click.echo(f"\nStatus: ✓ HEALTHY")
+    elif result.overall_health == "degraded":
+        click.echo(f"\nStatus: ⚠ DEGRADED")
+    else:
+        click.echo(f"\nStatus: ✗ CRITICAL")
+
+    # Service status
+    if result.service_status:
+        click.echo(f"\nService Status:")
+        for key, value in result.service_status.items():
+            click.echo(f"  {key}: {value}")
+
+    # Remote diagnostics
+    if result.remote_diagnostics:
+        click.echo(f"\nRemote Diagnostics:")
+        for check in result.remote_diagnostics.get("checks", []):
+            status_icon = "✓" if check["status"] == "ok" else ("⚠" if check["status"] == "warning" else "✗")
+            click.echo(f"  {status_icon} {check['name']}: {check.get('message', '')}")
+
+    # Issues and recommendations
+    if result.issues:
+        click.echo(f"\nIssues Found:")
+        for issue in result.issues:
+            click.echo(f"  • {issue}")
+
+    if result.recommendations:
+        click.echo(f"\nRecommendations:")
+        for rec in result.recommendations:
+            # Replace {project} placeholder
+            rec = rec.replace("{project}", result.project)
+            click.echo(f"  → {rec}")
+
+    if not result.issues:
+        click.echo(f"\n✓ No issues found!")
+
+    click.echo(f"{'='*60}\n")

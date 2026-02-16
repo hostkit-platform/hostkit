@@ -8,6 +8,7 @@ from routers.token import router as token_router
 from routers.user import router as user_router
 from routers.health import router as health_router
 from routers.identity import router as identity_router
+from routers.diagnose import router as diagnose_router
 
 __all__ = [
     "auth_router",
@@ -18,4 +19,5 @@ __all__ = [
     "user_router",
     "health_router",
     "identity_router",
+    "diagnose_router",
 ]

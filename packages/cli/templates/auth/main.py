@@ -13,8 +13,10 @@ import os
 import sys
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 # Configure logging based on LOG_LEVEL env var
 log_level = os.environ.get("LOG_LEVEL", "INFO").upper()
@@ -66,7 +68,9 @@ from routers import (
     user_router,
     health_router,
     identity_router,
+    diagnose_router,
 )
+from middleware.request_logging import RequestLoggingMiddleware
 
 
 @asynccontextmanager
@@ -142,6 +146,47 @@ def create_app() -> FastAPI:
     app.include_router(token_router)
     app.include_router(user_router)
     app.include_router(identity_router)
+    app.include_router(diagnose_router)
+
+    # Add request logging middleware if DEBUG_REQUESTS=true
+    if os.environ.get("DEBUG_REQUESTS", "false").lower() == "true":
+        logger.info("Request logging middleware enabled (DEBUG_REQUESTS=true)")
+        app.add_middleware(RequestLoggingMiddleware)
+
+    # Add global exception handlers
+    @app.exception_handler(Exception)
+    async def global_exception_handler(request: Request, exc: Exception):
+        """Handle unhandled exceptions with structured error response."""
+        logger.error(
+            f"Unhandled exception in {request.method} {request.url.path}",
+            exc_info=exc,
+            extra={"method": request.method, "path": request.url.path},
+        )
+
+        return JSONResponse(
+            status_code=500,
+            content={
+                "error": "internal_server_error",
+                "message": "An unexpected error occurred",
+                "suggestion": f"Check service logs: hostkit service logs {settings.project_name}-auth --follow",
+                "type": type(exc).__name__,
+            },
+        )
+
+    @app.exception_handler(RequestValidationError)
+    async def validation_exception_handler(request: Request, exc: RequestValidationError):
+        """Handle request validation errors with structured response."""
+        logger.warning(f"Validation error in {request.method} {request.url.path}: {exc.errors()}")
+
+        return JSONResponse(
+            status_code=422,
+            content={
+                "error": "validation_error",
+                "message": "Request validation failed",
+                "details": exc.errors(),
+                "suggestion": "Check API documentation at /auth/docs for correct request schema",
+            },
+        )
 
     return app
 

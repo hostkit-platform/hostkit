@@ -11,7 +11,8 @@
 | **Deploying Next.js?** | [Next.js Guide →](NEXTJS.md) | `output: 'standalone'`, config, health check |
 | **Adding auth?** | [Auth System →](AUTH.md) | Authentication architecture and integration |
 | **Setting up OAuth?** | [Auth Providers →](AUTH-PROVIDERS.md) | Google, Apple, magic links, email/password |
-| **Auth broken?** | [Auth Troubleshooting →](AUTH-TROUBLESHOOTING.md) | Fix email, tokens, sessions, OAuth sign-in |
+| **Auth broken?** | [Auth Debugging →](AUTH-DEBUG.md) | Diagnose auth issues, common errors, solutions |
+| **Auth details?** | [Auth Troubleshooting →](AUTH-TROUBLESHOOTING.md) | Fix email, tokens, sessions, OAuth sign-in |
 | **Managing config?** | [Environment Variables →](ENVIRONMENT.md) | Secrets, env var format, per-project config |
 
 ---
@@ -268,6 +269,9 @@ hostkit_execute(command="auth enable myapp --google-client-id=xxx --google-clien
 # View auth configuration
 hostkit_execute(command="auth config myapp --show")
 
+# Diagnose auth issues
+hostkit_execute(command="auth diagnose myapp")
+
 # List authenticated users
 hostkit_execute(command="auth users myapp")
 
@@ -278,7 +282,7 @@ hostkit_execute(command="auth logs myapp --follow")
 hostkit_execute(command="auth disable myapp --force")
 ```
 
-**See also**: [Authentication System →](AUTH.md)
+**See also**: [Authentication System →](AUTH.md) | [Auth Debugging →](AUTH-DEBUG.md)
 
 ---
 
@@ -385,6 +389,7 @@ CLAUDE.md                          ← You are here (quick reference + navigatio
 ├─ AUTHENTICATION
 ├── AUTH.md                        ← Auth system overview
 ├── AUTH-PROVIDERS.md              ← OAuth, magic links, email/password providers
+├── AUTH-DEBUG.md                  ← Auth service diagnostics & troubleshooting
 ├── AUTH-TROUBLESHOOTING.md        ← Auth-specific issues & solutions
 │
 └─ GENERAL
@@ -403,6 +408,8 @@ CLAUDE.md                          ← You are here (quick reference + navigatio
 | **NEXTJS.md** | Next.js specifics | Next.js config, standalone mode |
 | **AUTH.md** | Auth system | Understanding auth architecture |
 | **AUTH-PROVIDERS.md** | OAuth/email details | Setting up specific auth providers |
+| **AUTH-DEBUG.md** | Auth service debugging | Diagnosing and fixing auth issues |
+| **AUTH-TROUBLESHOOTING.md** | Auth-specific troubleshooting | Fixing email, tokens, sessions, OAuth |
 | **ENVIRONMENT.md** | Env variable management | Configuration and secrets |
 
 Each document is designed to be:
