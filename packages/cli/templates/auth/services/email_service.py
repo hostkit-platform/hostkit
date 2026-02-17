@@ -169,7 +169,7 @@ If you didn't request this email, you can safely ignore it.
         if redirect_url:
             params["redirect"] = redirect_url
 
-        verify_link = f"{self.settings.base_url}/auth/verify-email?{urlencode(params)}"
+        verify_link = f"{self.settings.base_url}/verify-email?{urlencode(params)}"
 
         subject = f"Verify your email for {self.settings.project_name}"
 
@@ -223,7 +223,7 @@ Click this link to verify your email (expires in 24 hours):
         if redirect_url:
             params["redirect"] = redirect_url
 
-        reset_link = f"{self.settings.base_url}/auth/reset-password?{urlencode(params)}"
+        reset_link = f"{self.settings.base_url}/reset-password?{urlencode(params)}"
 
         subject = f"Reset your password for {self.settings.project_name}"
 
