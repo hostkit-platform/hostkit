@@ -198,3 +198,39 @@ class IdentityVerifyResponse(BaseModel):
     user: UserResponse
     session: TokenResponse
     is_new_user: bool = False
+
+
+# =============================================================================
+# Password Reset Schemas
+# =============================================================================
+
+
+class ForgotPasswordRequest(BaseModel):
+    """Request to send password reset email."""
+
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    """Request to reset password with token."""
+
+    token: str
+    password: str = Field(min_length=8, max_length=128)
+
+
+# =============================================================================
+# Email Verification Schemas
+# =============================================================================
+
+
+class VerifyEmailSendRequest(BaseModel):
+    """Request to send email verification."""
+
+    email: EmailStr
+    redirect_url: str | None = None
+
+
+class VerifyEmailRequest(BaseModel):
+    """Request to verify email with token."""
+
+    token: str

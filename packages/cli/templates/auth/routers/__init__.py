@@ -9,6 +9,8 @@ from routers.user import router as user_router
 from routers.health import router as health_router
 from routers.identity import router as identity_router
 from routers.diagnose import router as diagnose_router
+from routers.password_reset import router as password_reset_router
+from routers.email_verification import router as email_verification_router
 
 __all__ = [
     "auth_router",
@@ -20,4 +22,6 @@ __all__ = [
     "health_router",
     "identity_router",
     "diagnose_router",
+    "password_reset_router",
+    "email_verification_router",
 ]

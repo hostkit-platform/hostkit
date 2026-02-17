@@ -76,8 +76,10 @@ class EmailService:
 
             # Send via SMTP
             with smtplib.SMTP(self.smtp_host, self.smtp_port) as server:
-                server.starttls()
-                server.login(self.smtp_user, self.smtp_pass)
+                # Skip TLS and auth for local Postfix (port 25)
+                if self.smtp_port != 25:
+                    server.starttls()
+                    server.login(self.smtp_user, self.smtp_pass)
                 server.send_message(msg)
 
             logger.info(f"Email sent to {to_email}: {subject}")

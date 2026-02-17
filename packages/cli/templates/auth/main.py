@@ -49,6 +49,49 @@ async def run_migrations():
                 ALTER TABLE sessions
                 ADD COLUMN IF NOT EXISTS last_used_at TIMESTAMP WITH TIME ZONE
             """))
+
+            # Create email_verifications table if it doesn't exist
+            await conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS email_verifications (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    email VARCHAR(255),
+                    token_hash TEXT NOT NULL UNIQUE,
+                    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+                    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+                    verified_at TIMESTAMP WITH TIME ZONE
+                )
+            """))
+            # Add email column if table was created by older schema
+            await conn.execute(text("""
+                ALTER TABLE email_verifications
+                ADD COLUMN IF NOT EXISTS email VARCHAR(255)
+            """))
+            await conn.execute(text("""
+                CREATE INDEX IF NOT EXISTS ix_email_verifications_email
+                ON email_verifications (email)
+            """))
+
+            # Create password_resets table if it doesn't exist
+            await conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS password_resets (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    email VARCHAR(255),
+                    token_hash TEXT NOT NULL UNIQUE,
+                    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+                    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+                    used_at TIMESTAMP WITH TIME ZONE
+                )
+            """))
+            # Add email column if table was created by older schema
+            await conn.execute(text("""
+                ALTER TABLE password_resets
+                ADD COLUMN IF NOT EXISTS email VARCHAR(255)
+            """))
+            await conn.execute(text("""
+                CREATE INDEX IF NOT EXISTS ix_password_resets_email
+                ON password_resets (email)
+            """))
+
             logger.info("✓ Database migrations completed successfully")
     except Exception as e:
         logger.error(f"✗ Error running migrations: {e}", exc_info=True)
@@ -69,6 +112,8 @@ from routers import (
     health_router,
     identity_router,
     diagnose_router,
+    password_reset_router,
+    email_verification_router,
 )
 from middleware.request_logging import RequestLoggingMiddleware
 
@@ -147,6 +192,8 @@ def create_app() -> FastAPI:
     app.include_router(user_router)
     app.include_router(identity_router)
     app.include_router(diagnose_router)
+    app.include_router(password_reset_router)
+    app.include_router(email_verification_router)
 
     # Add request logging middleware if DEBUG_REQUESTS=true
     if os.environ.get("DEBUG_REQUESTS", "false").lower() == "true":
